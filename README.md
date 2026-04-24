@@ -33,6 +33,7 @@ src/
     personnel/
     settings/
     news/
+    files/
   types/         # shared TS types + Express augmentation
   utils/         # shared response helper
   server.ts      # bootstrap + route mounting
@@ -60,6 +61,10 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=200
 AUTH_RATE_LIMIT_WINDOW_MS=900000
 AUTH_RATE_LIMIT_MAX=10
+MAX_UPLOAD_MB=20
+GCS_BUCKET_NAME="<GCS_BUCKET_NAME_PLACEHOLDER>"
+GCS_PROJECT_ID="<GCP_PROJECT_ID_PLACEHOLDER>"
+GCS_PUBLIC_BASE_URL="https://storage.googleapis.com/<GCS_BUCKET_NAME_PLACEHOLDER>"
 ```
 
 ## Local Development
@@ -70,6 +75,13 @@ npm run prisma:migrate
 npm run prisma:seed
 npm run dev
 ```
+
+
+## File Storage (GCP Cloud Storage)
+- Upload handler endpoint: `POST /api/files/upload` (multipart field name: `file`).
+- Optional query: `folder` (default `uploads`).
+- Backend uploads file buffer directly to GCS bucket and returns `url` + `objectPath`.
+- Configure `GCS_BUCKET_NAME` and service account via `GOOGLE_APPLICATION_CREDENTIALS` in runtime environment.
 
 ## Security Hardening
 - Helmet security headers enabled.
@@ -85,7 +97,7 @@ npm run dev
 ### 1) Infrastructure Preparation
 - Provision a PostgreSQL instance (managed or self-hosted).
 - Create a dedicated database user with least-privilege access to the target DB.
-- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`).
+- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB`, `GCS_*`).
 
 ### 2) Build Artifact
 ```bash

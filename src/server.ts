@@ -12,6 +12,7 @@ import { mapRouter } from './modules/map/router.js';
 import { personnelRouter } from './modules/personnel/router.js';
 import { settingsRouter } from './modules/settings/router.js';
 import { newsRouter } from './modules/news/router.js';
+import { filesRouter } from './modules/files/router.js';
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/map', mapRouter);
 app.use('/api/personnel', personnelRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/news', newsRouter);
+app.use('/api/files', filesRouter);
 
 app.use((_req, res) => fail(res, 404, 'Route not found', 'NOT_FOUND'));
 

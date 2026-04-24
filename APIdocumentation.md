@@ -180,6 +180,28 @@ Scope is always current token user.
 
 Write access: L7 or L6 executive.
 
+## 5.10 Files (GCS Upload Handler)
+- `POST /files/upload`
+
+Auth required: yes (Bearer token).
+Content-Type: `multipart/form-data`.
+Field name: `file`.
+Optional query: `folder` (string, defaults to `uploads`).
+
+Sample response:
+```json
+{
+  "success": true,
+  "data": {
+    "objectPath": "uploads/171394...-example.png",
+    "bucket": "my-bucket",
+    "contentType": "image/png",
+    "size": 12345,
+    "url": "https://storage.googleapis.com/my-bucket/uploads/171394...-example.png"
+  }
+}
+```
+
 ## 6. Security Behavior
 - Dedicated auth rate limiting is active for register/login/refresh endpoints.
 - JWT Bearer authentication is required for protected routes.
@@ -216,6 +238,13 @@ curl -X POST http://localhost:3000/api/auth/refresh \
 ```bash
 curl http://localhost:3000/api/projects \
   -H "Authorization: Bearer <access_token>"
+```
+
+### Upload file to GCS handler
+```bash
+curl -X POST "http://localhost:3000/api/files/upload?folder=news" \
+  -H "Authorization: Bearer <access_token>" \
+  -F "file=@/path/to/image.png"
 ```
 
 ## 8. How to Use This Documentation
