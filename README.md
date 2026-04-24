@@ -10,11 +10,20 @@ Backend implementation for Morneven Institute based on:
 - JWT authentication (`access` + `refresh` token)
 - Zod validation
 
+## Latest Update Alignment (Production Hardening)
+The current implementation has been updated with:
+- Security middleware: Helmet, CORS allowlist, global rate limiting, and compression.
+- Fail-fast environment validation via Zod.
+- Stronger auth validation (registration password minimum 12 chars).
+- Hashed refresh token storage in DB.
+- Request body validation middleware for write endpoints.
+- Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks.
+
 ## Project Structure
 ```text
 src/
   config/        # env + prisma client
-  middleware/    # auth guard + RBAC rules
+  middleware/    # auth guard + RBAC rules + validation + security
   modules/       # feature routers by domain
     auth/
     projects/
@@ -33,7 +42,7 @@ prisma/
 ```
 
 ## Documentation Files
-- `APIdocumentation.md` → Backend API references, RBAC notes, and request/response examples.
+- `APIdocumentation.md` → Backend API references, RBAC notes, security behavior, and request/response examples.
 - `BERequierment.md` → Original requirement contract source.
 - `Analasis BE Requierment.md` → Technical recommendation and relational design analysis.
 
@@ -60,7 +69,6 @@ npm run prisma:seed
 npm run dev
 ```
 
-
 ## Security Hardening
 - Helmet security headers enabled.
 - CORS policy constrained by `CORS_ORIGIN`.
@@ -75,7 +83,7 @@ npm run dev
 ### 1) Infrastructure Preparation
 - Provision a PostgreSQL instance (managed or self-hosted).
 - Create a dedicated database user with least-privilege access to the target DB.
-- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`).
+- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`).
 
 ### 2) Build Artifact
 ```bash
@@ -108,7 +116,7 @@ curl http://<HOST>:<PORT>/health
 ```
 Expected response:
 ```json
-{ "success": true, "data": { "status": "ok" } }
+{ "success": true, "data": { "status": "ok", "env": "production" } }
 ```
 
 ### 7) Reverse Proxy / Gateway Notes

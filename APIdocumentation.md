@@ -1,6 +1,6 @@
 # Morneven Backend API Documentation
 
-This document explains backend API usage, authentication, response formats, RBAC behavior, and endpoint groups.
+This document explains backend API usage, authentication, response formats, RBAC behavior, security behavior, and endpoint groups.
 
 ## 1. Base URL
 - Development: `/api`
@@ -20,6 +20,15 @@ Auth endpoints:
 - `GET /auth/me`
 - `POST /auth/logout`
 - `POST /auth/validate-token`
+
+### Auth validation notes (latest)
+- Register payload requires:
+  - `email` valid format
+  - `username` length 3..30
+  - `password` length 12..128
+- Login payload requires:
+  - valid email
+  - password present (max 128)
 
 ## 3. Standard Response Format
 
@@ -42,6 +51,14 @@ Auth endpoints:
 }
 ```
 
+### Common error codes
+- `VALIDATION_ERROR`
+- `UNAUTHORIZED`
+- `FORBIDDEN`
+- `NOT_FOUND`
+- `RATE_LIMITED`
+- `INTERNAL_SERVER_ERROR`
+
 ## 4. RBAC Summary
 
 ### Role
@@ -63,14 +80,22 @@ Auth endpoints:
 
 ## 5. Endpoint Groups
 
-## 5.1 Auth
+## 5.1 Health
+- `GET /health`
+
+Sample success:
+```json
+{ "success": true, "data": { "status": "ok", "env": "development" } }
+```
+
+## 5.2 Auth
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/me`
 - `POST /auth/logout`
 - `POST /auth/validate-token`
 
-## 5.2 Projects
+## 5.3 Projects
 - `GET /projects`
 - `GET /projects/:id`
 - `POST /projects`
@@ -79,7 +104,7 @@ Auth endpoints:
 
 Write access: L7, or L6 executive/mechanic.
 
-## 5.3 Lore
+## 5.4 Lore
 Category routes:
 - `GET /lore/:category`
 - `GET /lore/:category/:id`
@@ -94,7 +119,7 @@ Category examples:
 - `creatures`
 - `other`
 
-## 5.4 Gallery
+## 5.5 Gallery
 - `GET /gallery`
 - `GET /gallery/:id`
 - `POST /gallery`
@@ -109,13 +134,13 @@ Comments & replies:
 - `PUT /gallery/:id/comments/:commentId/replies/:replyId`
 - `DELETE /gallery/:id/comments/:commentId/replies/:replyId`
 
-## 5.5 Map
+## 5.6 Map
 - `GET /map/markers`
 - `PUT /map/markers` (L7)
 - `GET /map/image`
 - `PUT /map/image` (L7)
 
-## 5.6 Personnel
+## 5.7 Personnel
 - `GET /personnel`
 - `GET /personnel/:id`
 - `POST /personnel`
@@ -125,13 +150,13 @@ Comments & replies:
 
 All personnel endpoints are L7-only.
 
-## 5.7 Settings
+## 5.8 Settings
 - `GET /settings/command-center`
 - `PUT /settings/command-center`
 
 Scope is always current token user.
 
-## 5.8 News
+## 5.9 News
 - `GET /news`
 - `POST /news`
 - `PUT /news/:id`
@@ -139,20 +164,28 @@ Scope is always current token user.
 
 Write access: L7 or L6 executive.
 
-## 6. Example Usage
+## 6. Security Behavior
+- JWT Bearer authentication is required for protected routes.
+- Global rate limit protection is active; excessive requests return `RATE_LIMITED`.
+- Security headers are applied via Helmet.
+- CORS is controlled via `CORS_ORIGIN` env config.
+- Request payload size is capped (1 MB JSON).
+- Refresh tokens are stored hashed in the database layer.
+
+## 7. Example Usage
 
 ### Register
 ```bash
 curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@morneven.com","username":"newuser","password":"secret123"}'
+  -d '{"email":"user@morneven.com","username":"newuser","password":"VeryStrongPass123"}'
 ```
 
 ### Login
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@morneven.com","password":"secret123"}'
+  -d '{"email":"user@morneven.com","password":"VeryStrongPass123"}'
 ```
 
 ### Access protected endpoint
@@ -161,16 +194,10 @@ curl http://localhost:3000/api/projects \
   -H "Authorization: Bearer <access_token>"
 ```
 
-
-## 7. Security Behavior
-- JWT Bearer authentication is required for protected routes.
-- Global rate limit protection is active; excessive requests return `RATE_LIMITED`.
-- Security headers are applied via Helmet and CORS is restricted by environment configuration.
-- Request payload size is limited to reduce abuse risk.
-
 ## 8. How to Use This Documentation
 1. Start at **Section 5 Endpoint Groups** to identify route path + module.
 2. Check **Section 4 RBAC Summary** before integrating write actions.
 3. Use **Section 3 Standard Response Format** to standardize frontend API handling.
-4. Use **Section 6 Example Usage** as starter templates for Postman/cURL.
-5. For deeper context and contract source of truth, compare with `BERequierment.md`.
+4. Use **Section 6 Security Behavior** to align gateway/WAF and client retry behavior.
+5. Use **Section 7 Example Usage** as starter templates for Postman/cURL.
+6. For deeper contract context, compare with `BERequierment.md`.
