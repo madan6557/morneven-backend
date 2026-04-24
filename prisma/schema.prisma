@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  author
+  personel
+  guest
+}
+
+enum Track {
+  executive
+  field
+  mechanic
+  logistics
+}
+
+enum ProjectStatus {
+  Planning
+  OnProgress
+  OnHold
+  Completed
+  Canceled
+}
+
+enum MediaType {
+  image
+  video
+  link
+}
+
+enum EntityType {
+  gallery
+  character
+  place
+  technology
+  creature
+  other
+  project
+}
+
+enum MapStatus {
+  safe
+  caution
+  danger
+  restricted
+  mission
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(personel)
+  level         Int      @default(2)
+  track         Track    @default(executive)
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  settings      CommandCenterSettings?
+  refreshTokens RefreshToken[]
+  news          News[]
+  galleryItems  GalleryItem[]
+  comments      Comment[]
+  replies       Reply[]
+}
+
+model CommandCenterSettings {
+  userId            String  @id
+  showStats         Boolean @default(true)
+  showProjects      Boolean @default(true)
+  showNews          Boolean @default(true)
+  welcomeMessage    String?
+  itemLimits        Json?
+  manualSelections  Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id         String        @id @default(uuid())
+  title      String
+  status     ProjectStatus
+  thumbnail  String
+  shortDesc  String
+  fullDesc   String
+  patches    ProjectPatch[]
+}
+
+model ProjectPatch {
+  id        String   @id @default(uuid())
+  projectId String
+  version   String
+  patchDate DateTime
+  notes     String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model News {
+  id          String   @id @default(uuid())
+  authorId    String
+  text        String
+  publishDate DateTime
+  hasDetail   Boolean  @default(false)
+  thumbnail   String?
+  body        String?
+  author      User     @relation(fields: [authorId], references: [id])
+  attachments NewsAttachment[]
+}
+
+model NewsAttachment {
+  id      String   @id @default(uuid())
+  newsId  String
+  type    MediaType
+  url     String
+  caption String?
+  news    News @relation(fields: [newsId], references: [id], onDelete: Cascade)
+}
+
+model LoreItem {
+  id          String    @id @default(uuid())
+  category    EntityType
+  name        String
+  type        String?
+  thumbnail   String?
+  shortDesc   String
+  fullDesc    String
+  metadata    Json?
+}
+
+model EntityDoc {
+  id         String    @id @default(uuid())
+  entityType EntityType
+  entityId   String
+  type       MediaType
+  url        String
+  caption    String?
+}
+
+model GalleryItem {
+  id         String    @id @default(uuid())
+  type       MediaType
+  title      String
+  thumbnail  String
+  caption    String
+  videoUrl   String?
+  uploadDate DateTime  @default(now())
+  uploadedBy String
+  tags       GalleryTag[]
+  uploader   User      @relation(fields: [uploadedBy], references: [id])
+}
+
+model GalleryTag {
+  id            String      @id @default(uuid())
+  galleryItemId String
+  tag           String
+  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id], onDelete: Cascade)
+}
+
+model MapMarker {
+  id          String    @id @default(uuid())
+  name        String
+  status      MapStatus
+  x           Float
+  y           Float
+  description String
+  loreLink    String?
+}
+
+model MapImage {
+  id        String   @id @default("main")
+  imageUrl  String
+  updatedAt DateTime @updatedAt
+}
+
+model Comment {
+  id         String     @id @default(uuid())
+  entityType EntityType
+  entityId   String
+  authorId   String
+  text       String
+  createdAt  DateTime   @default(now())
+  mentions   Mention[]
+  replies    Reply[]
+  author     User       @relation(fields: [authorId], references: [id])
+}
+
+model Reply {
+  id         String    @id @default(uuid())
+  commentId  String
+  authorId   String
+  text       String
+  createdAt  DateTime  @default(now())
+  mentions   Mention[]
+  comment    Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  author     User      @relation(fields: [authorId], references: [id])
+}
+
+model Mention {
+  id              String   @id @default(uuid())
+  commentId       String?
+  replyId         String?
+  mentionedUserId String
+  startIdx        Int
+  endIdx          Int
+  comment         Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reply           Reply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+}
