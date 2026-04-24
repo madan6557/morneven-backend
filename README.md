@@ -17,7 +17,7 @@ The current implementation has been updated with:
 - Stronger auth validation (registration password minimum 12 chars).
 - Hashed refresh token storage in DB.
 - Request body validation middleware for write endpoints.
-- Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks, request-id propagation, readiness probe endpoint.
+- Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks, request-id propagation, health + readiness probe endpoints.
 
 ## Project Structure
 ```text
@@ -117,9 +117,10 @@ Verify service is live:
 curl http://<HOST>:<PORT>/health
 curl http://<HOST>:<PORT>/ready
 ```
-Expected response:
+Expected responses:
 ```json
 { "success": true, "data": { "status": "ok", "env": "production" } }
+{ "success": true, "data": { "status": "ready" } }
 ```
 
 ### 7) Reverse Proxy / Gateway Notes

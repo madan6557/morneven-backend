@@ -14,6 +14,11 @@ Header format:
 Authorization: Bearer <access_token>
 ```
 
+Optional trace header:
+```http
+X-Request-Id: <request_id>
+```
+
 Auth endpoints:
 - `POST /auth/register`
 - `POST /auth/login`
@@ -58,6 +63,8 @@ Auth endpoints:
 - `FORBIDDEN`
 - `NOT_FOUND`
 - `RATE_LIMITED`
+- `AUTH_RATE_LIMITED`
+- `SERVICE_UNAVAILABLE`
 - `INTERNAL_SERVER_ERROR`
 
 ## 4. RBAC Summary
@@ -88,6 +95,12 @@ Auth endpoints:
 Sample success:
 ```json
 { "success": true, "data": { "status": "ok", "env": "development" } }
+{ "success": true, "data": { "status": "ready" } }
+```
+
+Sample readiness failure:
+```json
+{ "success": false, "message": "Database not ready", "errorCode": "SERVICE_UNAVAILABLE" }
 ```
 
 ## 5.2 Auth
