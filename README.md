@@ -12,12 +12,12 @@ Backend implementation for Morneven Institute based on:
 
 ## Latest Update Alignment (Production Hardening)
 The current implementation has been updated with:
-- Security middleware: Helmet, CORS allowlist, global rate limiting, and compression.
+- Security middleware: Helmet, CORS allowlist, global rate limiting (+ stricter auth limiter), and compression.
 - Fail-fast environment validation via Zod.
 - Stronger auth validation (registration password minimum 12 chars).
 - Hashed refresh token storage in DB.
 - Request body validation middleware for write endpoints.
-- Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks.
+- Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks, request-id propagation, readiness probe endpoint.
 
 ## Project Structure
 ```text
@@ -58,6 +58,8 @@ NODE_ENV="development"
 CORS_ORIGIN="http://localhost:3000"
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=200
+AUTH_RATE_LIMIT_WINDOW_MS=900000
+AUTH_RATE_LIMIT_MAX=10
 ```
 
 ## Local Development
@@ -72,7 +74,7 @@ npm run dev
 ## Security Hardening
 - Helmet security headers enabled.
 - CORS policy constrained by `CORS_ORIGIN`.
-- Global rate limiting enabled (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`).
+- Global rate limiting enabled (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`) plus stricter auth endpoint limiter.
 - Request body limit set to 1 MB.
 - Environment validation at startup (fail-fast on missing/invalid secrets).
 - Refresh tokens stored hashed in database.
@@ -113,6 +115,7 @@ npm run start
 Verify service is live:
 ```bash
 curl http://<HOST>:<PORT>/health
+curl http://<HOST>:<PORT>/ready
 ```
 Expected response:
 ```json

@@ -11,7 +11,9 @@ const schema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
-  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200)
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200),
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10)
 });
 
 const parsed = schema.safeParse(process.env);
@@ -28,5 +30,7 @@ export const env = {
   jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
   corsOrigin: parsed.data.CORS_ORIGIN,
   rateLimitWindowMs: parsed.data.RATE_LIMIT_WINDOW_MS,
-  rateLimitMax: parsed.data.RATE_LIMIT_MAX
+  rateLimitMax: parsed.data.RATE_LIMIT_MAX,
+  authRateLimitWindowMs: parsed.data.AUTH_RATE_LIMIT_WINDOW_MS,
+  authRateLimitMax: parsed.data.AUTH_RATE_LIMIT_MAX
 };

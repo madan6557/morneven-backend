@@ -20,6 +20,7 @@ Auth endpoints:
 - `GET /auth/me`
 - `POST /auth/logout`
 - `POST /auth/validate-token`
+- `POST /auth/refresh`
 
 ### Auth validation notes (latest)
 - Register payload requires:
@@ -82,6 +83,7 @@ Auth endpoints:
 
 ## 5.1 Health
 - `GET /health`
+- `GET /ready`
 
 Sample success:
 ```json
@@ -94,6 +96,7 @@ Sample success:
 - `GET /auth/me`
 - `POST /auth/logout`
 - `POST /auth/validate-token`
+- `POST /auth/refresh`
 
 ## 5.3 Projects
 - `GET /projects`
@@ -165,6 +168,7 @@ Scope is always current token user.
 Write access: L7 or L6 executive.
 
 ## 6. Security Behavior
+- Dedicated auth rate limiting is active for register/login/refresh endpoints.
 - JWT Bearer authentication is required for protected routes.
 - Global rate limit protection is active; excessive requests return `RATE_LIMITED`.
 - Security headers are applied via Helmet.
@@ -186,6 +190,13 @@ curl -X POST http://localhost:3000/api/auth/register \
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@morneven.com","password":"VeryStrongPass123"}'
+```
+
+### Refresh
+```bash
+curl -X POST http://localhost:3000/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<refresh_token>"}'
 ```
 
 ### Access protected endpoint

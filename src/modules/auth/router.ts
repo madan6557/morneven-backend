@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
 import { auth } from '../../middleware/auth.js';
+import { authRateLimiter } from '../../middleware/security.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
 
@@ -23,9 +24,26 @@ const loginSchema = z.object({
   password: z.string().min(1).max(128)
 });
 
+const refreshSchema = z.object({
+  refreshToken: z.string().min(10)
+});
+
 const hashRefreshToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
-authRouter.post('/register', validateBody(registerSchema), async (req, res) => {
+const issueTokens = async (userId: string) => {
+  const token = jwt.sign({ sub: userId }, env.jwtAccessSecret, { expiresIn: '1h' });
+  const refreshToken = jwt.sign({ sub: userId }, env.jwtRefreshSecret, { expiresIn: '7d' });
+  await prisma.refreshToken.create({
+    data: {
+      token: hashRefreshToken(refreshToken),
+      userId,
+      expiresAt: new Date(Date.now() + 7 * 86400000)
+    }
+  });
+  return { token, refreshToken };
+};
+
+authRouter.post('/register', authRateLimiter, validateBody(registerSchema), async (req, res) => {
   const { email, password, username } = req.body;
   const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
   if (existing) return fail(res, 409, 'User already exists', 'CONFLICT');
@@ -43,7 +61,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req, res) => {
   );
 });
 
-authRouter.post('/login', validateBody(loginSchema), async (req, res) => {
+authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
@@ -51,16 +69,8 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
 
-  const token = jwt.sign({ sub: user.id }, env.jwtAccessSecret, { expiresIn: '1h' });
-  const refreshToken = jwt.sign({ sub: user.id }, env.jwtRefreshSecret, { expiresIn: '7d' });
-
-  await prisma.refreshToken.create({
-    data: {
-      token: hashRefreshToken(refreshToken),
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 86400000)
-    }
-  });
+  await prisma.refreshToken.deleteMany({ where: { userId: user.id, expiresAt: { lte: new Date() } } });
+  const { token, refreshToken } = await issueTokens(user.id);
 
   return ok(res, {
     token,
@@ -75,6 +85,27 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res) => {
       note: user.note
     }
   });
+});
+
+authRouter.post('/refresh', authRateLimiter, validateBody(refreshSchema), async (req, res) => {
+  const { refreshToken } = req.body;
+
+  try {
+    const payload = jwt.verify(refreshToken, env.jwtRefreshSecret) as { sub: string };
+    const hashed = hashRefreshToken(refreshToken);
+    const stored = await prisma.refreshToken.findUnique({ where: { token: hashed } });
+
+    if (!stored || stored.userId !== payload.sub || stored.expiresAt <= new Date()) {
+      return fail(res, 401, 'Invalid refresh token', 'UNAUTHORIZED');
+    }
+
+    await prisma.refreshToken.delete({ where: { token: hashed } });
+    const rotated = await issueTokens(payload.sub);
+
+    return ok(res, { token: rotated.token, refreshToken: rotated.refreshToken });
+  } catch {
+    return fail(res, 401, 'Invalid refresh token', 'UNAUTHORIZED');
+  }
 });
 
 authRouter.get('/me', auth, async (req, res) => ok(res, req.user));

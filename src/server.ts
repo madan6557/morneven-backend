@@ -1,7 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { env } from './config/env.js';
+import { prisma } from './config/prisma.js';
 import { fail, ok } from './utils/response.js';
 import { applySecurityMiddleware } from './middleware/security.js';
+import { requestIdMiddleware } from './middleware/request-id.js';
 import { authRouter } from './modules/auth/router.js';
 import { projectsRouter } from './modules/projects/router.js';
 import { loreRouter } from './modules/lore/router.js';
@@ -13,10 +15,19 @@ import { newsRouter } from './modules/news/router.js';
 
 const app = express();
 
+app.use(requestIdMiddleware);
 app.use(express.json({ limit: '1mb' }));
 applySecurityMiddleware(app);
 
 app.get('/health', (_req, res) => ok(res, { status: 'ok', env: env.nodeEnv }));
+app.get('/ready', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return ok(res, { status: 'ready' });
+  } catch {
+    return fail(res, 503, 'Database not ready', 'SERVICE_UNAVAILABLE');
+  }
+});
 
 app.use('/api/auth', authRouter);
 app.use('/api/projects', projectsRouter);
@@ -38,10 +49,15 @@ const server = app.listen(env.port, () => {
   console.log(`Morneven backend listening on ${env.port}`);
 });
 
-const shutdown = (signal: string) => {
+const shutdown = async (signal: string) => {
   console.log(`${signal} received, shutting down gracefully...`);
+  await prisma.$disconnect();
   server.close(() => process.exit(0));
 };
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM');
+});
+process.on('SIGINT', () => {
+  void shutdown('SIGINT');
+});
