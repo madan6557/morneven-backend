@@ -180,7 +180,7 @@ Scope is always current token user.
 
 Write access: L7 or L6 executive.
 
-## 5.10 Files (GCS Upload Handler)
+## 5.10 Files (Storage Upload Handler: local/GCS)
 - `POST /files/upload`
 
 Auth required: yes (Bearer token).
@@ -188,16 +188,21 @@ Content-Type: `multipart/form-data`.
 Field name: `file`.
 Optional query: `folder` (string, defaults to `uploads`).
 
+Storage behavior:
+- `STORAGE_DRIVER=local` -> saved to local disk and served by `LOCAL_STORAGE_BASE_PATH`.
+- `STORAGE_DRIVER=gcs` -> uploaded to GCS bucket and returned as public/object URL.
+
 Sample response:
 ```json
 {
   "success": true,
   "data": {
     "objectPath": "uploads/171394...-example.png",
-    "bucket": "my-bucket",
+    "provider": "local",
+    "location": "storage",
     "contentType": "image/png",
     "size": 12345,
-    "url": "https://storage.googleapis.com/my-bucket/uploads/171394...-example.png"
+    "url": "/storage/uploads/171394...-example.png"
   }
 }
 ```
@@ -240,7 +245,7 @@ curl http://localhost:3000/api/projects \
   -H "Authorization: Bearer <access_token>"
 ```
 
-### Upload file to GCS handler
+### Upload file (storage handler)
 ```bash
 curl -X POST "http://localhost:3000/api/files/upload?folder=news" \
   -H "Authorization: Bearer <access_token>" \

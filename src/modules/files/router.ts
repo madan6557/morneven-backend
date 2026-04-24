@@ -3,7 +3,8 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { auth } from '../../middleware/auth.js';
 import { uploadSingle } from '../../middleware/upload.js';
-import { getStorageBucket, buildObjectUrl } from '../../config/storage.js';
+import { saveFileToStorage } from '../../config/storage.js';
+import { env } from '../../config/env.js';
 import { fail, ok } from '../../utils/response.js';
 
 export const filesRouter = Router();
@@ -32,21 +33,19 @@ filesRouter.post('/upload', auth, (req, res) => {
       const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
       const objectPath = `${folder}/${Date.now()}-${randomUUID()}-${safeName}`;
 
-      const bucket = getStorageBucket();
-      const file = bucket.file(objectPath);
-
-      await file.save(req.file.buffer, {
-        metadata: { contentType: req.file.mimetype },
-        resumable: false,
-        validation: 'crc32c'
+      const stored = await saveFileToStorage({
+        objectPath,
+        buffer: req.file.buffer,
+        contentType: req.file.mimetype
       });
 
       return ok(res, {
-        objectPath,
-        bucket: bucket.name,
+        objectPath: stored.objectPath,
+        provider: env.storageDriver,
+        location: stored.location,
         contentType: req.file.mimetype,
         size: req.file.size,
-        url: buildObjectUrl(objectPath)
+        url: stored.url
       });
     } catch (error) {
       return fail(res, 500, 'Storage upload failed', 'STORAGE_ERROR', (error as Error).message);

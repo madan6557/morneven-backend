@@ -19,6 +19,11 @@ The current implementation has been updated with:
 - Request body validation middleware for write endpoints.
 - Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks, request-id propagation, health + readiness probe endpoints.
 
+
+## Entry Point (Core File)
+- `src/server.ts` is the backend entry point/core runtime file in this project.
+- It plays the same role as `app.js` / `index.js` in many Node.js projects: bootstrapping middleware, probes, and route mounting.
+
 ## Project Structure
 ```text
 src/
@@ -62,6 +67,9 @@ RATE_LIMIT_MAX=200
 AUTH_RATE_LIMIT_WINDOW_MS=900000
 AUTH_RATE_LIMIT_MAX=10
 MAX_UPLOAD_MB=20
+STORAGE_DRIVER="local"
+LOCAL_STORAGE_PATH="storage"
+LOCAL_STORAGE_BASE_PATH="/storage"
 GCS_BUCKET_NAME="<GCS_BUCKET_NAME_PLACEHOLDER>"
 GCS_PROJECT_ID="<GCP_PROJECT_ID_PLACEHOLDER>"
 GCS_PUBLIC_BASE_URL="https://storage.googleapis.com/<GCS_BUCKET_NAME_PLACEHOLDER>"
@@ -77,11 +85,12 @@ npm run dev
 ```
 
 
-## File Storage (GCP Cloud Storage)
+## File Storage (Storage Driver: local or GCS)
 - Upload handler endpoint: `POST /api/files/upload` (multipart field name: `file`).
 - Optional query: `folder` (default `uploads`).
-- Backend uploads file buffer directly to GCS bucket and returns `url` + `objectPath`.
-- Configure `GCS_BUCKET_NAME` and service account via `GOOGLE_APPLICATION_CREDENTIALS` in runtime environment.
+- `STORAGE_DRIVER=local` stores files in local disk path (`LOCAL_STORAGE_PATH`) and serves them from `LOCAL_STORAGE_BASE_PATH`.
+- `STORAGE_DRIVER=gcs` stores files in GCP Cloud Storage bucket (`GCS_*` envs).
+- Response includes `provider`, `location`, and `url` for frontend usage.
 
 ## Security Hardening
 - Helmet security headers enabled.
@@ -97,7 +106,7 @@ npm run dev
 ### 1) Infrastructure Preparation
 - Provision a PostgreSQL instance (managed or self-hosted).
 - Create a dedicated database user with least-privilege access to the target DB.
-- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB`, `GCS_*`).
+- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB`, `STORAGE_DRIVER`, `LOCAL_STORAGE_*` or `GCS_*`).
 
 ### 2) Build Artifact
 ```bash

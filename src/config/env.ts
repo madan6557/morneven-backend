@@ -15,6 +15,9 @@ const schema = z.object({
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(20),
+  STORAGE_DRIVER: z.enum(['local', 'gcs']).default('local'),
+  LOCAL_STORAGE_PATH: z.string().default('storage'),
+  LOCAL_STORAGE_BASE_PATH: z.string().default('/storage'),
   GCS_BUCKET_NAME: z.string().optional(),
   GCS_PROJECT_ID: z.string().optional(),
   GCS_PUBLIC_BASE_URL: z.string().url().optional()
@@ -38,6 +41,9 @@ export const env = {
   authRateLimitWindowMs: parsed.data.AUTH_RATE_LIMIT_WINDOW_MS,
   authRateLimitMax: parsed.data.AUTH_RATE_LIMIT_MAX,
   maxUploadMb: parsed.data.MAX_UPLOAD_MB,
+  storageDriver: parsed.data.STORAGE_DRIVER,
+  localStoragePath: parsed.data.LOCAL_STORAGE_PATH,
+  localStorageBasePath: parsed.data.LOCAL_STORAGE_BASE_PATH,
   gcsBucketName: parsed.data.GCS_BUCKET_NAME,
   gcsProjectId: parsed.data.GCS_PROJECT_ID,
   gcsPublicBaseUrl: parsed.data.GCS_PUBLIC_BASE_URL

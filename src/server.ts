@@ -20,6 +20,10 @@ app.use(requestIdMiddleware);
 app.use(express.json({ limit: '1mb' }));
 applySecurityMiddleware(app);
 
+if (env.storageDriver === 'local') {
+  app.use(env.localStorageBasePath, express.static(env.localStoragePath));
+}
+
 app.get('/health', (_req, res) => ok(res, { status: 'ok', env: env.nodeEnv }));
 app.get('/ready', async (_req, res) => {
   try {
