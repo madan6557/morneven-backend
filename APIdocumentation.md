@@ -161,7 +161,14 @@ curl http://localhost:3000/api/projects \
   -H "Authorization: Bearer <access_token>"
 ```
 
-## 7. How to Use This Documentation
+
+## 7. Security Behavior
+- JWT Bearer authentication is required for protected routes.
+- Global rate limit protection is active; excessive requests return `RATE_LIMITED`.
+- Security headers are applied via Helmet and CORS is restricted by environment configuration.
+- Request payload size is limited to reduce abuse risk.
+
+## 8. How to Use This Documentation
 1. Start at **Section 5 Endpoint Groups** to identify route path + module.
 2. Check **Section 4 RBAC Summary** before integrating write actions.
 3. Use **Section 3 Standard Response Format** to standardize frontend API handling.

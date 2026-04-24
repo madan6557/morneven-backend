@@ -45,6 +45,10 @@ DATABASE_URL="postgresql://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/<DB_NAME>
 JWT_ACCESS_SECRET="<JWT_ACCESS_SECRET_PLACEHOLDER>"
 JWT_REFRESH_SECRET="<JWT_REFRESH_SECRET_PLACEHOLDER>"
 PORT=3000
+NODE_ENV="development"
+CORS_ORIGIN="http://localhost:3000"
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=200
 ```
 
 ## Local Development
@@ -55,6 +59,16 @@ npm run prisma:migrate
 npm run prisma:seed
 npm run dev
 ```
+
+
+## Security Hardening
+- Helmet security headers enabled.
+- CORS policy constrained by `CORS_ORIGIN`.
+- Global rate limiting enabled (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`).
+- Request body limit set to 1 MB.
+- Environment validation at startup (fail-fast on missing/invalid secrets).
+- Refresh tokens stored hashed in database.
+- Graceful shutdown hooks for SIGTERM/SIGINT.
 
 ## Deployment Guide
 

@@ -1,25 +1,36 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
 import { Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
 import { auth } from '../../middleware/auth.js';
+import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
 
 export const authRouter = Router();
 
-authRouter.post('/register', async (req, res) => {
-  const schema = z.object({ email: z.string().email(), password: z.string().min(8), username: z.string().min(3) });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return fail(res, 400, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(12).max(128),
+  username: z.string().min(3).max(30)
+});
 
-  const { email, password, username } = parsed.data;
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1).max(128)
+});
+
+const hashRefreshToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+authRouter.post('/register', validateBody(registerSchema), async (req, res) => {
+  const { email, password, username } = req.body;
   const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
   if (existing) return fail(res, 409, 'User already exists', 'CONFLICT');
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
     data: { email, username, passwordHash, role: Role.personel, level: 2, track: Track.executive }
   });
@@ -32,22 +43,23 @@ authRouter.post('/register', async (req, res) => {
   );
 });
 
-authRouter.post('/login', async (req, res) => {
-  const schema = z.object({ email: z.string().email(), password: z.string().min(1) });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return fail(res, 400, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
-
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+authRouter.post('/login', validateBody(loginSchema), async (req, res) => {
+  const { email, password } = req.body;
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
 
-  const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
 
   const token = jwt.sign({ sub: user.id }, env.jwtAccessSecret, { expiresIn: '1h' });
   const refreshToken = jwt.sign({ sub: user.id }, env.jwtRefreshSecret, { expiresIn: '7d' });
 
   await prisma.refreshToken.create({
-    data: { token: refreshToken, userId: user.id, expiresAt: new Date(Date.now() + 7 * 86400000) }
+    data: {
+      token: hashRefreshToken(refreshToken),
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 7 * 86400000)
+    }
   });
 
   return ok(res, {
