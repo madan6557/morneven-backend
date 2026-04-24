@@ -32,23 +32,10 @@ prisma/
   seed.ts
 ```
 
-## Implemented Modules
-- Auth: login, register, me, logout, validate-token
-- Lore: CRUD per category (`characters`, `places`, `technology`, `creatures`, `other`)
-- Projects: CRUD + patch relation
-- Gallery: CRUD + comments + replies + moderation rules
-- Map: markers + map image
-- Personnel: list/detail/create/update/delete + bulk update (L7 only)
-- Settings: command center settings per user
-- News: list/create/update/delete with role/track gate
-
-## RBAC Highlights
-- Level 7: full access
-- Level 6 executive: full author panel + moderation + news write
-- Level 6 mechanic: projects + technology + own gallery write
-- Level 6 field: places + creatures + own gallery write
-- Level 6 logistics: own gallery write only
-- Level 0–5: read-only (except auth/self)
+## Documentation Files
+- `APIdocumentation.md` → Backend API references, RBAC notes, and request/response examples.
+- `BERequierment.md` → Original requirement contract source.
+- `Analasis BE Requierment.md` → Technical recommendation and relational design analysis.
 
 ## Environment Variables
 Create `.env` from `.env.example` and fill placeholders:
@@ -60,7 +47,7 @@ JWT_REFRESH_SECRET="<JWT_REFRESH_SECRET_PLACEHOLDER>"
 PORT=3000
 ```
 
-## Install & Run
+## Local Development
 ```bash
 npm install
 npm run prisma:generate
@@ -68,6 +55,57 @@ npm run prisma:migrate
 npm run prisma:seed
 npm run dev
 ```
+
+## Deployment Guide
+
+### 1) Infrastructure Preparation
+- Provision a PostgreSQL instance (managed or self-hosted).
+- Create a dedicated database user with least-privilege access to the target DB.
+- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`).
+
+### 2) Build Artifact
+```bash
+npm install
+npm run prisma:generate
+npm run build
+```
+
+### 3) Database Migration (Production)
+Use deployment-safe migration command in production pipeline:
+```bash
+npx prisma migrate deploy
+```
+
+### 4) Optional Initial Seed
+Only run once for non-production or first-time staging setup:
+```bash
+npm run prisma:seed
+```
+
+### 5) Run Service
+```bash
+npm run start
+```
+
+### 6) Health Check
+Verify service is live:
+```bash
+curl http://<HOST>:<PORT>/health
+```
+Expected response:
+```json
+{ "success": true, "data": { "status": "ok" } }
+```
+
+### 7) Reverse Proxy / Gateway Notes
+- Route API under `/api/*` as defined by backend routers.
+- Enforce HTTPS termination at gateway/load balancer.
+- Restrict network access to PostgreSQL from backend runtime only.
+
+### 8) Rollback Strategy (Recommended)
+- Keep previous build artifact/tag.
+- Roll back app deployment first.
+- If DB migration rollback is needed, use explicit Prisma migration resolution with caution and backup snapshots.
 
 ## Seed Data
 `prisma/seed.ts` seeds:
