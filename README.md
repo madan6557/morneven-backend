@@ -10,6 +10,28 @@ Backend implementation for Morneven Institute based on:
 - JWT authentication (`access` + `refresh` token)
 - Zod validation
 
+## Project Structure
+```text
+src/
+  config/        # env + prisma client
+  middleware/    # auth guard + RBAC rules
+  modules/       # feature routers by domain
+    auth/
+    projects/
+    lore/
+    gallery/
+    map/
+    personnel/
+    settings/
+    news/
+  types/         # shared TS types + Express augmentation
+  utils/         # shared response helper
+  server.ts      # bootstrap + route mounting
+prisma/
+  schema.prisma
+  seed.ts
+```
+
 ## Implemented Modules
 - Auth: login, register, me, logout, validate-token
 - Lore: CRUD per category (`characters`, `places`, `technology`, `creatures`, `other`)
