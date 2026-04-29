@@ -270,3 +270,13 @@ curl -X POST "http://localhost:3000/api/files/upload?folder=news" \
 4. Use **Section 6 Security Behavior** to align gateway/WAF and client retry behavior.
 5. Use **Section 7 Example Usage** as starter templates for Postman/cURL.
 6. For deeper contract context, compare with `BERequierment.md`.
+
+
+## 9. Deployment Notes (Railway-ready)
+- Required runtime vars: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`, `NODE_ENV=production`.
+- Healthcheck path for platform probes: `GET /health` (liveness), `GET /ready` (database readiness).
+- Storage options:
+  - `STORAGE_DRIVER=local` for Railway Volume-backed uploads (recommended for current setup).
+  - `STORAGE_DRIVER=gcs` only when `GCS_BUCKET_NAME` and related `GCS_*` vars are configured.
+- Run deploy-safe migrations at startup/pipeline: `npx prisma migrate deploy`.
+- Run `npm run prisma:seed` only for non-production initialization.
