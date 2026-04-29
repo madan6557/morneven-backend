@@ -70,9 +70,9 @@ MAX_UPLOAD_MB=20
 STORAGE_DRIVER="local"
 LOCAL_STORAGE_PATH="storage"
 LOCAL_STORAGE_BASE_PATH="/storage"
-GCS_BUCKET_NAME="<GCS_BUCKET_NAME_PLACEHOLDER>"
-GCS_PROJECT_ID="<GCP_PROJECT_ID_PLACEHOLDER>"
-GCS_PUBLIC_BASE_URL="https://storage.googleapis.com/<GCS_BUCKET_NAME_PLACEHOLDER>"
+GCS_BUCKET_NAME=""
+GCS_PROJECT_ID=""
+GCS_PUBLIC_BASE_URL=""
 ```
 
 ## Local Development
@@ -91,6 +91,19 @@ npm run dev
 - `STORAGE_DRIVER=local` stores files in local disk path (`LOCAL_STORAGE_PATH`) and serves them from `LOCAL_STORAGE_BASE_PATH`.
 - `STORAGE_DRIVER=gcs` stores files in GCP Cloud Storage bucket (`GCS_*` envs).
 - Response includes `provider`, `location`, and `url` for frontend usage.
+
+
+## Deployment Readiness Checklist
+
+Before going live, validate these items:
+- Environment variables are set (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`).
+- `NODE_ENV=production` in deployment runtime.
+- Prisma migrations are applied with `npx prisma migrate deploy`.
+- Health probes respond with HTTP 200 at `/health` and `/ready`.
+- Storage mode is explicitly set:
+  - Railway/local: `STORAGE_DRIVER=local` + persistent volume path (`LOCAL_STORAGE_PATH=/data/storage`).
+  - GCS: `STORAGE_DRIVER=gcs` + complete `GCS_*` variables.
+- Seed is run only for non-production bootstrapping (`npm run prisma:seed`).
 
 ## Security Hardening
 - Helmet security headers enabled.
@@ -166,12 +179,20 @@ This repository now includes `railway.json` for zero-config deploy defaults on R
 
 ### Required Railway environment variables
 Set these in Railway Variables:
-- `DATABASE_URL`
+- `DATABASE_URL` (use Railway Postgres connection string)
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
 - `NODE_ENV=production`
 - `CORS_ORIGIN` (your frontend URL)
-- Optional storage vars depending on driver (`STORAGE_DRIVER`, `LOCAL_STORAGE_*` or `GCS_*`)
+
+### Railway storage compatibility (without GCS)
+For now you can run fully without GCS by using local storage mode on Railway:
+- `STORAGE_DRIVER=local`
+- `LOCAL_STORAGE_PATH=/data/storage` (recommended if using Railway Volume)
+- `LOCAL_STORAGE_BASE_PATH=/storage`
+
+If you attach a Railway Volume to `/data`, uploads remain persistent across deploys.
+No `GCS_*` variables are required in local mode.
 
 ### Notes
 - `PORT` is injected by Railway automatically; this app already respects it.
@@ -179,14 +200,15 @@ Set these in Railway Variables:
 - Migrations run at startup via `prisma migrate deploy` before the server process starts.
 
 ## Seed Data
-`prisma/seed.ts` seeds:
-- L7 executive admin user
-- L6 mechanic user
-- settings, project + patch, news + attachment
-- lore item + doc, gallery item + tags + discussion
+`prisma/seed.ts` now imports FE sample data from `fe-seed/` and seeds:
+- personnel -> users + settings
+- projects + patches
+- news + attachments
+- gallery + tags
+- lore entities (characters, places, technology, creatures, other, events) + docs
 - map markers + map image
 
-> Seed uses placeholder URLs and non-production credentials.
+Default seed password for generated personnel users is `SeedPassword123` (change immediately outside dev/staging).
 
 ## API Base URL
 Development base path uses `/api` and `/v1`.

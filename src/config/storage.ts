@@ -3,9 +3,14 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { env } from './env.js';
 
-const storage = new Storage({
-  projectId: env.gcsProjectId || undefined
-});
+let storageClient: Storage | null = null;
+
+const getStorageClient = () => {
+  if (!storageClient) {
+    storageClient = new Storage({ projectId: env.gcsProjectId || undefined });
+  }
+  return storageClient;
+};
 
 type SaveFileInput = {
   objectPath: string;
@@ -21,9 +26,9 @@ type SaveFileResult = {
 
 const getStorageBucket = () => {
   if (!env.gcsBucketName) {
-    throw new Error('GCS_BUCKET_NAME is not configured');
+    throw new Error('GCS_BUCKET_NAME is required when STORAGE_DRIVER=gcs');
   }
-  return storage.bucket(env.gcsBucketName);
+  return getStorageClient().bucket(env.gcsBucketName);
 };
 
 const buildGcsUrl = (objectPath: string) => {
@@ -33,9 +38,7 @@ const buildGcsUrl = (objectPath: string) => {
   return `https://storage.googleapis.com/${env.gcsBucketName}/${objectPath}`;
 };
 
-const buildLocalUrl = (objectPath: string) => {
-  return `${env.localStorageBasePath.replace(/\/$/, '')}/${objectPath}`;
-};
+const buildLocalUrl = (objectPath: string) => `${env.localStorageBasePath.replace(/\/$/, '')}/${objectPath}`;
 
 export const saveFileToStorage = async (input: SaveFileInput): Promise<SaveFileResult> => {
   if (env.storageDriver === 'local') {
