@@ -31,7 +31,7 @@ export const allow = (rule: (u: AuthUser) => boolean) => (req: Request, res: Res
 
 export const canWriteNews = (u: AuthUser) => u.level === 7 || (u.level === 6 && u.track === Track.executive);
 export const canWriteProjects = (u: AuthUser) =>
-  u.level === 7 || (u.level === 6 && [Track.mechanic, Track.executive].includes(u.track));
+  u.level === 7 || (u.level === 6 && (u.track === Track.mechanic || u.track === Track.executive));
 
 export const canWriteLore = (u: AuthUser, category: string) => {
   if (u.level === 7 || (u.level === 6 && u.track === Track.executive)) return true;
