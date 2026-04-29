@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "rm -rf /app/node_modules/.cache && npm ci --no-audit --no-fund && npm run prisma:generate && npm run build"
+    "buildCommand": "npm run build"
   },
   "deploy": {
     "startCommand": "npx prisma migrate deploy && npm run start",
@@ -11,4 +11,3 @@
     "healthcheckPath": "/health"
   }
 }
-
