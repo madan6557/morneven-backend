@@ -154,6 +154,30 @@ Expected responses:
 - Roll back app deployment first.
 - If DB migration rollback is needed, use explicit Prisma migration resolution with caution and backup snapshots.
 
+
+## Railway Deployment (Recommended)
+
+This repository now includes `railway.json` for zero-config deploy defaults on Railway.
+
+### Railway service settings
+- **Build Command:** handled by `railway.json` (`npm ci && npm run prisma:generate && npm run build`)
+- **Start Command:** handled by `railway.json` (`npx prisma migrate deploy && npm run start`)
+- **Healthcheck Path:** `/health`
+
+### Required Railway environment variables
+Set these in Railway Variables:
+- `DATABASE_URL`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `NODE_ENV=production`
+- `CORS_ORIGIN` (your frontend URL)
+- Optional storage vars depending on driver (`STORAGE_DRIVER`, `LOCAL_STORAGE_*` or `GCS_*`)
+
+### Notes
+- `PORT` is injected by Railway automatically; this app already respects it.
+- Prisma client generation is also covered by `postinstall`.
+- Migrations run at startup via `prisma migrate deploy` before the server process starts.
+
 ## Seed Data
 `prisma/seed.ts` seeds:
 - L7 executive admin user
@@ -165,4 +189,4 @@ Expected responses:
 > Seed uses placeholder URLs and non-production credentials.
 
 ## API Base URL
-Development base path uses `/api`.
+Development base path uses `/api` and `/v1`.

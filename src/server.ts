@@ -34,15 +34,20 @@ app.get('/ready', async (_req, res) => {
   }
 });
 
-app.use('/api/auth', authRouter);
-app.use('/api/projects', projectsRouter);
-app.use('/api/lore', loreRouter);
-app.use('/api/gallery', galleryRouter);
-app.use('/api/map', mapRouter);
-app.use('/api/personnel', personnelRouter);
-app.use('/api/settings', settingsRouter);
-app.use('/api/news', newsRouter);
-app.use('/api/files', filesRouter);
+const mountApiRoutes = (base: string) => {
+  app.use(`${base}/auth`, authRouter);
+  app.use(`${base}/projects`, projectsRouter);
+  app.use(`${base}/lore`, loreRouter);
+  app.use(`${base}/gallery`, galleryRouter);
+  app.use(`${base}/map`, mapRouter);
+  app.use(`${base}/personnel`, personnelRouter);
+  app.use(`${base}/settings`, settingsRouter);
+  app.use(`${base}/news`, newsRouter);
+  app.use(`${base}/files`, filesRouter);
+};
+
+mountApiRoutes('/api');
+mountApiRoutes('/v1');
 
 app.use((_req, res) => fail(res, 404, 'Route not found', 'NOT_FOUND'));
 

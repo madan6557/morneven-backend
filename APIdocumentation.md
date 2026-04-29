@@ -4,10 +4,13 @@ This document explains backend API usage, authentication, response formats, RBAC
 
 ## 1. Base URL
 - Development: `/api`
+- Versioned base path: `/v1` (same route set as `/api`)
 - Example: `http://localhost:3000/api`
 
 ## 2. Authentication
 Most endpoints require Bearer token.
+
+Access JWT now carries: `sub`, `username`, `role`, `level`, `track`.
 
 Header format:
 ```http
@@ -26,6 +29,7 @@ Auth endpoints:
 - `POST /auth/logout`
 - `POST /auth/validate-token`
 - `POST /auth/refresh`
+- `POST /auth/guest`
 
 ### Auth validation notes (latest)
 - Register payload requires:
@@ -110,6 +114,7 @@ Sample readiness failure:
 - `POST /auth/logout`
 - `POST /auth/validate-token`
 - `POST /auth/refresh`
+- `POST /auth/guest`
 
 ## 5.3 Projects
 - `GET /projects`
@@ -164,7 +169,13 @@ Comments & replies:
 - `DELETE /personnel/:id`
 - `PATCH /personnel/bulk`
 
-All personnel endpoints are L7-only.
+Personnel authorization:
+- `GET /personnel`: PL >= 4
+- `GET /personnel/:id`: PL >= 4 or self
+- `POST /personnel`: PL >= 6
+- `PUT /personnel/:id`: PL >= 5
+- `PATCH /personnel/bulk`: PL >= 6
+- `DELETE /personnel/:id`: PL >= 7
 
 ## 5.8 Settings
 - `GET /settings/command-center`
