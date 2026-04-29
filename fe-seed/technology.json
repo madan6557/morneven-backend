@@ -1,0 +1,626 @@
+[
+  {
+    "id": "tech-001",
+    "name": "Nexus Drive",
+    "category": "FTL Technology",
+    "thumbnail": "",
+    "shortDesc": "Experimental faster-than-light propulsion system using Worldshard crystal resonance.",
+    "fullDesc": "The Nexus Drive is Morneven Institute's most ambitious technological achievement - a faster-than-light propulsion system that harnesses the resonant frequencies of Worldshard crystals to fold space-time. Unlike conventional warp drives theorized in the pre-apocalypse era, the Nexus Drive works by creating a harmonic bridge between two points in the crystal lattice network.\n\nCurrent limitations include the requirement for a Jewerlian operator to maintain the crystal harmonic during transit, and a maximum range of approximately 12 light-years per jump.\n\n[L3+]Tactical specification (sealed): the harmonic bridge requires a 4.21 GHz pilot signal anchored to a Class-A Worldshard. Substituting a fractured shard collapses the bridge mid-transit, producing a localized Singularity-class event. Maintenance schematics, anchor coordinates, and the failover purge sequence are filed under MOR-NEX-09 and require L3+ clearance to view in unredacted form.[/L3+]",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Nexus Drive core assembly"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Crystal harmonic resonance pattern"
+      }
+    ],
+    "discussions": [
+      {
+        "id": "dc-tech-001",
+        "author": "r.ashford",
+        "text": "The latest calibration batch is in. @e.moonveil, please approve the test window.",
+        "date": "2026-04-23",
+        "mentions": [
+          {
+            "username": "e.moonveil",
+            "start": 36,
+            "end": 47
+          }
+        ],
+        "replies": [
+          {
+            "id": "dr-tech-001",
+            "author": "e.moonveil",
+            "text": "Approved. Coordinate the final pass with @r.ashford before 1900.",
+            "date": "2026-04-23",
+            "mentions": [
+              {
+                "username": "r.ashford",
+                "start": 41,
+                "end": 51
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Project Aethon",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-002",
+    "name": "Ashford Repeater",
+    "category": "Defensive Weapon",
+    "thumbnail": "",
+    "shortDesc": "Standard-issue energy weapon developed by Rex Ashford for Institute field operatives.",
+    "fullDesc": "The Ashford Repeater is a compact energy weapon that fires concentrated leyline energy pulses. Developed by Lead Engineer Rex Ashford, it has become the standard sidearm for all Morneven Institute field operatives.\n\nThe weapon draws power from a miniaturized Worldshard crystal, giving it approximately 200 shots before requiring recharge. Its unique design includes a variable output mode - from non-lethal stun to armor-piercing - making it versatile for both peacekeeping and combat operations.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Repeater blueprint v4"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Project Aethon",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-003",
+    "name": "Voidborn Anomaly Scanner",
+    "category": "Detection Equipment",
+    "thumbnail": "",
+    "shortDesc": "Long-range sensor array designed to detect and track Voidborn energy signatures.",
+    "fullDesc": "The Voidborn Anomaly Scanner (VAS) is a critical piece of defensive infrastructure deployed across Morneven-controlled territories. The scanner uses a network of tuned Worldshard crystals to detect the unique energy signatures emitted by Voidborn entities.\n\nThe latest model (VAS-7) can detect Voidborn activity up to 500 kilometers away and distinguish between different entity classifications. Data from the scanner network feeds directly into the Iron Citadel's command center for real-time threat assessment.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "VAS-7 array installation"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Project Aethon",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-004",
+    "name": "Solar's Lens",
+    "category": "Orbital Strike Apparatus",
+    "thumbnail": "",
+    "shortDesc": "Orbital adapter that channels and shapes a single qualified caster's output into a Gemosphere-safe planetside strike.",
+    "fullDesc": "Solar's Lens is the orbital focusing platform that delivered the Pillar of Light strike during the War of Light. It is not a weapon in the conventional sense - it generates no energy of its own. Its function is to accept the resonant output of one qualified caster, condition that output through layered Gemosphere-safe filtration, and deliver it as a coherent vertical beam onto a planetside target without rupturing the crystalline atmospheric layer.\n\nThe Lens has only ever been calibrated to one operator: Sola. No second operator has ever been certified, and no attempt has been made. No Jewerlian has ever been harmed by operating the Lens.\n\n[L5+ track=field]The Lens remains in standing orbit and has not been fired since the War of Light. Doctrine requires unanimous Board ratification and Sola's personal consent for any future authorization - neither has ever been requested in the modern era. Calibration logs and orbital coordinates are filed under MOR-LEN-01.[/L5+]",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Solar's Lens - orbital silhouette schematic"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Filtration stack cross-section"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Project Aethon",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-005",
+    "name": "Stellar Pass Token",
+    "category": "Access Credential",
+    "thumbnail": "",
+    "shortDesc": "Single-issue unrestricted clearance token. Currently held by Sola.",
+    "fullDesc": "The Stellar Pass is the only fully-unrestricted access credential issued by the Morneven Institute. It overrides every door, vault, and observation cordon - including Forbidden Sectors. It is not delegated, copied, revoked, or audited. It exists because attempting to deny its current holder access has, in field tests, produced a worse outcome than letting her in.\n\nOnly one Stellar Pass exists. It is currently held by Sola. Personnel encountering the Pass in active use are instructed to acknowledge it without challenge and resume duties.\n\nA single companion credential - the Stellar Companion pass - is issued separately to Sora. The Companion pass is not the Stellar Pass; it is a paired credential that mirrors most of the Pass's facility access but is logged independently.",
+    "docs": [],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "MK-VII Frame",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-006",
+    "name": "Triad Resonance Rig MK-VII",
+    "category": "Anti-Anomaly Equipment",
+    "thumbnail": "",
+    "shortDesc": "Three-emitter counter-resonance rig used to neutralize Hollow Choir and similar Metamorphic colonial entities.",
+    "fullDesc": "The MK-VII Triad Rig is the standing field solution for Metamorphic colonial entities whose Fracture Points require spatially distributed counter-resonance. It deploys three independent emitters in a triangular configuration, synchronizing their broadcast within a 14.7 kHz target band for sustained periods.\n\nThe rig is requisition-controlled at L3+ clearance because deployment below the three-emitter threshold has historically resulted in total operative loss. All field issuances are logged against the standing Hollow Choir engagement protocol.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "MK-VII emitter triad - deployment configuration"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "MK-VII Frame",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-007",
+    "name": "Violet Veil Comm Mesh",
+    "category": "Communication Network",
+    "thumbnail": "",
+    "shortDesc": "Gemosphere-piggybacked comms mesh that uses violet-dawn refraction events as a daily signal floor.",
+    "fullDesc": "The Violet Veil is the Institute's primary low-bandwidth communications backbone outside the Citadel grid. It piggybacks on the daily violet-dawn refraction event in the Gemosphere to maintain a planet-wide signal floor that cannot be jammed by terrestrial means.\n\nThroughput is modest - text and short audio only - but coverage is total. Every Morneven outpost from the Verdant Hollows to the Forbidden Sectors maintains at least one Veil terminal. The protocol is the standing fallback when conventional comms degrade.",
+    "docs": [],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "MK-VII Frame",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-008",
+    "name": "Fracture-Point Analyzer FA-3",
+    "category": "Field Analysis",
+    "thumbnail": "",
+    "shortDesc": "Handheld scanner that identifies Fracture Points on Crystalline and Metamorphic entities at standoff range.",
+    "fullDesc": "The FA-3 is the standing-issue field analyzer for Tactical Analysis doctrine. It scans Crystalline and Metamorphic entities at standoff range (up to 800 m) and produces a heatmap of probable Fracture Points overlaid on the operator's HUD.\n\nThe analyzer cannot identify Fracture Points on Singularity-class entities (none exist) or Catalyst-class entities (irrelevant - Catalysts are not engaged). It is therefore tuned exclusively to the two engagement-relevant classes. Updates are pushed monthly from Morneven Central based on field encounter logs.",
+    "docs": [],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "MK-VII Frame",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-012",
+    "name": "RAIL-H100 Stormpiercer",
+    "category": "Kinetic Weapon",
+    "thumbnail": "",
+    "shortDesc": "20mm tungsten railgun capable of Mach 8 muzzle velocity.",
+    "fullDesc": "The RAIL-H100 'Stormpiercer' is a nose-mounted kinetic railgun installed on the ECLIPSE-class starfighter. It fires 20mm tungsten projectiles at Mach 8, designed to penetrate the skulls of Mega-Creatures from up to 15km before the sound of impact reaches the target. The weapon is concealed within the airframe for stealth and is powered by the AREX-V4 Aetherium Core.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Stormpiercer railgun schematic"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Echo Relay Network",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-013",
+    "name": "PL-G3 Neon Reaper Pulse Gun",
+    "category": "Plasma Weapon",
+    "thumbnail": "",
+    "shortDesc": "1200 RPM plasma pulse gun with cauterizing effect.",
+    "fullDesc": "The PL-G3 'Neon Reaper' is a rapid-fire plasma weapon mounted on the ECLIPSE. Firing at 1200 rounds per minute, it cauterizes tissue at the point of contact, preventing regenerative creatures from healing. The weapon is powered directly by the AREX-V4 Core and is effective against high-threat biological entities.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Neon Reaper pulse gun blueprint"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-014",
+    "name": "X-L4 Sol-Aether Laser Array",
+    "category": "Laser Weapon",
+    "thumbnail": "",
+    "shortDesc": "Continuous laser array for precision nerve and wing severance.",
+    "fullDesc": "The X-L4 'Sol-Aether' Laser Array is a continuous-emission laser system powered by the ECLIPSE's core. It is used for precision strikes against agile or evasive targets, capable of severing nerves or wings with minimal collateral damage.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Sol-Aether laser array schematic"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-015",
+    "name": "AGM-32 Goshawk Guided Missile",
+    "category": "Guided Missile",
+    "thumbnail": "",
+    "shortDesc": "Biological signature-tracking missile with electronic scent sensors.",
+    "fullDesc": "The AGM-32 'Goshawk' is a guided missile system that locks onto biological pheromones emitted by hostile creatures. It uses advanced electronic scent sensors to pursue targets based on emotional state, ensuring high hit probability against evasive threats.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Goshawk missile cutaway"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-016",
+    "name": "HS-16 Swarm Homing Missile",
+    "category": "Micro-Missile",
+    "thumbnail": "",
+    "shortDesc": "Sixteen-missile micro-pod for anti-parasite defense.",
+    "fullDesc": "The HS-16 'Swarm' is a micro-missile pod containing sixteen independently guided projectiles. Upon detonation, each missile disperses thousands of plasma-charged fragments, designed to neutralize swarms of parasitic entities.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Swarm missile pod schematic"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-017",
+    "name": "HX-01 Molten Javelin",
+    "category": "Special Weapon",
+    "thumbnail": "",
+    "shortDesc": "Drill-missile with molten core for internal destruction of mega-creatures.",
+    "fullDesc": "The HX-01 'Molten Javelin' is a unique finned missile that drills into a target and injects a 5000°C molten metal core, destroying the heart or energy core of mega-creatures from within. It is the ECLIPSE's ultimate anti-creature weapon, reserved for existential threats.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Molten Javelin cutaway"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-009",
+    "name": "AREX-V4 Aetherium Core",
+    "category": "Power Plant",
+    "thumbnail": "",
+    "shortDesc": "High-density Aetherium reactor core powering the ECLIPSE-class starfighter.",
+    "fullDesc": "The AREX-V4 is a next-generation Aetherium-Reactionary EXchanger Core, designed to convert liquid Aetherium into Aether-Plasma through high-velocity particle collisions. This process yields immense thermal and electromagnetic energy, enabling anti-gravity output and atmospheric resonance shielding. The core is the heart of the ECLIPSE-class starfighter, supporting VTOL, stealth, and kinetic shielding capabilities. Its passive resonance field hardens surrounding air molecules, reducing heat friction at supersonic speeds.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "AREX-V4 core schematic"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Echo Relay Network",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-010",
+    "name": "Integrated Litho Forge (ILF-Mobile)",
+    "category": "Fabrication System",
+    "thumbnail": "",
+    "shortDesc": "Molecular printer enabling real-time fabrication and self-repair for ECLIPSE.",
+    "fullDesc": "The Integrated Litho Forge (ILF-Mobile) is a molecular-level fabrication unit installed in the ECLIPSE-class starfighter. It prints railgun projectiles and missile components mid-flight using reactor waste heat. The Litho Forge also enables rapid self-repair by channeling Aether-Paste to damaged areas, hardening the material with precision lasers. The system can adapt armor composition based on environmental threats, ensuring optimal survivability in hostile zones.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Litho Forge fabrication process"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Echo Relay Network",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-011",
+    "name": "Authority Maneuver System (AMS)",
+    "category": "Flight Control",
+    "thumbnail": "",
+    "shortDesc": "Three-tiered flight control system manipulating local physics for advanced maneuvers.",
+    "fullDesc": "The Authority Maneuver System (AMS) is a revolutionary flight control suite for the ECLIPSE-class starfighter. It operates in three levels: Standard (aerodynamic surfaces), Tactical (vectoring thrusters and inertia dampening), and Null-Gravity (full anti-gravity control). AMS enables maneuvers such as instant stops, lateral strafing, and 180-degree rotations without altering flight path, crucial for evading high-speed predators on Gemora.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "AMS control interface"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Echo Relay Network",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-018",
+    "name": "Stellar Companion Pass",
+    "category": "Access Credential",
+    "thumbnail": "",
+    "shortDesc": "Single-issue paired credential. Currently held by Sora.",
+    "fullDesc": "The Stellar Companion pass is a paired access credential modeled on the Stellar Pass and issued solely to Sora. It mirrors most of the Stellar Pass's facility access but is logged independently and is not classified as fully unrestricted. The Companion pass exists because Sora is the only individual on record whose presence reliably keeps Sola on-objective; doctrine therefore treats Sora's access as a stabilizing function rather than a personal courtesy.\n\nOnly one Stellar Companion pass exists. It is not delegated, copied, or revoked. Personnel encountering the Companion pass in active use are instructed to acknowledge it without challenge and to address its holder as 'Lady Sora' in any operational exchange - see other-007 for protocol context.",
+    "docs": [],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  },
+  {
+    "id": "tech-019",
+    "name": "Amethys Frame",
+    "category": "Exo-Frame Platform",
+    "thumbnail": "",
+    "shortDesc": "Modular exo-frame designed for Jewerlian liquid-manipulators operating outside coastal zones.",
+    "fullDesc": "The Amethys Frame is a modular exo-frame developed by ENG Division to extend the operational envelope of Jewerlian liquid-manipulators away from natural water sources. Each frame carries a sealed reserve of Worldshard-treated brine that the wearer can shape into focused jets, shields, or restraints without depleting local moisture. The frame is named after the violet sheen of its primary plating, which is grown from cultured ametys-grade alloy.\n\nThe Amethys Frame is currently issued to a single non-personnel asset: Marine, on a strictly opt-in basis for surface escort duty. Logistics units must never request the frame on her behalf - it is staged at the Coral Reach forward depot and only handed off if Marine herself signals readiness.\n\n[L3+ track=mechanic]Engineering note: the brine reservoir uses a 0.7 GHz harmonic seal tuned to Jewerlian biosignatures. Tampering with the seal voids the resonance and renders the frame inert within 90 seconds. Service rotations are authorised by ENG L4 and logged under MOR-AMF-02.[/L3+]",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Amethys Frame plating sample"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Eng. Rho-7",
+      "team": "Engineering",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2025-03-01",
+      "approvedAt": "2025-04-12",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-04-12",
+          "notes": "Initial spec ratified."
+        }
+      ]
+    }
+  }
+]

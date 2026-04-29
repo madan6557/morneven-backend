@@ -1,0 +1,54 @@
+[
+  {
+    "id": "news-007",
+    "text": "Marine sighting reported off the Coral Reach",
+    "date": "2026-04-23",
+    "hasDetail": true,
+    "thumbnail": "",
+    "body": "A confirmed Marine sighting was logged at 14:22 by Logistics Patrol 03 along the outer Coral Reach. The Core Figure surfaced briefly to escort a supply caravan past a reef formation, then returned to the deep without further interaction.\n\nLogistics has filed a standard appreciation note. No follow-up is required. Personnel are reminded that approach is not solicited and visit attempts must not be coordinated through duty channels.",
+    "attachments": [
+      { "type": "link", "url": "/lore/characters/char-011", "caption": "Marine: Core Figure dossier" }
+    ]
+  },
+  {
+    "id": "news-008",
+    "text": "Amethys Frame branch review scheduled",
+    "date": "2026-04-22",
+    "hasDetail": true,
+    "thumbnail": "",
+    "body": "The Executive Board has scheduled the annual review of the Amethys Frame, the standing civilizational-scale contingency model authored by Ameth. Three of seven branches will be inspected in this cycle. Two branches remain non-reviewable in the absence of the author.\n\nAttendance is restricted to L4 Executive and above. Field and Mechanic representation may be requested by branch as needed.",
+    "attachments": [
+      { "type": "link", "url": "/lore/characters/char-007", "caption": "Ameth: Core Figure dossier" }
+    ]
+  },
+  {
+    "id": "news-001",
+    "text": "Patch 0.4.2 deployed for Project Aethon",
+    "date": "2026-04-10"
+  },
+  {
+    "id": "news-002",
+    "text": "New character concept art released: Kael Vorthane",
+    "date": "2026-04-12"
+  },
+  {
+    "id": "news-003",
+    "text": "Lore entry added: The Voidborn",
+    "date": "2026-04-08"
+  },
+  {
+    "id": "news-004",
+    "text": "Genesis Protocol enters planning phase",
+    "date": "2026-04-01"
+  },
+  {
+    "id": "news-005",
+    "text": "Stellarum Archives placed on hold (seismic activity)",
+    "date": "2025-12-20"
+  },
+  {
+    "id": "news-006",
+    "text": "Director Moonveil addresses annual assembly",
+    "date": "2026-03-15"
+  }
+]

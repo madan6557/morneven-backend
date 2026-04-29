@@ -1,0 +1,275 @@
+[
+  {
+    "id": "other-001",
+    "title": "Gemora Danger Level (DL) Scale",
+    "category": "World Systems",
+    "thumbnail": "",
+    "shortDesc": "Definitions for the Gemora 1-5 danger scale used to rate creatures, anomalies, and zones.",
+    "fullDesc": "The Gemora Danger Level (DL) is a 1-5 scale used by Morneven Institute to communicate the threat profile of any catalogued entity, zone, or anomaly.\n\nDL-1 - Negligible. Trained personnel may approach without escort.\nDL-2 - Cautionary. Standard PPE required; solo approach permitted.\nDL-3 - Hostile. Minimum two-operative team, ranged armament authorized.\nDL-4 - Lethal. Specialist field team only; containment doctrine in force.\nDL-5 - Existential. No approach is sanctioned; observation from secure orbit only.\n\nThe DL rating is reviewed quarterly and may be elevated unilaterally by any Director-tier officer. DL is independent of GEC classification - a low-classification entity can still earn a high DL if engaged carelessly.",
+    "docs": [],
+    "discussions": [
+      {
+        "id": "dc-other-001",
+        "author": "ops.delta",
+        "text": "Proposed a stricter wording for DL-3. @e.moonveil, please review.",
+        "date": "2026-04-23",
+        "mentions": [
+          {
+            "username": "e.moonveil",
+            "start": 38,
+            "end": 49
+          }
+        ],
+        "replies": [
+          {
+            "id": "dr-other-001",
+            "author": "e.moonveil",
+            "text": "Noted. Please sync with the field team, @ops.delta, before shift end.",
+            "date": "2026-04-23",
+            "mentions": [
+              {
+                "username": "ops.delta",
+                "start": 40,
+                "end": 50
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-002",
+    "title": "Gemora Entropy Classification (GEC) - Mark II",
+    "category": "World Systems",
+    "thumbnail": "",
+    "shortDesc": "The operational standard for categorizing anomalies by structural stability and elimination difficulty.",
+    "fullDesc": "The GEC system is the operational standard used by the Morneven Institute to categorize anomalies based on their structural stability and the tactical difficulty of their elimination. Each tier maps loosely to legacy SCP Foundation classifications, retained for cross-reference with pre-collapse archives.\n\n -  AMORPHOUS (Stable) - \nLow energy signature; passive and non-reactive to the environment.\nProtocol: Routine Survey. Periodic observation. Elimination only if obstructing expansion paths.\nLegacy equivalent: Safe.\n\n -  CRYSTALLINE (Reactive) - \nBegins forming attack/defense patterns. Shows collective intelligence or predatory instincts.\nProtocol: Tactical Analysis. Identify 'Fracture Points' via long-range observation before engagement.\nLegacy equivalent: Euclid.\n\n -  METAMORPHIC (Adaptive) - \nCapable of mutating or shifting energy frequencies when attacked. Highly unpredictable.\nProtocol: High-Intensity Suppression. Immediate, massive force application before the entity can adapt.\nLegacy equivalent: Keter.\n\n -  CATALYST (Symbiotic) - \nPossesses unique properties that stabilize or 'consume' energy from other anomalies.\nProtocol: Strategic Asset. Deployed to trigger decay in high-threat targets prior to military intervention.\nLegacy equivalent: Thaumiel.\n\n -  SINGULARITY (Critical) - \nDistorts physical laws (gravity/time). High potential for sector-wide collapse.\nProtocol: Sector Purge. Approach strictly prohibited. Observation from secure orbit only. Elimination currently impossible.\nLegacy equivalent: Apollyon.\n\n -  ZERO-STATE (Decayed) - \nStructure completely destroyed or permanently stripped of anomalous properties.\nProtocol: Confirmed Elimination. File closed. Residual materials processed for research or discarded.\nLegacy equivalent: Neutralized.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-004",
+    "title": "The Morneven Doctrine: Elimination Over Containment",
+    "category": "Doctrine",
+    "thumbnail": "",
+    "shortDesc": "Why the Institute rejects 'Secure, Contain, Protect' in favor of Observation, Neutralization, and Elimination.",
+    "fullDesc": "Unlike pre-apocalyptic frameworks that focused on 'Secure, Contain, Protect,' the Morneven Institute operates on a philosophy of Observation, Neutralization, and Elimination. This shift is driven by four core principles.\n\n -  A. The Law of Crystalline Entropy - \nIn the Gemora system, anomalies act like a spreading crystal growth. Containing them in a single facility creates a 'pressure cooker' effect - concentrating anomalous energy until it inevitably mutates or breaches. For Morneven, containment is merely a delayed catastrophe.\n\n -  B. Deep Space Resource Efficiency - \nMaintaining high-security containment sites across the void is logistically and energetically unsustainable. It is far more cost-effective to utilize those resources for permanent neutralization, ensuring that interstellar navigation routes remain 'clean' and predictable.\n\n -  C. Post-Apocalyptic Pragmatism - \nThe world has already suffered a total collapse due to the failures of old-world systems. Morneven believes that human survival depends on the removal of uncontrollable variables. If an entity is anomalous, it is a 'flaw' in the structure of reality that must be corrected through removal.\n\n -  D. Observation for Optimization - \nMorneven does not observe to 'understand' the life of an anomaly, but to find its Fracture Point. Every second of study is dedicated to finding the most efficient, low-cost method to shatter the entity's structure. We study the enemy solely to perfect the kill.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-005",
+    "title": "Personnel Level (PL) Clearance Matrix",
+    "category": "World Systems",
+    "thumbnail": "",
+    "shortDesc": "The L0–L6 access clearance scale used across Executive, Field, Mechanic, and Logistics divisions.",
+    "fullDesc": "The Personnel Level (PL) is the Morneven Institute's standardized access-clearance scale. It runs from L0 (lowest, external/guest) to L6 (highest, executive sovereign). PL governs facility access, intel visibility, and operational authority - it is NOT a social caste, salary band, or measure of personal worth. A senior technician (L5 Mechanic) and a Division Director (L5 Executive) hold equivalent clearance within their respective tracks.\n\nThe Institute recognizes four parallel career tracks, each with its own L0–L6 ladder:\n\n -  EXECUTIVE (Governance & Command) - \nL6 - Board of Trustees\nL5 - Division Director\nL4 - Senior Manager\nL3 - Project Lead\nL2 - Associate\nL1 - Intern / Assistant\nL0 - Visiting VIP\n\n -  FIELD PERSONNEL (Operations & Recon) - \nL6 - Global Operative\nL5 - Field Commander\nL4 - Squad Leader\nL3 - Specialist Agent\nL2 - Field Agent\nL1 - Trainee\nL0 - Consultant\n\n -  MECHANIC / TECH (Engineering & Sciences) - \nL6 - Chief Architect\nL5 - Lead Systems Engineer\nL4 - Senior Technician\nL3 - Maintenance Lead\nL2 - Junior Mechanic\nL1 - Apprentice\nL0 - External Contractor\n\n -  LOGISTICS (Supply & Distribution) - \nL6 - Supply Chain Sovereign\nL5 - Logistics Director\nL4 - Distribution Manager\nL3 - Warehouse Supervisor\nL2 - Fleet Operator\nL1 - Cargo Handler\nL0 - Delivery Vendor\n\n -  ACCESS NOTES - \n• L0 personnel require continuous escort by L2+ staff inside any restricted zone.\n• L3 is the minimum clearance to read unredacted GEC dossiers.\n• L5 is required to authorize a Sector Purge or activate DL-4+ engagement protocols.\n• L6 clearance carries cross-track override authority but is never delegated.\n\nPL is reviewed annually. Promotion between tracks (e.g. Field → Executive) requires Board ratification and resets the candidate one level below their previous PL during transition.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-003",
+    "title": "The Gemosphere",
+    "category": "Cosmology",
+    "thumbnail": "",
+    "shortDesc": "Overview of the crystalline atmospheric layer that defines post-apocalyptic Earth.",
+    "fullDesc": "The Gemosphere is the suspended crystalline particulate layer that replaced the lower stratosphere following the Final Resonance. It refracts sunlight into the characteristic violet dawns observed across all settled territories and is the source of the trace minerals that drove most post-event mutation events.\n\nUnderstanding the Gemosphere is foundational to nearly every Institute research vertical, from terraforming to Jewerlian metaphysics.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-006",
+    "title": "Morneven - Founding History",
+    "category": "History",
+    "thumbnail": "",
+    "shortDesc": "The oral history of how Morneven Institute came to bea - from the Fall of Peace to the War of Light, as recounted by the elders.",
+    "fullDesc": "The following account is preserved from the oral tradition first recorded by the Morneven Archive Corps. It is told as the elders tell it - to the children, in the evenings, when the violet dawn has finally faded.\n\n -  PART I · THE FALL OF PEACE - \nThe world was once a cradle of peace, until it was shattered by the greed and arrogance of those who held power. The rich and the mighty ignited wars for nothing but their own profit, and turned our tranquil home into a realm of suffocating dread.\n\nBut the Earth did not stay silent. The creatures that were once gentle grew fierce and wild, and the world once led by humanity was reclaimed by the fury of nature.\n\nWhile the powerful built machines to flee this dying planet instead of saving it, they abandoned the poor and the helpless to the brink of extinction. Those of us who remained fought with every breath to survive in a cruel new world. We learned quickly: in this wasteland, wealth and strength meant nothing. We survived on nothing but miracle and hope.\n\n -  PART II · THE MIRACLE OF HOPE - \nBut even hope began to fade. We were cornered, with nowhere left to run. Our kin fell one by one, giving everything just to protect what little we had left.\n\nIn our darkest hour, when despair finally took hold, we met them - shimmering entities in human form, though we knew at once they were something more. We didn't know their purpose or where they came from, only that they were not of this Earth. They took no sides - neither the creatures' nor ours - yet they reached out to help us. They struck down those dangerous beasts with a power that was unfathomable, a true miracle.\n\nIn a final act of desperation, we begged for their aid, praying they would not turn on us. We were ready for rejection. Instead, they offered us a pact: they were willing to help, but in exchange, they asked to share this planet as their new home. Of course, we agreed.\n\nFrom that day on, the sky rained with falling stars - our beacons of hope. We prayed for a miracle, for the return of our peaceful days. And more of them arrived. The Jewerlians. Yes, that is what we called them - for they were the entities who fell from the heavens like gems of hope.\n\n -  PART III · RECONSTRUCTION - \nOnce they had gathered their kind, they began to push back the hordes of creatures. They expanded the safe lands, giving us room to finally breathe. As time passed, we found safety again. A place where the little ones could roam without fear.\n\nBut then, the Jewerlians reached out once more. They said, \"We can protect you, but what is life if you cannot protect yourselves?\" They offered us the power to defend our own lives and everything we held dear. They taught us their knowledge, their technology, and the art of creation and combat.\n\nTogether, we rebuilt. We forged a new civilization, stronger and more resilient than the one before. We began to fix the wounds of this world - problems we once thought were impossible to solve. To heal this world, we sought their help once more, but this time we fought by their side as equals.\n\n -  PART IV · THE WAR OF LIGHT - \nThe day of reckoning arrived. The creatures gathered in numbers unseen, as if declaring a final stand. Years ago, we might have surrendered. But that day, we were ready. We knew the cost would be high. We knew not everyone would return from the front lines, but we knew we had to keep moving forward. We didn't just fight to survive; we fought to ensure our future.\n\n[L3+]As the battle reached its climax, the most terrifying of them all appeared: the Earth Dragon - a continental-scale entropic colossus whose bulk was indistinguishable from the bedrock itself. Pre-war GEC analysts now classify it retroactively as Singularity-tier; at the time, no classification framework could contain it.[/L3+]\n\nBut we did not cower. Not this time. We had friends and family standing with us. We unleashed everything we had. With the Jewerlians at our side, even the Dragon was wounded - but not yet broken.\n\n[L5+ track=field]To end the nightmare once and for all, we deployed our greatest instrument: Solar's Lens. Contrary to popular retellings, the strike was not a sacrificial casting. The Lens is an orbital adapter - a focusing apparatus stationed above the Gemosphere - engineered solely to channel, shape, and direct the kinetic and resonant output of a single caster onto a planetside target without rupturing the Gemosphere itself. It does not generate the strike; it merely refines what is poured into it, ensuring the planet survives what the target does not.\n\nThe Lens was, and remains, operated by a single Jewerlian: Sola. She is the only being whose output the Lens has ever been calibrated to handle. On the day of the War of Light, Sola alone fired the Pillar of Light through the Lens. No Jewerlian was harmed in its operation. The Pillar pierced the heavens, struck the Earth Dragon, and ended the war in a single sustained beat.[/L5+]\n\nThat day became known as the War of Light. We lost much in that war, but the victory gave us the peaceful world you live in today.\n\n -  PART V · THE FOUNDING OF MORNEVEN - \nIn the quiet years that followed, the survivors and the Jewerlians together drafted a charter to ensure the lessons of the Fall would never be forgotten. The Institute was named Morneven - for the violet dusk that follows every dawn - and was given a single, permanent mandate: to observe, to neutralize, and to remember.\n\nThe Institute you serve today is the direct descendant of that pact. The story is told to every child of the Institute on the night before they are issued their first clearance badge - so that they understand the weight of what they carry.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-007",
+    "title": "Sola - The Stellar Pass and the Unstoppable Doctrine",
+    "category": "Jewerlian Society",
+    "thumbnail": "",
+    "shortDesc": "Why the Institute treats Sola as a cosmological constant rather than a chain-of-command entry.",
+    "fullDesc": "Sola is the strongest Jewerlian recorded by the Morneven Archive Corps. She is also, technically, not in command of anything. The Institute's relationship with her is one of the more confusing entries in the personnel manual, and is therefore mandatory reading for every track above L1.\n\n -  LEADER WITHOUT A SEAT - \nThe other Jewerlians do not answer to Sola. Each acts on their own volition, settles their own disputes, and migrates as they please. Yet whenever Sola decides to do something - or merely expresses a passing interest in doing something - the rest of the Jewerlians fall in behind her without discussion. There is no decree, no vote, no ceremony. The pattern is consistent enough that Morneven now treats Sola's intent as a leading indicator for Jewerlian-wide behavior.\n\n -  THE STELLAR PASS - \nSola is the sole holder of the Stellar Pass: an unrestricted clearance token that overrides every door, vault, and observation cordon in any Morneven facility, including Forbidden Sectors. The Pass is not delegated, copied, or revoked. It exists because attempting to deny Sola access has, in field tests, produced a worse outcome than letting her in.\n\nIn practice, Sola almost never uses the Pass for anything operationally significant. She uses it to wander into Logistics for snacks, to drop into Mechanic bays to play with whatever is being assembled, and to occasionally nap on warm reactor housings. Personnel are instructed to continue working normally and offer her a seat.\n\n -  THE UNSTOPPABLE DOCTRINE - \nSola is, functionally, the embodiment of an unstoppable being. No weapon, restraint, or anomaly currently catalogued has produced a measurable effect on her. This is not a tactical assessment - it is the working assumption of every Morneven contingency plan. The Institute does not 'manage' Sola; it negotiates with her.\n\n -  THE NEGOTIATION PROTOCOL (a.k.a. the Chicken Drum Protocol) - \nSola can be redirected, delayed, or asked to leave a sensitive area through one method only: the offering of a small sealed box containing fried chicken drumsticks. The box is cosmetically nondescript and is referred to in all internal documentation as 'the Secret.' Sola treats the exchange with complete seriousness.\n\nCarry assignments are as follows:\n• L1 and L2 personnel are the standing carriers across all tracks.\n• L3 personnel may carry on rotation, especially when L1/L2 coverage is thin.\n• Logistics and Mechanic personnel of every level are instructed to carry one at all times during shift, because Sola's casual visits concentrate disproportionately in those two divisions (snacking and play, respectively).\n\n -  THE STEP-FORWARD SIGNAL - \nSola's default disposition is fooling around. She rarely acts with visible intent. The single, universally-recognized exception is referred to as the Step-Forward Signal: if Sola physically steps forward toward a developing situation, the situation is, by definition, catastrophic. Field doctrine states that any operative observing Sola step forward is to immediately broadcast a Code Aurora alert and clear the engagement zone - Sola has never moved forward on a problem that was survivable by conventional means.\n\n -  A NOTE FROM THE ARCHIVE CORPS - \nNew personnel often ask why a being of Sola's profile is permitted to wander the Institute unsupervised. The honest answer, recorded by Director Elynra and never amended: 'She was here before we were. The Institute is a guest in her hallway.'",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-008",
+    "title": "Solar's Lens - Orbital Adapter Doctrine",
+    "category": "World Systems",
+    "thumbnail": "",
+    "shortDesc": "Operational summary of the orbital focusing apparatus used to deliver the Pillar of Light.",
+    "fullDesc": "Solar's Lens is the orbital adapter that delivered the Pillar of Light strike during the War of Light. Public retellings often describe the Pillar as a sacrificial mass-casting; the operational record contradicts this.\n\n -  FUNCTION - \nThe Lens does not generate energy. It is a focusing and conditioning apparatus that accepts the resonant output of a single qualified caster, shapes it through layered Gemosphere-safe filtration, and delivers it as a coherent vertical beam onto a planetside target. Its primary engineering goal is preservation of the Gemosphere: an unfiltered strike of equivalent yield would shred the crystalline atmospheric layer and end every settled territory below.\n\n -  OPERATOR - \nThe Lens has only ever been calibrated to one operator: Sola. No other Jewerlian, and no human-augmented platform, has ever been certified to fire it. The Institute has not attempted to widen the operator pool, on the grounds that a second qualified operator is neither necessary nor obviously possible.\n\n -  SAFETY RECORD - \nNo Jewerlian has been harmed by operating the Lens, in either the War-of-Light deployment or any subsequent live-fire calibration. Casualty rumors associated with the Pillar refer to ground-line losses during the engagement that preceded the strike, not to the casting itself.\n\n -  STATUS - \nThe Lens remains in standing orbit. It has not been fired since the War of Light. Doctrine holds that any future authorization requires unanimous Board ratification and Sola's personal consent - neither of which has been requested in the modern era.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "other-009",
+    "title": "Personnel and Content Management System",
+    "category": "Management",
+    "thumbnail": "",
+    "shortDesc": "The clearance, review, and publication rules governing personnel accounts, track transfers, and lore submissions.",
+    "fullDesc": "The Morneven Institute's Personnel and Content Management System governs how members register, upgrade clearance, transfer tracks, submit content, and advance through institutional ranks. It exists to keep roleplay activity, content creation, and lore publication aligned with the Gemora Universe.\n\n -  REGISTRATION & TRACKS - \nNew personnel register with email, username, and password, and begin at PL1-GOV (Intern). Track transfers are handled through the Management menu under the Transfer tab, where the requesting member selects a target track and provides a reason for review by current track PL5 personnel.\n\n -  CLEARANCE RULES - \nPL1 personnel may only view available content. PL2 personnel gain upload access after requesting a clearance upgrade through the Management menu and agreeing to PL2 terms. PL2 members must contribute content at least once per month and submit work through Report Submission / Personal Project. Failure to meet the monthly quota results in demotion to PL1.\n\n -  SENIOR PERSONNEL - \nPL3 status requires at least one month at PL2 and a registered team of 2 to 5 members. PL3 members can apply for team projects, manage members with consent, and are required to complete one project per year. Team work is reviewed by PL4, and approved projects appear on the Project page. If the quota fails, the team is disbanded and the lead is demoted to PL2.\n\n -  SUPERVISION & UPLOAD PRIVILEGES - \nPL4 personnel must supervise two completed projects per year and may upload to the Gallery without review so long as the content still meets institutional criteria. Failure to supervise the annual quota results in one month of Access Restraint, with demotion to PL3 if the problem persists.\n\n -  DIRECTORIAL AUTHORITY - \nPL5 promotion is reserved for personnel who have already served as PL4, earned the Track Master title, and passed the Operational Test. PL5 officials handle conflict mediation, official asset approval, site announcements, and track transfers. PL6 personnel hold full authority within their track, must create events, and may be sanctioned for abuse of power. PL7 is the Author / Admin tier.\n\n -  CONTENT FLOW - \nGallery content comes from PL2 submissions that pass review, or direct uploads from PL4 and above. Project content is created by PL3 teams under PL4 supervision. Lore content is the final archive and is published only after approval by PL6 and PL7. The system is intended to preserve quality control while keeping the Gemora universe cohesive across all divisions.",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Writer Solen",
+      "team": "Lore Division",
+      "projectName": "Codex Gemora",
+      "startedAt": "2024-09-01",
+      "completedAt": "2024-12-01",
+      "approvedAt": "2024-12-15",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Codex entry approved."
+        }
+      ]
+    }
+  }
+]

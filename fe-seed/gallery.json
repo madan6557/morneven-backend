@@ -1,0 +1,117 @@
+[
+  {
+    "id": "gal-001",
+    "type": "image",
+    "title": "Kael Vorthane - Character Concept",
+    "thumbnail": "",
+    "caption": "Official character concept art for Kael Vorthane, Shadow Operative. Featuring his signature dark armor and dual-blade configuration.",
+    "tags": ["character", "concept-art", "kael"],
+    "date": "2026-04-12",
+    "uploadedBy": "author",
+    "comments": [
+      { "id": "c1", "author": "ArtFan42", "text": "The shadow effects on the armor are incredible!", "date": "2026-04-12", "replies": [
+        { "id": "r1", "author": "Author", "text": "Thank you! I used a layered transparency technique for that.", "date": "2026-04-12" }
+      ]},
+      { "id": "c2", "author": "SciFiLover", "text": "Reminds me of Ghost in the Shell aesthetics. Love it.", "date": "2026-04-13", "replies": [] }
+    ]
+  },
+  {
+    "id": "gal-002",
+    "type": "image",
+    "title": "Iron Citadel - Exterior View",
+    "thumbnail": "",
+    "caption": "Panoramic view of the Iron Citadel at sunset, showing the Spire of Echoes and the surrounding crystal-reinforced walls.",
+    "tags": ["environment", "citadel", "concept-art"],
+    "date": "2026-04-08",
+    "uploadedBy": "author",
+    "comments": [
+      { "id": "c3", "author": "WorldBuilder", "text": "The scale of this is breathtaking. How large is it supposed to be?", "date": "2026-04-09", "replies": [
+        { "id": "r2", "author": "Author", "text": "The Citadel spans roughly 12km in diameter. The Spire itself is about 800m tall.", "date": "2026-04-09" }
+      ]}
+    ]
+  },
+  {
+    "id": "gal-003",
+    "type": "video",
+    "title": "Gemora World Overview - Teaser",
+    "thumbnail": "",
+    "videoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "caption": "A brief teaser showcasing the world of Gemora, its landscapes, and the civilizations that inhabit it.",
+    "tags": ["world", "teaser", "animation"],
+    "date": "2026-03-30",
+    "uploadedBy": "author",
+    "comments": [
+      { "id": "c4", "author": "GemoraFan", "text": "Can't wait for the full series! The worldbuilding is top-tier.", "date": "2026-03-31", "replies": [] }
+    ]
+  },
+  {
+    "id": "gal-004",
+    "type": "image",
+    "title": "Elynra Moonveil - Director Portrait",
+    "thumbnail": "",
+    "caption": "Official portrait of Director Elynra Moonveil in her ceremonial Jewerlian robes, with the Morneven Institute emblem visible.",
+    "tags": ["character", "portrait", "elynra"],
+    "date": "2026-03-25",
+    "uploadedBy": "author",
+    "comments": []
+  },
+  {
+    "id": "gal-005",
+    "type": "image",
+    "title": "Ashford Repeater - Weapon Design",
+    "thumbnail": "",
+    "caption": "Technical illustration of the Ashford Repeater energy weapon, showing internal Worldshard crystal mechanism.",
+    "tags": ["technology", "weapon", "blueprint"],
+    "date": "2026-03-18",
+    "uploadedBy": "author",
+    "comments": []
+  },
+  {
+    "id": "gal-006",
+    "type": "video",
+    "title": "Character Turnaround - Rex Ashford",
+    "thumbnail": "",
+    "videoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "caption": "360-degree character turnaround animation for Rex Ashford, Lead Engineer.",
+    "tags": ["character", "animation", "rex"],
+    "date": "2026-03-10",
+    "uploadedBy": "author",
+    "comments": []
+  },
+  {
+    "id": "gal-007",
+    "type": "image",
+    "title": "Verdant Hollows - Night Scene",
+    "thumbnail": "",
+    "caption": "The bioluminescent trees of Verdant Hollows glowing under Gemora's twin moons.",
+    "tags": ["environment", "night", "forest"],
+    "date": "2026-03-05",
+    "uploadedBy": "author",
+    "comments": []
+  },
+  {
+    "id": "gal-008",
+    "type": "image",
+    "title": "Nexus Drive - Core Assembly",
+    "thumbnail": "",
+    "caption": "Close-up render of the Nexus Drive's core crystal array during activation sequence.",
+    "tags": ["technology", "render", "nexus"],
+    "date": "2026-02-28",
+    "uploadedBy": "author",
+    "comments": []
+  },
+  {
+    "id": "gal-009",
+    "type": "image",
+    "title": "Sola - Stellar Pass Holder",
+    "thumbnail": "",
+    "caption": "Sola, sole holder of the Stellar Pass and only certified operator of Solar's Lens. Photographed mid-stride during a routine Pantry visit. Note the relaxed posture - this is not the Step-Forward Signal.",
+    "tags": ["character", "jewerlian", "sola", "portrait"],
+    "date": "2026-04-22",
+    "uploadedBy": "author",
+    "comments": [
+      { "id": "c5", "author": "h.kato", "text": "Confirming sighting - she cleared three Secret boxes that afternoon. Pantry stocks holding.", "date": "2026-04-22", "replies": [] },
+      { "id": "c6", "author": "j.huang", "text": "She rerouted half a cooling loop on the MK-IV frame and then left. It actually worked better.", "date": "2026-04-22", "replies": [] }
+    ]
+  }
+]

@@ -1,0 +1,637 @@
+[
+  {
+    "id": "evt-001",
+    "title": "The Final Resonance",
+    "category": "Cataclysm",
+    "era": "Pre-Founding",
+    "dateLabel": "Year 0 · Day of the First Violet Dawn",
+    "scope": "Planetary",
+    "impactLevel": "Existential",
+    "thumbnail": "",
+    "shortDesc": "The atmospheric collapse that birthed the Gemosphere and ended the Old World.",
+    "fullDesc": "The Final Resonance is the working name for the cascade event that terminated the Old World and produced the Gemosphere. Over a single 36-hour window, the lower stratosphere crystallized into a suspended particulate layer, the global weather system reset, and roughly 71% of pre-event human population was lost - the majority within the first six hours.\n\n -  IMMEDIATE EFFECTS - \n• Permanent shift of the diurnal cycle to the now-characteristic violet dawn / dusk.\n• Near-total loss of long-range radio and pre-event satellite comms.\n• First documented appearances of what would later be classified as Crystalline and Metamorphic anomalies.\n\n -  LONG-TERM IMPACT - \nEvery doctrine the Institute holds today - DL scaling, GEC classification, the Elimination Over Containment posture - is downstream of this event. The Final Resonance is also the implicit zero-point of the Morneven calendar; all Institute dating is expressed as 'Years After Resonance' (YAR) in formal correspondence.",
+    "consequences": [
+      "Birth of the Gemosphere (see Lore · World Systems)",
+      "Collapse of pre-event nation-states and exit of the rich aboard the Ark fleet",
+      "Conditions for first Jewerlian arrival"
+    ],
+    "relatedLinks": [
+      {
+        "label": "The Gemosphere",
+        "url": "/lore/other/other-003"
+      },
+      {
+        "label": "Founding History",
+        "url": "/lore/other/other-006"
+      }
+    ],
+    "docs": [],
+    "discussions": [
+      {
+        "id": "dc-evt-001",
+        "author": "v.kessler",
+        "text": "Reminder for new analysts: 'Final Resonance' is the operational term. Pre-event civilian sources call it the Shattering. Both refer to the same 36-hour window.",
+        "date": "2026-03-04",
+        "replies": []
+      }
+    ],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-002",
+    "title": "First Contact - The Falling Stars",
+    "category": "Cataclysm",
+    "era": "Pre-Founding",
+    "dateLabel": "Year 2-7 YAR · Recurring meteor flux",
+    "scope": "Global",
+    "impactLevel": "Civilizational",
+    "thumbnail": "",
+    "shortDesc": "The arrival of the first Jewerlians and the pact that allowed humanity to survive the Reclamation.",
+    "fullDesc": "The first Jewerlians made contact during humanity's lowest ebb, after the wildlife reclamation had pushed the surviving population to the edge of extinction. The arrival was not announced. It was observed: shimmering humanoid silhouettes that descended through the Gemosphere as falling stars, struck no settlement, took no side, and then walked openly into the wastes to engage the most aggressive fauna directly.\n\nThe Pact of Sharing was negotiated within the first season of contact: Jewerlians would lend their power to push back the Reclamation, in exchange for the right to share the planet as a new home. The agreement has never been formally amended.\n\n -  WHY THIS EVENT MATTERS - \nFirst Contact is the founding partnership of every modern Institute doctrine. Every reference to 'Jewerlian assistance' in current operations doctrine traces back to the Pact of Sharing - a verbal, eternal agreement that pre-dates Morneven by decades and which the Board of Trustees considers non-negotiable.",
+    "consequences": [
+      "Pact of Sharing - the unamended foundational treaty",
+      "Onset of cooperative anomaly suppression",
+      "Eventual founding of Morneven (see The Founding Charter)"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Founding History",
+        "url": "/lore/other/other-006"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-003",
+    "title": "The War of Light",
+    "category": "Cataclysm",
+    "era": "Pre-Founding",
+    "dateLabel": "Year 14 YAR · Single-day decisive engagement",
+    "scope": "Continental",
+    "impactLevel": "Existential",
+    "thumbnail": "",
+    "shortDesc": "The decisive joint engagement against the Reclamation horde, ended by the Pillar of Light.",
+    "fullDesc": "The War of Light is the popular name for the single decisive engagement at the close of the Reclamation period. The combined defensive line of human survivors and Jewerlian operators held the front for the better part of a planetary day before the Earth Dragon - now retroactively classified Singularity-tier - emerged from the bedrock at the western flank.\n\nThe engagement was concluded by Sola alone, firing the Pillar of Light through Solar's Lens. Contrary to popular retellings, the Pillar was not a sacrificial casting; it was a focused channel through the orbital adapter, requiring no Jewerlian casualties.\n\n -  COMMEMORATION - \nWar of Light is observed annually as the institute holiday Day of Light (see evt-009). Field Division personnel of L3+ are issued a personal moment-of-silence at 14:00 local time on the anniversary.\n\n -  IMPACT ON DOCTRINE - \nThe War of Light is the single most-cited precedent in modern engagement doctrine. The phrase 'the line will hold' originates from the field-comms transcript of that day and is now stenciled inside the entry of every Field Division ready-room.",
+    "consequences": [
+      "End of the Reclamation period",
+      "Direct precedent for current Field Division engagement doctrine",
+      "Annual Day of Light observance"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Solar's Lens - Doctrine",
+        "url": "/lore/other/other-008"
+      },
+      {
+        "label": "Sola - Stellar Pass",
+        "url": "/lore/other/other-007"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-004",
+    "title": "The Founding Charter",
+    "category": "Institute Milestone",
+    "era": "Founding",
+    "dateLabel": "Year 16 YAR · Spring quarter",
+    "scope": "Institutional",
+    "impactLevel": "Civilizational",
+    "thumbnail": "",
+    "shortDesc": "Drafting and ratification of the Morneven Charter - the formal birth of the Institute.",
+    "fullDesc": "Two years after the War of Light, the surviving leadership of the human settlements and the Jewerlian council jointly drafted what is now simply called the Charter. It established Morneven as a permanent observation, neutralization, and remembrance body, named for the violet dusk that follows every dawn.\n\nThe Charter is the source of:\n• The four-track personnel structure (Executive, Field, Mechanic, Logistics)\n• The PL clearance ladder (L0-L7)\n• The Elimination Over Containment doctrine\n• The mandatory oral recital of the Founding History to every new clearance holder\n\nThe original document is held in the Archive Corps vault at Morneven Central. A facsimile is issued to every L4+ promotion ceremony.",
+    "consequences": [
+      "Establishment of the four-track structure",
+      "PL clearance matrix codified",
+      "Mandate for the Archive Corps"
+    ],
+    "relatedLinks": [
+      {
+        "label": "PL Clearance Matrix",
+        "url": "/lore/other/other-005"
+      },
+      {
+        "label": "Morneven Doctrine",
+        "url": "/lore/other/other-004"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-005",
+    "title": "Year of Lanterns - The Pantry Incident",
+    "category": "Incident",
+    "era": "Modern",
+    "dateLabel": "Year of Lanterns · Late-quarter shift change",
+    "scope": "Continental",
+    "impactLevel": "High - non-combat",
+    "thumbnail": "",
+    "shortDesc": "A failed snack handoff triggered a Step-Forward Signal alert, costing the Institute three days of continental productivity.",
+    "fullDesc": "During the Year of Lanterns, a routine shift change at Logistics Bay 4 ('The Pantry') resulted in a failed handoff of the standing Negotiation Protocol stock. Sola, mid-snack rotation, found the rotating carrier's box empty.\n\nField observers on the upper Pantry catwalk recorded Sola taking a single step forward toward the receiving counter. Per doctrine, that motion is the Step-Forward Signal - the universally-recognized indicator of a catastrophic developing situation. Code Aurora was broadcast across all settled territories within ninety seconds.\n\nThe full continental evacuation that followed lasted approximately three days. No casualties were recorded. No anomaly emerged. Post-incident review confirmed Sola was simply want fried chicken. She was offered a fresh Secret box on day two and the alert stood down.\n\n -  WHY THE INCIDENT MATTERS - \nThe Pantry Incident is the operational origin of the Pantry Continuity Initiative (see Projects). It is also cited in every L1 induction briefing as the reason every Logistics and Mechanic shift, regardless of level, carries a sealed Secret box at all times.",
+    "consequences": [
+      "Origin of the Pantry Continuity Initiative project",
+      "Standing carry mandate for Logistics and Mechanic personnel of all levels",
+      "Step-Forward Signal added to mandatory L1 induction reading"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Pantry Continuity Initiative",
+        "url": "/projects"
+      },
+      {
+        "label": "Logistics Bay 4 - The Pantry",
+        "url": "/lore/places"
+      },
+      {
+        "label": "Sola - Negotiation Protocol",
+        "url": "/lore/other/other-007"
+      }
+    ],
+    "docs": [],
+    "discussions": [
+      {
+        "id": "dc-evt-005",
+        "author": "ops.delta",
+        "text": "Three days of evacuation, zero casualties, one snack. Frame this and put it in the Pantry.",
+        "date": "2026-04-22",
+        "replies": [
+          {
+            "id": "dr-evt-005-1",
+            "author": "h.kato",
+            "text": "Already done. Bay 4 mess hall, north wall, behind the snack shelf - obviously.",
+            "date": "2026-04-22"
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-006",
+    "title": "Violet Veil - Activation Ceremony",
+    "category": "Institute Milestone",
+    "era": "Modern",
+    "dateLabel": "Day of First Cover · Annual observance",
+    "scope": "Continental",
+    "impactLevel": "Strategic",
+    "thumbnail": "",
+    "shortDesc": "Commissioning of the Violet Veil resonance net - the standing perimeter that defines the modern safe territories.",
+    "fullDesc": "The Violet Veil is the standing resonance net that maintains the perimeter around the modern settled territories. Its activation ceremony is observed annually as a working holiday: the net is briefly handed over to the Mechanic Division for end-to-end integrity verification while Field maintains a cold-standby cordon.\n\n -  WHY IT MATTERS - \nThe Veil is the reason the modern era is described as 'peaceful' rather than 'post-war'. Anomaly intrusion rates inside Veil coverage are roughly 3% of pre-Veil baseline. The activation ceremony reminds every track that the peace is a maintained system, not a permanent state.",
+    "consequences": [
+      "Annual full-stack integrity rehearsal",
+      "Cross-track joint operation drill (Mechanic + Field)",
+      "Public observance day inside Veil-covered cities"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Projects",
+        "url": "/projects"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-007",
+    "title": "Cataloguing Day",
+    "category": "Yearly Observance",
+    "era": "Modern",
+    "dateLabel": "Annual · Spring quarter",
+    "scope": "Institutional",
+    "impactLevel": "Cultural",
+    "thumbnail": "",
+    "shortDesc": "Institute-wide observance for the Archive Corps and every personnel-authored lore entry.",
+    "fullDesc": "Cataloguing Day is the annual observance honoring the Archive Corps and every contributor who has filed a lore entry, dossier, or oral-history fragment in the preceding year. Every track participates: Field submits engagement debriefs, Mechanic submits build-logs, Logistics submits rotation patterns, Executive submits charter amendments.\n\n -  TRADITIONS - \n• The Founding History is recited aloud in every facility's main hall at violet dusk.\n• L1 personnel issued their first clearance badge in the prior year stand at the front of the recital.\n• The Archive Corps publishes the Year-in-Review patch covering every newly catalogued anomaly, place, and technology.\n\nIt is the only observance during which Sola is reliably stationary - she traditionally attends the Morneven Central recital from the upper balcony.",
+    "consequences": [
+      "Mandatory recital of the Founding History",
+      "Archive Year-in-Review patch publication",
+      "L1 first-badge ceremony"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Founding History",
+        "url": "/lore/other/other-006"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-008",
+    "title": "Code Aurora - Standing Drill",
+    "category": "Yearly Observance",
+    "era": "Modern",
+    "dateLabel": "Quarterly · Unannounced exact time",
+    "scope": "Continental",
+    "impactLevel": "Operational",
+    "thumbnail": "",
+    "shortDesc": "Quarterly unannounced rehearsal of the Step-Forward Signal evacuation procedure.",
+    "fullDesc": "Code Aurora is the broadcast alert for a confirmed Step-Forward Signal. Because the real signal is observed perhaps once per generation, the procedure is rehearsed quarterly via unannounced drill. The exact day is not published; the quarter is.\n\nDrill scoring:\n• L1-L2 personnel are graded on time-to-shelter and Secret-box retention.\n• L3+ personnel are graded on broadcast accuracy and zone-clear leadership.\n• Logistics and Mechanic personnel are additionally scored on continuity of cold-storage and reactor-bay handover.\n\nFailure of a sector-level drill triggers a re-test within seven days. Two consecutive failures triggers a Charter-mandated audit.",
+    "consequences": [
+      "Quarterly drill cycle across all tracks",
+      "Audit trigger on repeated failure",
+      "Standing reason for the universal carry mandate of Secret boxes"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Sola - Step-Forward Signal",
+        "url": "/lore/other/other-007"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-009",
+    "title": "Day of Light",
+    "category": "Yearly Observance",
+    "era": "Modern",
+    "dateLabel": "Annual · Anniversary of the War of Light",
+    "scope": "Global",
+    "impactLevel": "Cultural",
+    "thumbnail": "",
+    "shortDesc": "Anniversary observance of the engagement that ended the Reclamation period.",
+    "fullDesc": "Day of Light is the annual observance commemorating the close of the War of Light. At 14:00 local time - the recorded moment the Pillar of Light was fired - every Institute facility holds a one-minute silence. Field Division L3+ personnel are issued a personal moment-of-silence regardless of duty.\n\nThe observance is followed in the evening by the violet-dusk procession, in which every track parades a single banner through the main hall. The Logistics banner traditionally carries a stitched outline of a Secret box - a visual joke that is now decades old and which no current personnel is willing to be the first to retire.",
+    "consequences": [
+      "Universal one-minute silence at 14:00 local",
+      "Violet-dusk procession and banner display",
+      "Re-recitation of the War of Light section of the Founding History"
+    ],
+    "relatedLinks": [
+      {
+        "label": "War of Light",
+        "url": "/lore/events/evt-003"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-010",
+    "title": "Sector 7 - Crystalline Bloom",
+    "category": "Incident",
+    "era": "Modern",
+    "dateLabel": "Year of Hollow Bells · Late summer",
+    "scope": "Sector",
+    "impactLevel": "High - combat",
+    "thumbnail": "",
+    "shortDesc": "Containment failure that produced the modern doctrine for Crystalline-tier engagement.",
+    "fullDesc": "The Sector 7 Crystalline Bloom was the first modern incident in which a Crystalline-tier (Reactive) anomaly developed measurable collective behaviour across an entire sector before observation could complete. A satellite field of seventeen sub-anomalies rotated in unison along a shared fracture frequency, producing an envelope effect that nullified standard ranged armament.\n\nThe response shifted Field Division engagement protocol from 'identify-then-engage' to 'identify-then-disengage-and-shape', the present-day standard. The phrase 'do not feed the lattice' originates from this incident.",
+    "consequences": [
+      "Modern Crystalline engagement doctrine",
+      "Mandatory pre-engagement spectral survey at L3+",
+      "Stand-up of the Lattice Suppression specialty within Field"
+    ],
+    "relatedLinks": [
+      {
+        "label": "GEC Mark II",
+        "url": "/lore/other/other-002"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-011",
+    "title": "Promotion Ceremony - Issuance of the First Badge",
+    "category": "Institute Milestone",
+    "era": "Modern",
+    "dateLabel": "Rolling · End of every quarter",
+    "scope": "Institutional",
+    "impactLevel": "Cultural",
+    "thumbnail": "",
+    "shortDesc": "The standing ceremony at which every newly promoted L1 receives their first clearance badge.",
+    "fullDesc": "At the close of every quarter, every facility holds a small ceremony at which newly promoted L1 personnel are issued their first clearance badge. The badge is handed over by the highest-ranking personnel currently on shift in the recipient's track - not necessarily the highest-ranking person in the facility.\n\nThe night before the ceremony, the recipient is required to sit through the full oral recital of the Founding History (see Lore · History). This is the only Institute requirement that is universally enforced regardless of track.\n\nThe ceremony is intentionally low-spectacle. The Charter holds that the badge itself - not the ceremony - is the recognition.",
+    "consequences": [
+      "Standing rolling promotion cadence",
+      "Universal Founding History recital requirement",
+      "Cross-track presence at every facility quarterly"
+    ],
+    "relatedLinks": [
+      {
+        "label": "PL Clearance Matrix",
+        "url": "/lore/other/other-005"
+      },
+      {
+        "label": "Founding History",
+        "url": "/lore/other/other-006"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "evt-012",
+    "title": "Charter Review - Decennial Audit",
+    "category": "Institute Milestone",
+    "era": "Modern",
+    "dateLabel": "Every ten years · Board-led",
+    "scope": "Institutional",
+    "impactLevel": "Strategic",
+    "thumbnail": "",
+    "shortDesc": "The standing decennial Board audit of the Founding Charter and every doctrine derived from it.",
+    "fullDesc": "Every ten years, the Board of Trustees convenes a full audit of the Founding Charter and every doctrine derived from it. The audit is the only mechanism by which the Charter may be amended; the Board has, to date, amended exactly two clauses in the Institute's history (the L7 promotion procedure, and the cross-track override clause).\n\nThe Pact of Sharing is excluded from audit by Charter clause. It is not amendable. The Jewerlian council does not attend the audit and has, in every prior cycle, declined formal invitation - a pattern Morneven now treats as the authoritative confirmation that the Pact stands.",
+    "consequences": [
+      "Sole channel for Charter amendment",
+      "Renewed publication of all derived doctrine",
+      "Standing exclusion of the Pact of Sharing from audit"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Founding History",
+        "url": "/lore/other/other-006"
+      }
+    ],
+    "docs": [],
+    "discussions": [],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Cross-referenced with newly recovered ledgers."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2025-01-15",
+        "notes": "Canonical event entry approved."
+      },
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "team": [
+        "Historian Cell"
+      ],
+      "projectName": "Archives Division",
+      "startedAt": "Chronicles of Gemora",
+      "completedAt": "2024-11-01",
+      "approvedAt": "2025-01-15",
+      "approvedBy": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  }
+]

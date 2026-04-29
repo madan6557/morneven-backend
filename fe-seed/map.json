@@ -1,0 +1,95 @@
+{
+  "mapImage": "",
+  "markers": [
+    {
+      "id": "mk-001",
+      "name": "The Iron Citadel",
+      "status": "safe",
+      "x": 0.42,
+      "y": 0.55,
+      "description": "Morneven Institute primary HQ. Full services and resupply available.",
+      "loreLink": "/lore/places/place-001"
+    },
+    {
+      "id": "mk-002",
+      "name": "Scorched Wastes",
+      "status": "danger",
+      "x": 0.7,
+      "y": 0.4,
+      "description": "DL-4 anomaly hot zone. No solo approach.",
+      "loreLink": "/lore/places/place-002"
+    },
+    {
+      "id": "mk-003",
+      "name": "Verdant Hollows",
+      "status": "caution",
+      "x": 0.22,
+      "y": 0.7,
+      "description": "Fae-touched settlement. Diplomatic clearance required.",
+      "loreLink": "/lore/places/place-003"
+    },
+    {
+      "id": "mk-004",
+      "name": "Choir Substrate",
+      "status": "restricted",
+      "x": 0.55,
+      "y": 0.78,
+      "description": "Confirmed Hollow Choir presence. Access prohibited.",
+      "loreLink": "/lore/creatures/crea-002"
+    },
+    {
+      "id": "mk-005",
+      "name": "Forbidden Sector 7",
+      "status": "restricted",
+      "x": 0.83,
+      "y": 0.62,
+      "description": "Annihilation Pattern Theta containment. No living personnel sanctioned to enter the inner ring.",
+      "loreLink": "/lore/places/place-004"
+    },
+    {
+      "id": "mk-006",
+      "name": "Logistics Bay 4 - The Pantry",
+      "status": "safe",
+      "x": 0.4,
+      "y": 0.5,
+      "description": "Citadel cold-storage and Secret-box distribution hub. Frequent Sola visits.",
+      "loreLink": "/lore/places/place-005"
+    },
+    {
+      "id": "mk-007",
+      "name": "Mechanic Bay 11 - The Playroom",
+      "status": "safe",
+      "x": 0.44,
+      "y": 0.52,
+      "description": "Mecha integration line. Standing Secret-box carry rule in effect.",
+      "loreLink": "/lore/places/place-006"
+    },
+    {
+      "id": "mk-008",
+      "name": "Tideglass Migration Corridor",
+      "status": "danger",
+      "x": 0.12,
+      "y": 0.3,
+      "description": "Known Tideglass Leviathan migration corridor. Shipping lanes routed around. DL-5.",
+      "loreLink": "/lore/creatures/crea-007"
+    },
+    {
+      "id": "mk-009",
+      "name": "Heliograph Plateau East",
+      "status": "caution",
+      "x": 0.62,
+      "y": 0.22,
+      "description": "Active Heliograph Spire cluster. Stay clear of beam vectors at violet dawn.",
+      "loreLink": "/lore/creatures/crea-010"
+    },
+    {
+      "id": "mk-010",
+      "name": "Stellar Anchor (Orbital)",
+      "status": "mission",
+      "x": 0.5,
+      "y": 0.08,
+      "description": "Geostationary platform hosting Solar's Lens. Permanently uncrewed. Approach treated as hostile.",
+      "loreLink": "/lore/places/place-007"
+    }
+  ]
+}

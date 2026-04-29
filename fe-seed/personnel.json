@@ -1,0 +1,162 @@
+[
+  {
+    "id": "psn-001",
+    "username": "author",
+    "email": "author@morneven.com",
+    "role": "author",
+    "level": 7,
+    "track": "executive",
+    "note": "Founder · Full Authority",
+    "updatedAt": "2026-01-01"
+  },
+  {
+    "id": "psn-002",
+    "username": "admin",
+    "email": "admin@morneven.com",
+    "role": "author",
+    "level": 7,
+    "track": "executive",
+    "note": "System administrator",
+    "updatedAt": "2026-01-01"
+  },
+  {
+    "id": "psn-003",
+    "username": "v.kessler",
+    "email": "v.kessler@morneven.com",
+    "role": "personel",
+    "level": 6,
+    "track": "executive",
+    "note": "Board of Trustees · oversees content + comment moderation",
+    "updatedAt": "2026-02-12"
+  },
+  {
+    "id": "psn-004",
+    "username": "m.varga",
+    "email": "m.varga@morneven.com",
+    "role": "personel",
+    "level": 6,
+    "track": "field",
+    "note": "Global Operative · creature & map intel",
+    "updatedAt": "2026-02-15"
+  },
+  {
+    "id": "psn-005",
+    "username": "s.okafor",
+    "email": "s.okafor@morneven.com",
+    "role": "personel",
+    "level": 6,
+    "track": "mechanic",
+    "note": "Chief Architect · technology vault",
+    "updatedAt": "2026-02-18"
+  },
+  {
+    "id": "psn-006",
+    "username": "h.kato",
+    "email": "h.kato@morneven.com",
+    "role": "personel",
+    "level": 5,
+    "track": "logistics",
+    "note": "Logistics Director · Pantry Continuity lead",
+    "updatedAt": "2026-02-20"
+  },
+  {
+    "id": "psn-007",
+    "username": "t.bremmer",
+    "email": "t.bremmer@morneven.com",
+    "role": "personel",
+    "level": 4,
+    "track": "field",
+    "note": "Squad Leader",
+    "updatedAt": "2026-03-01"
+  },
+  {
+    "id": "psn-008",
+    "username": "r.alves",
+    "email": "r.alves@morneven.com",
+    "role": "personel",
+    "level": 3,
+    "track": "executive",
+    "note": "Project Lead - onboarding cohort",
+    "updatedAt": "2026-03-05"
+  },
+  {
+    "id": "psn-009",
+    "username": "guest_visitor",
+    "email": "guest@morneven.com",
+    "role": "guest",
+    "level": 0,
+    "track": "executive",
+    "note": "External - escort required",
+    "updatedAt": "2026-03-10"
+  },
+  {
+    "id": "psn-010",
+    "username": "j.huang",
+    "email": "j.huang@morneven.com",
+    "role": "personel",
+    "level": 5,
+    "track": "mechanic",
+    "note": "Lead Systems Engineer · Bay 11 (Sola-frequent)",
+    "updatedAt": "2026-03-12"
+  },
+  {
+    "id": "psn-011",
+    "username": "n.osei",
+    "email": "n.osei@morneven.com",
+    "role": "personel",
+    "level": 4,
+    "track": "logistics",
+    "note": "Distribution Manager · Pantry rotation owner",
+    "updatedAt": "2026-03-14"
+  },
+  {
+    "id": "psn-012",
+    "username": "p.salim",
+    "email": "p.salim@morneven.com",
+    "role": "personel",
+    "level": 3,
+    "track": "field",
+    "note": "Specialist Agent · Hollow Choir engagement cleared",
+    "updatedAt": "2026-03-16"
+  },
+  {
+    "id": "psn-013",
+    "username": "e.ravel",
+    "email": "e.ravel@morneven.com",
+    "role": "personel",
+    "level": 2,
+    "track": "logistics",
+    "note": "Fleet Operator · standing Secret-box carrier",
+    "updatedAt": "2026-03-18"
+  },
+  {
+    "id": "psn-014",
+    "username": "a.koval",
+    "email": "a.koval@morneven.com",
+    "role": "personel",
+    "level": 2,
+    "track": "mechanic",
+    "note": "Junior Mechanic · standing Secret-box carrier",
+    "updatedAt": "2026-03-20"
+  },
+  {
+    "id": "psn-015",
+    "username": "i.stratos",
+    "email": "i.stratos@morneven.com",
+    "role": "personel",
+    "level": 1,
+    "track": "field",
+    "note": "Trainee · standing Secret-box carrier",
+    "updatedAt": "2026-03-22"
+  },
+  {
+    "id": "psn-016",
+    "username": "y.tanaka",
+    "email": "y.tanaka@morneven.com",
+    "role": "personel",
+    "level": 1,
+    "track": "executive",
+    "note": "Intern · clearance under review",
+    "updatedAt": "2026-03-25"
+  }
+]

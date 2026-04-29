@@ -1,0 +1,405 @@
+[
+  {
+    "id": "proj-001",
+    "title": "Project Aethon",
+    "status": "On Progress",
+    "thumbnail": "",
+    "shortDesc": "Development of the Aethon propulsion system for interstellar travel within the Gemora system.",
+    "fullDesc": "Project Aethon is Morneven Institute's flagship research initiative focused on developing a revolutionary propulsion system capable of navigating the volatile energy fields of Gemora. The project combines ancient Jewerlian crystal resonance technology with modern human engineering principles to create a hybrid drive system.\n\nThe Aethon Drive operates by harmonizing leyline energy currents with controlled antimatter reactions, producing a stable warp envelope that can traverse the dangerous Void Rifts between planetary systems.",
+    "patches": [
+      {
+        "version": "0.4.2",
+        "date": "2026-04-10",
+        "notes": "Stabilized crystal harmonic frequency output. Reduced energy bleed by 34%."
+      },
+      {
+        "version": "0.4.1",
+        "date": "2026-03-28",
+        "notes": "Integrated failsafe protocols for Void Rift navigation."
+      },
+      {
+        "version": "0.3.0",
+        "date": "2026-02-15",
+        "notes": "Initial prototype assembly complete. Preliminary test results promising."
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Aethon Drive schematic v3"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Crystal array configuration"
+      },
+      {
+        "type": "video",
+        "url": "",
+        "caption": "Test firing footage - Lab 7"
+      }
+    ],
+    "meta": {
+      "0": {
+        "version": "0.4",
+        "date": "2026-04-10",
+        "notes": "Stabilized crystal harmonic frequency. Logged 34% bleed reduction."
+      },
+      "1": {
+        "version": "0.3",
+        "date": "2026-02-15",
+        "notes": "Prototype assembly completed."
+      },
+      "2": {
+        "version": "0.1",
+        "date": "2025-08-12",
+        "notes": "Project chartered."
+      },
+      "creator": "Dr. Aelis Vance",
+      "owner": "Propulsion Division",
+      "designer": "Eng. Rho-7",
+      "team": [
+        "Eng. Rho-7",
+        "Cmdr. Halen"
+      ],
+      "projectName": "Lift Division",
+      "startedAt": "Project Aethon",
+      "completedAt": "2025-08-12",
+      "approvedBy": "2026-01-10",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "proj-002",
+    "title": "Worldshard Engine",
+    "status": "Planning",
+    "thumbnail": "",
+    "shortDesc": "Mapping and harnessing the Worldshard crystal network beneath Gemora's surface for sustainable energy.",
+    "fullDesc": "The Worldshard Engine project aims to tap into the ancient crystal network that runs beneath Gemora's crust. These crystals, remnants of the pre-apocalyptic Earth's core transformation, contain immense energy potential.\n\nMorneven researchers believe that by creating resonance nodes at key intersections of the crystal lattice, they can generate clean, virtually unlimited energy for all civilizations across Gemora.",
+    "patches": [
+      {
+        "version": "0.1.0",
+        "date": "2026-04-01",
+        "notes": "Initial survey data compiled. 47 potential resonance node locations identified."
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Crystal lattice survey map"
+      }
+    ],
+    "meta": {
+      "creator": "Worldshard Survey Group",
+      "owner": "Geo Division",
+      "designer": "Cartographer Lina",
+      "team": "Geo-Cartography",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2026-03-01",
+      "patchNotes": [
+        {
+          "version": "0.1",
+          "date": "2026-04-01",
+          "notes": "Initial survey data compiled."
+        }
+      ]
+    }
+  },
+  {
+    "id": "proj-003",
+    "title": "Stellarum Archives",
+    "status": "On Hold",
+    "thumbnail": "",
+    "shortDesc": "Digitization and preservation of pre-apocalypse Earth records recovered from deep vaults.",
+    "fullDesc": "The Stellarum Archives project is dedicated to recovering, digitizing, and preserving records from the pre-apocalypse era - what the people of Gemora call 'Modern Earth.' These documents, data drives, and artifacts provide crucial insights into the catastrophe that transformed Earth into Gemora.\n\nCurrently on hold due to instability in the excavation sites caused by recent seismic activity near the Northern Vault complex.",
+    "patches": [
+      {
+        "version": "0.2.1",
+        "date": "2025-12-20",
+        "notes": "Recovered 12,000 additional data fragments from Vault 7-B."
+      },
+      {
+        "version": "0.2.0",
+        "date": "2025-11-10",
+        "notes": "New decryption algorithm deployed for Ancient-format storage media."
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Vault 7-B entrance"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Recovered data crystal"
+      }
+    ],
+    "meta": {
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Archivist Solen",
+      "team": "Stellarum Archives",
+      "projectName": "Stellarum Archives",
+      "startedAt": "2024-11-04",
+      "approvedAt": "2025-02-20",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "0.2",
+          "date": "2025-09-30",
+          "notes": "Excavation paused — seismic instability."
+        },
+        {
+          "version": "0.1",
+          "date": "2024-11-04",
+          "notes": "Project chartered."
+        }
+      ]
+    }
+  },
+  {
+    "id": "proj-004",
+    "title": "Operation Nightfall",
+    "status": "Canceled",
+    "thumbnail": "",
+    "shortDesc": "Abandoned military defense initiative against Voidborn incursions along the Eastern Border.",
+    "fullDesc": "Operation Nightfall was a joint military-research initiative between Morneven Institute and the Eastern Coalition designed to create a defensive barrier against Voidborn incursions. The project was canceled after diplomatic channels proved more effective and the ethical implications of the weaponized leyline technology were deemed unacceptable.\n\nAll research data has been sealed under L5 clearance.",
+    "patches": [
+      {
+        "version": "0.1.3",
+        "date": "2025-09-05",
+        "notes": "Project officially canceled. All assets decommissioned."
+      }
+    ],
+    "docs": [],
+    "meta": {
+      "0": {
+        "version": "1.2",
+        "date": "2026-03-12",
+        "notes": "Expanded sub-vault rotation to 4 sites."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2024-12-01",
+        "notes": "Initiative ratified after the Pantry Incident."
+      },
+      "creator": "Cmdr. Halen",
+      "owner": "Field Operations",
+      "designer": "Quartermaster Bren",
+      "team": [
+        "Quartermaster Bren",
+        "Logistics Cell 3"
+      ],
+      "projectName": "Logistics Division",
+      "startedAt": "Pantry Continuity Initiative",
+      "completedAt": "2024-06-18",
+      "approvedBy": "2024-07-02",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "proj-005",
+    "title": "Genesis Protocol",
+    "status": "Completed",
+    "thumbnail": "",
+    "shortDesc": "Terraforming barren zones of Gemora using modified Jewerlian biotech to restore ecosystems.",
+    "fullDesc": "The Genesis Protocol is an ambitious terraforming initiative that seeks to restore life to the Scorched Wastes - vast barren zones created during the apocalypse. Using modified Jewerlian biological technology combined with Worldshard energy, the project aims to accelerate ecological recovery.\n\nEarly simulations show a 73% success rate for grassland restoration within a 5-year timeline.",
+    "patches": [],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Scorched Wastes aerial survey"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Biotech seed pod prototype"
+      }
+    ],
+    "meta": {
+      "creator": "Dr. Vey",
+      "owner": "Bio-Research",
+      "designer": "Dr. Vey",
+      "team": "Bio-Containment",
+      "projectName": "Verdant Quarantine",
+      "startedAt": "2025-04-22",
+      "patchNotes": [
+        {
+          "version": "0.3",
+          "date": "2026-01-15",
+          "notes": "Containment baffles upgraded to GEC Mark II spec."
+        }
+      ]
+    }
+  },
+  {
+    "id": "proj-006",
+    "title": "Project SOLSTICE",
+    "status": "On Progress",
+    "thumbnail": "",
+    "shortDesc": "Registry and beam-vector mapping of every known Heliograph Spire on Gemora.",
+    "fullDesc": "Project SOLSTICE is the Mechanic Division's standing registry of all known Heliograph Spires - the Catalyst-class crystal towers that capture violet-dawn refraction and release it as collimated daily energy beams. Each registered Spire is mapped, vector-charted, and integrated into the Violet Veil grid as an off-grid power relay.\n\nThe project's secondary mandate is hazard prevention: unregistered Spires have been responsible for two flash-vaporization incidents involving unbriefed handlers. SOLSTICE survey teams are dispatched the moment a candidate plateau is reported.",
+    "patches": [
+      {
+        "version": "1.2.0",
+        "date": "2026-04-18",
+        "notes": "Registry now contains 312 confirmed Spires across 41 plateaus."
+      },
+      {
+        "version": "1.1.0",
+        "date": "2026-02-02",
+        "notes": "Beam-vector overlay integrated into standard field HUD."
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Spire vector overlay sample"
+      }
+    ],
+    "meta": {
+      "creator": "Lt. Korr",
+      "owner": "Mechanic Corps",
+      "designer": "Eng. Tassia",
+      "team": "Mecha Forge",
+      "projectName": "MK-VII Frame",
+      "startedAt": "2025-12-01",
+      "patchNotes": [
+        {
+          "version": "0.2",
+          "date": "2026-04-22",
+          "notes": "Joint actuator stress test passed."
+        }
+      ]
+    }
+  },
+  {
+    "id": "proj-007",
+    "title": "Pantry Continuity Initiative",
+    "status": "On Progress",
+    "thumbnail": "",
+    "shortDesc": "Logistics-led standing supply program to keep every shift fully provisioned with sealed Secret boxes.",
+    "fullDesc": "The Pantry Continuity Initiative is the Logistics Division's standing program to ensure that every shift, in every Morneven facility, is fully provisioned with sealed Secret boxes (chicken-drum) in accordance with the Negotiation Protocol.\n\nThe project sounds light. It is not. A failed handoff during the Year of Lanterns produced a Step-Forward Signal alert that turned out to be Sola's response to a snack shortage rather than an actual catastrophe - but the resulting evacuation cost the Institute approximately three days of continental productivity. The Initiative now operates with the same uptime targets as the Violet Veil.",
+    "patches": [
+      {
+        "version": "3.4.1",
+        "date": "2026-04-15",
+        "notes": "Box rotation cycle reduced from 8h to 6h. Zero stockouts in current quarter."
+      },
+      {
+        "version": "3.4.0",
+        "date": "2026-03-01",
+        "notes": "Mechanic Bay 11 added to priority distribution tier."
+      }
+    ],
+    "docs": [],
+    "meta": {
+      "creator": "Comms Officer Nila",
+      "owner": "Communications",
+      "designer": "Eng. Rho-7",
+      "team": "Communications",
+      "projectName": "Echo Relay Network",
+      "startedAt": "2025-02-10",
+      "completedAt": "2026-03-30",
+      "approvedAt": "2026-04-05",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-03-30",
+          "notes": "Network operational — full continental coverage."
+        },
+        {
+          "version": "0.5",
+          "date": "2025-09-12",
+          "notes": "First long-range handshake achieved."
+        }
+      ]
+    }
+  },
+  {
+    "id": "proj-008",
+    "title": "Pillar Doctrine Review",
+    "status": "On Hold",
+    "thumbnail": "",
+    "shortDesc": "Quietly-shelved Board review on whether to recertify Solar's Lens for any future engagement.",
+    "fullDesc": "The Pillar Doctrine Review was opened by the Board of Trustees to formally evaluate whether Solar's Lens should be recertified for future engagement against Singularity-class entities. The review was placed on indefinite hold after the second session.\n\n[L5+ track=field]Internal minutes (sealed): the review stalled because no member of the Board was willing to be the one to formally request Sola's consent. The matter has not been raised again. The Lens remains in standing orbit, uncrewed, uncertified for new use.[/L5+]",
+    "patches": [
+      {
+        "version": "0.0.2",
+        "date": "2025-06-10",
+        "notes": "Review placed on indefinite hold pending operator availability."
+      }
+    ],
+    "docs": [],
+    "meta": {
+      "creator": "Dr. Aelis Vance",
+      "owner": "Propulsion Division",
+      "designer": "Eng. Rho-7",
+      "team": "Lift Division",
+      "projectName": "Project Aethon",
+      "startedAt": "2024-01-15",
+      "completedAt": "2025-07-22",
+      "approvedAt": "2025-08-01",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-07-22",
+          "notes": "Predecessor program closed; results migrated to Aethon."
+        }
+      ]
+    }
+  },
+  {
+    "id": "proj-009",
+    "title": "ECLIPSE-Class Starfighter",
+    "status": "On Progress",
+    "thumbnail": "",
+    "shortDesc": "The most advanced Jewerlian airframe, integrating Aetherium power, molecular fabrication, and adaptive flight control.",
+    "fullDesc": "ECLIPSE (Experimental Combat Liaison Intercept, Precision Strike, & Evacuation) is the pinnacle of Jewerlian aerospace engineering. Designed for air-to-air and air-to-ground supremacy. Powered by the AREX-V4 Aetherium Core with VTOL capability, stealth, and kinetic shielding. The integrated Litho Forge enables real-time ammunition fabrication and autonomous self-repair. The Authority Maneuver System allows for extreme maneuvers impossible for conventional aircraft. Equipped with the most advanced anti-creature weaponry.",
+    "patches": [
+      {
+        "version": "0.5.0",
+        "date": "2026-04-20",
+        "notes": "Prototype assembly complete. Initial flight tests scheduled for Q3."
+      },
+      {
+        "version": "0.4.0",
+        "date": "2026-02-10",
+        "notes": "AREX-V4 Aetherium Core successfully integrated and tested."
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "ECLIPSE-class starfighter schematic"
+      }
+    ],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Executive Office",
+      "designer": "Director Morneven",
+      "team": "Executive Office",
+      "projectName": "Institute Charter",
+      "startedAt": "2014-09-01",
+      "completedAt": "2015-01-01",
+      "approvedAt": "2015-01-15",
+      "approvedBy": "Council of Founders",
+      "patchNotes": [
+        {
+          "version": "3.1",
+          "date": "2025-12-01",
+          "notes": "Tenth amendment — added Pantry Continuity clause."
+        }
+      ]
+    }
+  }
+]

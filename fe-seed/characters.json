@@ -1,0 +1,782 @@
+[
+  {
+    "id": "char-001",
+    "name": "Kael Vorthane",
+    "race": "Demi-human (Shadow-kin)",
+    "height": "186 cm",
+    "traits": [
+      "Strategist",
+      "Cold-blooded",
+      "Loyal"
+    ],
+    "likes": [
+      "Silence",
+      "Ancient texts",
+      "Black tea"
+    ],
+    "dislikes": [
+      "Incompetence",
+      "Crowds",
+      "Bright light"
+    ],
+    "accentColor": "#4A90D9",
+    "thumbnail": "",
+    "shortDesc": "Shadow Operative and Chief Tactician of Morneven Institute's Field Division.",
+    "fullDesc": "Kael Vorthane is a Shadow-kin Demi-human who serves as the primary field operative and tactical advisor for Morneven Institute. Born in the Underdark Territories, he was recruited at age 16 after single-handedly neutralizing a Voidborn scouting party.\n\nHis Shadow-kin heritage grants him enhanced night vision, shadow-step capabilities, and an innate resistance to psychic intrusion. Despite his cold exterior, Kael is fiercely loyal to Director Elynra and the Institute's mission.\n\n[L3+]Sealed dossier: Kael's recruitment file documents three deniable operations conducted prior to formal enlistment, including the Vael-Tarn extraction (acknowledged casualties: 0; unacknowledged: 11). His shadow-step ceiling is currently rated at 42 m unassisted, with rig-augmented reach to 110 m. Standing kill-list authorization extends to all DL-4 entities without prior Director approval.[/L3+]",
+    "stats": {
+      "combat": 92,
+      "intelligence": 88,
+      "stealth": 97,
+      "charisma": 45,
+      "endurance": 76
+    },
+    "docs": [],
+    "occupation": "Chief Tactician - Field Division",
+    "contributions": [
+      {
+        "id": "ctr-001",
+        "title": "Operation Blacklight",
+        "description": "Led the covert extraction of three Morneven analysts from the Voidborn-occupied sector. Zero casualties, full intel package recovered.",
+        "date": "2024-08-12"
+      },
+      {
+        "id": "ctr-002",
+        "title": "Shadow-step Combat Doctrine",
+        "description": "Authored the Institute's standing manual on shadow-step engagement protocols, now mandatory training for all Field Division operatives.",
+        "date": "2025-01-30"
+      }
+    ],
+    "discussions": [
+      {
+        "id": "dc-char-001",
+        "author": "ops.delta",
+        "text": "Kael's night-mission briefing is ready. @h.kato, please run a final route check.",
+        "date": "2026-04-22",
+        "mentions": [
+          {
+            "username": "h.kato",
+            "start": 40,
+            "end": 47
+          }
+        ],
+        "replies": [
+          {
+            "id": "dr-char-001",
+            "author": "h.kato",
+            "text": "Route is clear. Sending the matrix to @ops.delta now.",
+            "date": "2026-04-22",
+            "mentions": [
+              {
+                "username": "ops.delta",
+                "start": 38,
+                "end": 48
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "0": {
+        "version": "1.1",
+        "date": "2026-02-08",
+        "notes": "Updated bio with post-Resonance activities."
+      },
+      "1": {
+        "version": "1.0",
+        "date": "2024-10-12",
+        "notes": "Canonical entry approved."
+      },
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Concept Artist Kiri",
+      "team": [
+        "Concept Artist Kiri",
+        "Writer Solen"
+      ],
+      "projectName": "Lore Division",
+      "startedAt": "Founders Codex",
+      "completedAt": "2024-09-01",
+      "approvedAt": "2024-10-12",
+      "approvedBy": "2024-10-20",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-002",
+    "name": "Elynra Moonveil",
+    "race": "Jewerlian",
+    "height": "172 cm",
+    "traits": [
+      "Visionary",
+      "Compassionate",
+      "Unyielding"
+    ],
+    "likes": [
+      "Crystal harmonics",
+      "Stargazing",
+      "Diplomatic discussions"
+    ],
+    "dislikes": [
+      "Violence",
+      "Deception",
+      "Waste of resources"
+    ],
+    "accentColor": "#9B59B6",
+    "thumbnail": "",
+    "shortDesc": "Director of Morneven Institute. A Jewerlian leader guiding cross-species cooperation.",
+    "fullDesc": "Director Elynra Moonveil is the founding leader of Morneven Institute and one of the most influential Jewerlians of her generation. She established the Institute with the vision of uniting Jewerlians, Humans, and Demi-humans under a shared pursuit of knowledge and peace.\n\nHer mastery of crystal resonance technology is unparalleled, and she personally oversees the most sensitive research projects. Under her leadership, Morneven has become a beacon of hope in a world still scarred by the apocalypse.",
+    "stats": {
+      "combat": 35,
+      "intelligence": 98,
+      "stealth": 30,
+      "charisma": 95,
+      "endurance": 60
+    },
+    "docs": [],
+    "occupation": "Director - Morneven Institute",
+    "contributions": [
+      {
+        "id": "ctr-003",
+        "title": "Founding Charter of Morneven",
+        "description": "Drafted and ratified the cross-species cooperation charter that established the Institute as a neutral research and defense body.",
+        "date": "2018-04-02"
+      },
+      {
+        "id": "ctr-004",
+        "title": "Crystal Resonance Lattice",
+        "description": "Personally designed the Institute's primary leyline-stabilization lattice, currently powering 70% of Morneven Central's anomaly containment grid.",
+        "date": "2022-11-19"
+      }
+    ],
+    "meta": {
+      "creator": "Writer Solen",
+      "owner": "Lore Division",
+      "designer": "Concept Artist Kiri",
+      "team": "Lore Division",
+      "projectName": "Founders Codex",
+      "startedAt": "2024-09-04",
+      "completedAt": "2024-10-15",
+      "approvedAt": "2024-10-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-003",
+    "name": "Rex Ashford",
+    "race": "Human",
+    "height": "180 cm",
+    "traits": [
+      "Reckless",
+      "Inventive",
+      "Humorous"
+    ],
+    "likes": [
+      "Explosions",
+      "Tinkering",
+      "Spicy food"
+    ],
+    "dislikes": [
+      "Bureaucracy",
+      "Sitting still",
+      "Formal events"
+    ],
+    "accentColor": "#E67E22",
+    "thumbnail": "",
+    "shortDesc": "Lead Engineer and head of Morneven's R&D Weapons Division.",
+    "fullDesc": "Rex Ashford is a human engineer whose genius is matched only by his disregard for safety protocols. He heads the Research & Development Weapons Division at Morneven Institute, responsible for developing defensive technologies against Voidborn threats.\n\nDespite numerous lab incidents (17 at last count), his innovations have saved countless lives. His signature creation, the 'Ashford Repeater,' is standard issue for all Institute field operatives.",
+    "stats": {
+      "combat": 65,
+      "intelligence": 91,
+      "stealth": 20,
+      "charisma": 78,
+      "endurance": 70
+    },
+    "docs": [],
+    "occupation": "Lead Engineer - R&D Weapons",
+    "meta": {
+      "creator": "Cmdr. Halen",
+      "owner": "Field Operations",
+      "designer": "Concept Artist Kiri",
+      "team": [
+        "Tactics Cell"
+      ],
+      "projectName": "Field Operations",
+      "startedAt": "Field Roster",
+      "completedAt": "2025-01-10",
+      "approvedAt": "2025-02-02",
+      "approvedBy": "2025-02-10",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-004",
+    "name": "Lyra Fenwick",
+    "race": "Demi-human (Fae-touched)",
+    "height": "160 cm",
+    "traits": [
+      "Empathic",
+      "Mysterious",
+      "Fierce"
+    ],
+    "likes": [
+      "Nature",
+      "Music",
+      "Healing"
+    ],
+    "dislikes": [
+      "Cruelty",
+      "Iron",
+      "Loud machinery"
+    ],
+    "accentColor": "#2ECC71",
+    "thumbnail": "",
+    "shortDesc": "Chief Medical Officer and leyline healer stationed at Morneven Central.",
+    "fullDesc": "Lyra Fenwick is a Fae-touched Demi-human who serves as the Chief Medical Officer of Morneven Institute. Her Fae heritage gives her an extraordinary connection to natural leyline energies, which she channels for healing purposes.\n\nShe can sense emotional states and physical ailments through touch, making her diagnostic abilities unmatched. However, prolonged exposure to heavy machinery and refined metals causes her significant discomfort - a common Fae-touched sensitivity.",
+    "stats": {
+      "combat": 30,
+      "intelligence": 85,
+      "stealth": 55,
+      "charisma": 90,
+      "endurance": 50
+    },
+    "docs": [],
+    "occupation": "Chief Medical Officer",
+    "meta": {
+      "creator": "Dr. Aelis Vance",
+      "owner": "Propulsion Division",
+      "designer": "Concept Artist Kiri",
+      "team": "Lift Division",
+      "projectName": "Project Aethon",
+      "startedAt": "2025-03-01",
+      "completedAt": "2025-04-12",
+      "approvedAt": "2025-04-20",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-005",
+    "name": "Sola",
+    "race": "Jewerlian",
+    "height": "Recorded variously at 158–161 cm; she does not stand still long enough to confirm.",
+    "traits": [
+      "Unstoppable",
+      "Playful",
+      "Energetic"
+    ],
+    "likes": [
+      "Fried chicken drumsticks",
+      "Logistics break rooms",
+      "New toys",
+      "Fish"
+    ],
+    "dislikes": [
+      "Being told no",
+      "Being interupted",
+      "John"
+    ],
+    "accentColor": "#F5A524",
+    "thumbnail": "",
+    "shortDesc": "Sole holder of the Stellar Pass and the only certified operator of Solar's Lens. Officially reports to no one.",
+    "fullDesc": "Sola is the strongest Jewerlian on record and the de facto leader of her kind - a status that exists by behavior rather than by appointment. Other Jewerlians make their own choices, but whenever Sola moves with intent, they move with her. The Morneven Archive Corps logs this as a phenomenon, not a hierarchy.\n\nShe holds the Stellar Pass, an unrestricted clearance token that overrides every door, vault, and observation cordon in every Morneven facility. She uses it almost exclusively to wander into Logistics for snacks and into Mechanic bays to play with whatever is currently being assembled. The Institute treats this as standard ambient activity.\n\nSola is functionally unstoppable - no catalogued weapon, restraint, or anomaly has produced a measurable effect on her. She can, however, be negotiated with: a small sealed box of fried chicken drumsticks (referred to internally as 'the Secret') will redirect her attention reliably. Standing carriers are L1 and L2 personnel across all tracks; L3 covers on rotation; Logistics and Mechanic personnel of every level carry one at all times during shift.\n\nHer default mode is fooling around. The single recognized exception - Field Doctrine designation 'Step-Forward Signal' - is when Sola physically steps forward toward a developing situation. She has never done so on a problem that was survivable by conventional means. Any operative who witnesses it is to broadcast Code Aurora and clear the engagement zone.\n\n[L5+ track=field]Sola is the sole certified operator of Solar's Lens, the orbital adapter that delivered the Pillar of Light during the War of Light. No second operator has ever been certified, and no attempt has been made - doctrine holds that the question is neither necessary nor obviously answerable. The Lens has not been fired since.[/L5+]",
+    "stats": {
+      "combat": 100,
+      "intelligence": 88,
+      "stealth": 40,
+      "charisma": 96,
+      "endurance": 100
+    },
+    "docs": [],
+    "occupation": "Stellar Pass Holder · Operator of Solar's Lens",
+    "contributions": [
+      {
+        "id": "ctr-005",
+        "title": "The Pillar of Light",
+        "description": "Sole caster of the Pillar of Light strike, delivered through Solar's Lens. Ended the War of Light in a single sustained beat. No Jewerlian harmed in operation.",
+        "date": "Year of the War of Light"
+      },
+      {
+        "id": "ctr-006",
+        "title": "Stellar Pass Charter",
+        "description": "Subject and sole holder of the Institute's only unrestricted clearance token. Charter ratified unanimously and never amended.",
+        "date": "Founding Era"
+      }
+    ],
+    "meta": {
+      "creator": "Quartermaster Bren",
+      "owner": "Logistics Division",
+      "designer": "Concept Artist Mavi",
+      "team": "Logistics Division",
+      "projectName": "Pantry Continuity Initiative",
+      "startedAt": "2024-12-05",
+      "completedAt": "2024-12-20",
+      "approvedAt": "2024-12-30",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-006",
+    "name": "Garnet",
+    "race": "Jewerlian (Core Figure)",
+    "height": "Unrecorded - Garnet has not asked, and no one has measured.",
+    "traits": [
+      "Quiet",
+      "Observant",
+      "Respected"
+    ],
+    "likes": [
+      "Swords",
+      "Training fields",
+      "Listening"
+    ],
+    "dislikes": [
+      "Idle chatter",
+      "Being interrupted mid-watch"
+    ],
+    "accentColor": "#b24034",
+    "thumbnail": "",
+    "shortDesc": "Jewerlian Core Figure. Quiet squad-leader and geo-material specialist with PL4-OPS clearance.",
+    "fullDesc": "Garnet is one of the twelve Jewerlian Core Figures. Her demeanor is famously calm - sometimes overwhelmingly so. Conversations with Garnet often consist of a 'yes,' a 'no,' or a long, considered silence; none of it is unfriendly. She is, by every account, easy to talk to as long as you do not need her to fill the air for you.\n\nHer ability is the manipulation of geo-materials and minerals. She wields a sword forged from compacted red mineral, though combat doctrine notes she does not actually require a weapon - she simply likes swords. Despite her quiet nature, Garnet enjoys being around others and most often takes the role of listener.\n\nShe holds PL4-OPS clearance. The level is modest on paper, but her standing among Jewerlians and field personnel is not. The clearance was issued because Garnet routinely visits training fields to observe drills and assist instructors, not by mandate or appointment. When she leads a squad - which she does often - she is regarded as one of the most reliable field commanders the Institute has ever fielded.\n\n[L3+ track=field]Garnet's mineral-manipulation envelope has never been formally bounded; field tests are halted whenever instructors feel they are 'imposing.' Squads under her command have a recorded mission-success rate of 100% across logged operations. No casualty has ever been attributed to a Garnet-led engagement.[/L3+]",
+    "stats": {
+      "combat": 90,
+      "intelligence": 80,
+      "stealth": 55,
+      "charisma": 78,
+      "endurance": 92
+    },
+    "docs": [],
+    "occupation": "Core Figure · Squad Leader (Field, by presence)",
+    "contributions": [
+      {
+        "id": "ctr-007",
+        "title": "Standing Field Mentorship",
+        "description": "Unscheduled, unending presence at training grounds. Credited by instructors as the single largest factor in Field Division retention.",
+        "date": "Ongoing"
+      }
+    ],
+    "meta": {
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Concept Artist Mavi",
+      "team": "Archives Division",
+      "projectName": "Stellarum Archives",
+      "startedAt": "2025-05-01",
+      "completedAt": "2025-05-30",
+      "approvedAt": "2025-06-05",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-007",
+    "name": "Ameth",
+    "race": "Jewerlian (Core Figure)",
+    "height": "Not on file. Ameth considers the question imprecise.",
+    "traits": [
+      "Brilliant",
+      "Cryptic",
+      "Curious"
+    ],
+    "likes": [
+      "Open research questions",
+      "Cross-discipline labs",
+      "Explainig"
+    ],
+    "dislikes": [
+      "Administrative seating",
+      "Being asked for short explanation"
+    ],
+    "accentColor": "#8E44AD",
+    "thumbnail": "",
+    "shortDesc": "Jewerlian Core Figure. Founding 'President' of Morneven turned Advisor. PL6-GOV.",
+    "fullDesc": "Ameth is the Jewerlian Core Figure most associated with Morneven's intellectual backbone. She was the pioneering organizer of the Institute and served as its first 'President', a title she accepted only long enough to stabilize the founding charter, and then handed off. Sitting in a chair of authority bored her; research did not.\n\nJewerlian society has no caste and no hierarchy. They simply follow specific reliable individuals, the ones Morneven documentation classifies as 'Core Jewerlians.' Ameth is one of them, and her contribution during the Dark Times was structural: she designed the resilience plans that allowed the civilization to survive, and authored the strategic frame for the War of Light that kept casualties at the lowest figure any post-war analyst has been able to model.\n\nShe currently holds PL6-GOV clearance, which she uses almost exclusively to wander into laboratories and divisions that interest her on a given day. She is approachable. Be warned, however: ask Ameth a question, and the answer will be technically correct, exhaustively complete, and not at all easy to parse on the first pass.\n\n[L4+ track=executive]Ameth's pre-war contingency models, internally referenced as the 'Amethys Frame' (formerly catalogued as 'Ameth Frame' before being renamed in her honor), remain the Institute's standing reference for civilizational-scale threat planning. The Amethys Frame is structured into seven branches; three have never been activated, and two cannot, by current understanding, be activated by anyone other than Ameth herself. The naming change was ratified administratively to prevent confusion with the author's name and to match the gemstone-derived convention used across other Core-authored doctrines.[/L4+]",
+    "stats": {
+      "combat": 55,
+      "intelligence": 100,
+      "stealth": 50,
+      "charisma": 82,
+      "endurance": 75
+    },
+    "docs": [],
+    "occupation": "Core Figure · Advisor (formerly Founding President)",
+    "contributions": [
+      {
+        "id": "ctr-008",
+        "title": "Founding Stabilization of Morneven",
+        "description": "Held the President's seat only long enough to ratify a survivable charter, then stepped down to Advisor by personal request.",
+        "date": "Founding Era"
+      },
+      {
+        "id": "ctr-009",
+        "title": "War of Light Strategic Frame",
+        "description": "Authored the casualty-minimization strategy that governed every Morneven engagement during the War of Light.",
+        "date": "War of Light"
+      },
+      {
+        "id": "ctr-016",
+        "title": "The Shard Procedure",
+        "description": "Designed and personally performed the unprecedented surgical intervention that stabilized Era and enabled her Litho Forge manipulation capacity.",
+        "date": "Recovery Era"
+      }
+    ],
+    "meta": {
+      "creator": "Lt. Korr",
+      "owner": "Mechanic Corps",
+      "designer": "Concept Artist Kiri",
+      "team": "Mecha Forge",
+      "projectName": "MK-VII Frame",
+      "startedAt": "2025-11-15",
+      "completedAt": "2025-12-10",
+      "approvedAt": "2025-12-15",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-008",
+    "name": "Diana",
+    "race": "Jewerlian (Core Figure)",
+    "height": "Recorded as 'unchanged.' She has not moved from the altar long enough for a second measurement.",
+    "traits": [
+      "Silent",
+      "Immovable",
+      "Unexpectedly gentle"
+    ],
+    "likes": [
+      "Children visiting the Chamber",
+      "Stillness",
+      "Quiet observation"
+    ],
+    "dislikes": [
+      "Threats to those under her watch"
+    ],
+    "accentColor": "#7cbbb6",
+    "thumbnail": "",
+    "shortDesc": "Jewerlian Core Figure. Telepathic Hub of the Jewerlian Chamber. The Embodiment of Immovable.",
+    "fullDesc": "Diana holds the position immediately after Sola among the Core Figures, and she is, in the most literal sense, silent. She is almost always found in the Jewerlian Chamber, a hall of massive pillars crowned with a single resonant crystal that responds to her, which legend holds to be part of her body. She stands at the center of the great altar, day and night, regardless of weather or season, serving as a guiding signal for Jewerlians who have not yet arrived at Gemora, helping them find their way to Morneven.\n\nDiana is widely assumed to be a defensive type, and she is, but her offense is unconventional. Where most defenders pull allies away from danger, Diana isolates the threat itself and crushes it inside its own pocket. Field personnel have learned not to offend her by accident. They have also learned that she is, when undisturbed, extraordinarily gentle: there are repeated reports of children entering the Chamber unsupervised and being treated with a kindness that has turned the location into what the locals now call 'the safest place in Gemora.' Families visit because the children play there. Diana, as a result, is not always alone.\n\nShe serves as the Jewerlian Telepathic Hub. Her catalogued abilities include transparent, indestructible barriers and the teleportation of herself or any chosen object or subject. Doctrine pairs her with Sola as an opposing constant: Sola is the Embodiment of Unstoppable, Diana is the Embodiment of Immovable. They share one trait: when either of them moves with intent, something significant is occurring.\n\nIt should be noted that because Jewerlians have the ability to share information, personnel are expected to be cautious when interacting with them, as information spreads rapidly through their network.\n\nShe carries a great sword at all times. Analysts believe it functions as a focusing catalyst rather than a weapon. Her eyes are closed for the majority of every observation, but she is recorded to open them when something genuinely catches her attention, or simply for the sake of looking. She holds no PL clearance and has never requested one. Morneven receives her without challenge; she arrives by teleporting into whichever room she chooses. Her arrival is itself the message.\n\n[L4+]Approved Chamber-experiment protocol: any test on Diana's barrier system requires her direct, unambiguous consent given on-site. No proxy authorization is valid. To date, three barrier-stress experiments have been authorized; all three concluded when Diana, without comment, dismissed the apparatus.[/L4+]",
+    "stats": {
+      "combat": 96,
+      "intelligence": 90,
+      "stealth": 60,
+      "charisma": 88,
+      "endurance": 100
+    },
+    "docs": [],
+    "occupation": "Core Figure · Jewerlian Telepathic Hub",
+    "contributions": [
+      {
+        "id": "ctr-010",
+        "title": "The Jewerlian Chamber",
+        "description": "Continuous presence at the Chamber altar. Functions as the standing telepathic relay for every Jewerlian operating outside Morneven Central.",
+        "date": "Ongoing"
+      },
+      {
+        "id": "ctr-011",
+        "title": "Safest Place in Gemora",
+        "description": "Emergent designation by local civilians. Children play in the Chamber unsupervised; no incident has ever been recorded inside its perimeter.",
+        "date": "Ongoing"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Rho-7",
+      "owner": "Engineering",
+      "designer": "Concept Artist Kiri",
+      "team": "Engineering",
+      "startedAt": "2025-07-04",
+      "completedAt": "2025-07-22",
+      "approvedAt": "2025-07-30",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-009",
+    "name": "Sora",
+    "race": "Jewerlian (Core Figure)",
+    "height": "Comparable to Sola; refuses formal measurement on the grounds that 'a lady does not.'",
+    "traits": [
+      "Calm",
+      "Composed",
+      "Deceptively firm"
+    ],
+    "likes": [
+      "'How to be a Lady' magazines",
+      "Being addressed politely",
+      "Snack"
+    ],
+    "dislikes": [
+      "Being treated like Sola",
+      "Rudeness",
+      "Snack negotiations going badly"
+    ],
+    "accentColor": "#127ef3",
+    "thumbnail": "",
+    "shortDesc": "Sola's twin and stabilizer. Holder of the Stellar Companion pass.",
+    "fullDesc": "Sora is Sola's twin and the calm counterpart to Sola's perpetual motion. Operationally, she is Sola's stabilizer - and the only individual on record whom Sola actually listens to. She is easy to interact with and possesses the full set of traits required to make Sola manageable in a shared room.\n\nThere is one rule. Sora prefers to be treated as a 'Fine Lady,' a preference she developed after accidentally finding a stack of 'How to be a Lady' magazines and reading every issue. Address her with the courtesy due to a lady and she will hear you out. If a Secret Box negotiation with Sola has gone sideways, Sora is the recommended fallback channel. Doctrine lists her as the second-line option before any escalation is even considered.\n\nShe follows Sola almost everywhere, separating only when asked to help test a new unit, prototype, or outfit - assignments she often accepts cheerfully, and which sometimes prompt Sola to insist on being a test subject as well. The twins are routinely cleared for high-risk testing because their survival ceiling is the highest the Institute has ever measured. Sora's role on these assignments is also stabilization: Sola has a famously short attention span and cannot be relied upon to reach an objective alone. With Sora present, the objective is reached. Field personnel report a measurable drop in ambient stress whenever the two are seen together.\n\nSora holds the 'Stellar Companion' pass - a credential modeled on the Stellar Pass and issued solely to her.\n\n[L3+ track=logistics]Standing Secret Box protocol escalation: if a primary Secret Box negotiation with Sola fails, route the situation through Sora before any other intervention. Address Sora as 'Lady Sora' in all such exchanges. This is not a courtesy note - it is the protocol.[/L3+]",
+    "stats": {
+      "combat": 95,
+      "intelligence": 92,
+      "stealth": 55,
+      "charisma": 95,
+      "endurance": 100
+    },
+    "docs": [],
+    "occupation": "Core Figure · Stellar Companion",
+    "contributions": [
+      {
+        "id": "ctr-012",
+        "title": "Sola Stabilization Doctrine",
+        "description": "Recognized as the only individual whose presence reliably keeps Sola on-objective. Standing pairing for any operation requiring sustained Sola engagement.",
+        "date": "Ongoing"
+      },
+      {
+        "id": "ctr-013",
+        "title": "High-Risk Test Subject Pairing",
+        "description": "Co-cleared with Sola as the Institute's highest-survivability test pair. Used for prototype units, outfits, and unclassified rigs.",
+        "date": "Ongoing"
+      }
+    ],
+    "meta": {
+      "creator": "Comms Officer Nila",
+      "owner": "Communications",
+      "designer": "Concept Artist Mavi",
+      "team": "Communications",
+      "projectName": "Echo Relay Network",
+      "startedAt": "2025-02-15",
+      "completedAt": "2025-03-05",
+      "approvedAt": "2025-03-12",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-010",
+    "name": "Era",
+    "race": "Human (Adopted by the Jewerlians)",
+    "height": "On file; updated annually by the Medical Office.",
+    "traits": [
+      "Quietly resilient",
+      "Curious"
+    ],
+    "likes": [
+      "Workshops",
+      "Sola's visit",
+      "Experiment"
+    ],
+    "dislikes": [
+      "Being asked about her past",
+      "John"
+    ],
+    "accentColor": "#6ea0aa",
+    "thumbnail": "",
+    "shortDesc": "Adopted Figure. Litho Forge specialist sustained by a shard of Sola's accumulated energy. PL6-ENG.",
+    "fullDesc": "Era is not a Jewerlian. The Jewerlians consider her family regardless. She was originally an ordinary girl whose hometown was destroyed in a stampede; Sola found her in the ruins in critical condition and brought her back to Morneven personally. Sola's affection for Era is documented and unmistakable, though the reason has never been explained, and no one - including Sora - has pressed the question.\n\nEra's condition deteriorated sharply during a period when Sola was away on a scouting deployment. To this day, it is Sola who functions as the vital support for Era's continued existence. Ameth intervened with a high-risk, unprecedented surgical procedure; the operation succeeded beyond projection. Era recovered, and emerged with molecular-manipulation abilities reminiscent of Sola's, though her control is constrained to a single material: Litho Forge.\n\nThe persistent rumor - neither confirmed nor denied at the executive level - is that Era was given a 'Shard' of Sola. Jewerlian physiology accumulates unspent energy in the chest cavity as a dense condensation that is often, incorrectly, assumed to be a heart. The rumor holds that Sola requested this shard transfer herself.\n\nEra holds PL6-ENG clearance. Her ability to shape Litho Forge - Morneven's primary structural and weaponized resource - makes her contribution to the Engineering track effectively foundational. A great deal about her remains under active research and validation. The Institute does not rush this work.\n\n[L5+ track=executive]Era-Sola dependency advisory: any operation that would separate Era from Sola for longer than the established interval requires direct executive sign-off and a contingency protocol filed in advance. The interval is not published in the standard clearance matrix.[/L5+]",
+    "stats": {
+      "combat": 70,
+      "intelligence": 90,
+      "stealth": 60,
+      "charisma": 78,
+      "endurance": 88
+    },
+    "docs": [],
+    "occupation": "Adopted Figure · Litho Forge Specialist (Engineering)",
+    "contributions": [
+      {
+        "id": "ctr-014",
+        "title": "Litho Forge Manipulation",
+        "description": "Sole non-Jewerlian on record capable of direct molecular manipulation of Litho Forge. Foundational to current Engineering output.",
+        "date": "Post-Surgery"
+      },
+      {
+        "id": "ctr-015",
+        "title": "The Shard Procedure",
+        "description": "Subject of Ameth's unprecedented surgical intervention. Outcome: full recovery and emergent molecular-manipulation capacity.",
+        "date": "Recovery Era"
+      }
+    ],
+    "meta": {
+      "creator": "Dr. Vey",
+      "owner": "Bio-Research",
+      "designer": "Concept Artist Kiri",
+      "team": "Bio-Containment",
+      "projectName": "Verdant Quarantine",
+      "startedAt": "2025-04-22",
+      "completedAt": "2025-05-15",
+      "approvedAt": "2025-05-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-011",
+    "name": "Marine",
+    "race": "Jewerlian (Core Figure)",
+    "height": "Unrecorded; she has never visited Morneven for measurement.",
+    "traits": [
+      "Serene",
+      "Elusive",
+      "Loyal"
+    ],
+    "likes": [
+      "Coral reefs",
+      "Deep-sea solitude",
+      "Singing"
+    ],
+    "dislikes": [
+      "Crowds at the shore",
+      "Being summoned",
+      "Being bothered",
+      "John"
+    ],
+    "accentColor": "#3b82c4",
+    "thumbnail": "",
+    "shortDesc": "Jewerlian Core Figure. Liquid manipulator and steward of Gemora's coastlines. No PL clearance.",
+    "fullDesc": "Marine is a Core Jewerlian renowned for her striking beauty: flawless skin and long, straight blue hair that resembles the reflection of the sky on the ocean. Beyond her appearance, she possesses an enchanting voice. She is typically found along coastlines, especially near coral reefs with high marine populations, owing to her exceptional mobility in water and her ability to manipulate liquids.\n\nReports indicate that she can communicate with sea creatures and walk on the surface of water. During breaks, many personnel head to the coast in hopes of meeting her (some hoping for her attention, though Jewerlians notably lack such romantic interests). Meeting Marine is mostly a matter of luck because she spends the vast majority of her time in the deep sea.\n\nThere is one certainty that brings her to the surface: Sola. Sola occasionally visits the coast because she loves fish and often asks Marine to perform shows using her liquid manipulation; Marine will always appear if Sola is the one calling. There was an instance where personnel attempted to exploit this connection to see her, which nearly triggered a serious issue for interfering with Sola's entertainment.\n\nMarine does not hold any PL clearance because she never visits Morneven, but she frequently assists or escorts logistics personnel when they are searching for resources in the waters.\n\n[L3+ track=logistics]Standing maritime cooperation note: Marine's escort presence is treated as a positive operational signal, not a callable resource. Logistics units are forbidden from formally requesting her assistance through duty channels. If she chooses to escort, brief her with concise updates and otherwise let her work.[/L3+]",
+    "stats": {
+      "combat": 88,
+      "intelligence": 82,
+      "stealth": 78,
+      "charisma": 92,
+      "endurance": 95
+    },
+    "docs": [],
+    "occupation": "Core Figure · Maritime Steward",
+    "contributions": [
+      {
+        "id": "ctr-017",
+        "title": "Coastal Logistics Cooperation",
+        "description": "Recurrent, unscheduled escort of Logistics expeditions in and around the Coral Reach. Standing record of zero submersion-related casualties on missions she has accompanied.",
+        "date": "Ongoing"
+      },
+      {
+        "id": "ctr-018",
+        "title": "Sola Liaison (Coastal)",
+        "description": "Sole reliable contact for Sola's coastal visits. Performs requested liquid-manipulation displays for Sola; doctrine treats this as a stabilizing recurrence, not a public event.",
+        "date": "Ongoing"
+      }
+    ],
+    "meta": {
+      "creator": "Eng. Tassia",
+      "owner": "Mechanic Corps",
+      "designer": "Concept Artist Mavi",
+      "team": "Mecha Forge",
+      "startedAt": "2026-01-08",
+      "completedAt": "2026-01-30",
+      "approvedAt": "2026-02-05",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-012",
+    "name": "John Halberd",
+    "race": "Human",
+    "height": "174 cm",
+    "traits": [
+      "Talkative",
+      "Over-enthusiastic",
+      "Surprisingly competent"
+    ],
+    "likes": [
+      "Checklist stickers",
+      "Snack corridors",
+      "Unscheduled \"quick improvements\""
+    ],
+    "dislikes": [
+      "Awkward silence",
+      "Being ignored",
+      "Forms that say 'Do not touch'"
+    ],
+    "accentColor": "#869c93",
+    "thumbnail": "",
+    "shortDesc": "Logistics Support Coordinator known for useful fixes delivered at the worst possible timing. PL2-LOG.",
+    "fullDesc": "John Halberd serves in Logistics Support as a floating coordinator assigned to route balancing, bay turnover, and low-priority process cleanup. His file records above-average completion rates and below-average situational restraint. He holds PL2-LOG clearance, limited to operational logistics lanes and support-adjacent facilities. When John identifies an inefficiency, he tends to solve it immediately, regardless of whether the room is currently in briefing, calibration, or controlled silence.\n\nThis behavior has produced a distinct institutional pattern: many departments appreciate his outcomes, while specific high-sensitivity personnel strongly prefer distance. John has repeatedly entered the edges of restricted workflows with unrequested 'help,' then exited with the task technically improved and the atmosphere significantly worse. No major incident has been attributed to him, but minor operational friction around his presence is considered persistent and predictable.\n\nThe Sola-Era-Marine overlap in negative preference indexing is documented with specific causes. Marine's objection is behavioral: John repeatedly seeks attention during coastal downtime and attempts to insert himself into moments where silence is preferred. Sola's objection is incident-based: John interrupted her while she was watching one of Marine's liquid-manipulation shows, an event now referenced in logistics notes as a preventable etiquette failure. Era's objection is associative rather than direct; because Sola does not want John near her priority spaces, Era mirrors that boundary by default. Current doctrine does not classify John as hostile, unstable, or malicious. He is classified as 'timing-risk, human-factor type B': high utility, high interruption probability.\n\n[L2+ track=logistics]Standing handling note: if John appears in an active high-sensitivity lane, assign him one bounded micro-task and a clear completion exit. Unassigned presence leads to improvisation. Improvisation leads to new process notes. The process notes are usually correct.[/L2+]",
+    "stats": {
+      "combat": 28,
+      "intelligence": 81,
+      "stealth": 34,
+      "charisma": 67,
+      "endurance": 72
+    },
+    "docs": [],
+    "occupation": "Logistics Support Coordinator",
+    "contributions": [
+      {
+        "id": "ctr-019",
+        "title": "Turnover Loop Compression",
+        "description": "Reworked handoff markers across three logistics corridors, reducing average bay-reset latency by 19% over one quarter.",
+        "date": "2025-09-14"
+      },
+      {
+        "id": "ctr-020",
+        "title": "Emergency Snack Routing Patch",
+        "description": "During a supply-map mismatch, rerouted culinary deliveries to preserve standing Secret Box distribution without schedule collapse.",
+        "date": "2026-02-03"
+      }
+    ],
+    "meta": {
+      "creator": "Cartographer Lina",
+      "owner": "Geo Division",
+      "designer": "Concept Artist Mavi",
+      "team": "Geo-Cartography",
+      "projectName": "Worldshard Engine",
+      "startedAt": "2026-03-01",
+      "completedAt": "2026-03-25",
+      "approvedAt": "2026-04-02",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "char-013",
+    "name": "Mira Halden",
+    "race": "Human",
+    "height": "169 cm",
+    "traits": [
+      "Composed",
+      "Diplomatic",
+      "Meticulous"
+    ],
+    "likes": [
+      "Accurate maps",
+      "Quiet briefing rooms",
+      "Mutual agreements"
+    ],
+    "dislikes": [
+      "Ambiguous orders",
+      "Symbolic hostility",
+      "Wasted aid shipments"
+    ],
+    "accentColor": "#b7579e",
+    "thumbnail": "",
+    "shortDesc": "Commons Coordinator and cross-settlement liaison for Morneven's civilian corridors. PL4-GOV.",
+    "fullDesc": "Mira Halden serves as Morneven's Commons Coordinator, responsible for maintaining stable relations between the Institute and external human settlements. Recruited from a post-war convoy network, she was brought in after repeatedly resolving supply disputes without security escalation.\n\nHer specialty is operational diplomacy: translating strategic directives into language and timelines that civilian councils can accept, then converting local constraints back into executable Institute plans. She holds PL4-GOV clearance for cross-division administrative access, but does not carry combat authority.\n\nWithin Morneven, Mira is known for reducing friction before it becomes incident. She coordinates delegation routes, allocates neutral meeting windows, and enforces documentation standards that prevent mission drift between Logistics, Executive, and Field support lanes.\n\n[L3+ track=executive]Mira maintains the Quiet Corridor Protocol, a contingency channel used when external settlements require aid while refusing visible Institute security presence. The protocol has prevented three projected border flashpoints from escalating into armed conflict.[/L3+]",
+    "stats": {
+      "combat": 32,
+      "intelligence": 89,
+      "stealth": 51,
+      "charisma": 86,
+      "endurance": 68
+    },
+    "docs": [],
+    "occupation": "Commons Coordinator · External Liaison Office",
+    "contributions": [
+      {
+        "id": "ctr-021",
+        "title": "Quiet Corridor Protocol",
+        "description": "Authored and deployed a low-visibility aid-delivery framework for high-tension border settlements, reducing armed escort incidents across three sectors.",
+        "date": "2025-12-08"
+      },
+      {
+        "id": "ctr-022",
+        "title": "Delegation Window Standard",
+        "description": "Standardized cross-species delegation timing and venue rules, cutting negotiation cancellations by 41% over two reporting cycles.",
+        "date": "2026-03-17"
+      }
+    ],
+    "meta": {
+      "creator": "Council of Founders",
+      "owner": "Lore Division",
+      "designer": "Concept Artist Kiri",
+      "team": "Lore Division",
+      "projectName": "Founders Codex",
+      "startedAt": "2024-09-10",
+      "completedAt": "2024-10-30",
+      "approvedAt": "2024-11-05",
+      "approvedBy": "Director Morneven"
+    }
+  }
+]

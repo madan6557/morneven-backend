@@ -1,0 +1,229 @@
+[
+  {
+    "id": "place-001",
+    "name": "The Iron Citadel",
+    "type": "Fortress City",
+    "thumbnail": "",
+    "shortDesc": "Morneven Institute's primary headquarters, built into the remains of an ancient megastructure.",
+    "fullDesc": "The Iron Citadel is a massive fortress-city constructed within and around the skeletal remains of a pre-apocalypse megastructure. It serves as the primary headquarters for Morneven Institute and houses over 50,000 residents including researchers, soldiers, and civilians.\n\nThe Citadel's walls are reinforced with Worldshard crystal lattices, making them nearly impervious to conventional weaponry. At its center stands the Spire of Echoes, a towering structure that serves as both a communications hub and a leyline resonance amplifier.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Iron Citadel aerial view"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "The Spire of Echoes"
+      }
+    ],
+    "discussions": [
+      {
+        "id": "dc-place-001",
+        "author": "h.kato",
+        "text": "Perimeter status remains stable. @j.huang, can you recheck the east relay?",
+        "date": "2026-04-22",
+        "mentions": [
+          {
+            "username": "j.huang",
+            "start": 33,
+            "end": 41
+          }
+        ],
+        "replies": [
+          {
+            "id": "dr-place-001",
+            "author": "j.huang",
+            "text": "East relay confirmed stable, @h.kato, all clear.",
+            "date": "2026-04-22",
+            "mentions": [
+              {
+                "username": "h.kato",
+                "start": 29,
+                "end": 36
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Cartographer Lina",
+      "team": "Geo-Cartography",
+      "projectName": "Atlas of Gemora",
+      "startedAt": "2024-10-01",
+      "completedAt": "2024-11-12",
+      "approvedAt": "2024-11-20",
+      "approvedBy": "Director Morneven",
+      "patchNotes": [
+        {
+          "version": "1.2",
+          "date": "2026-01-04",
+          "notes": "Annotated post-Resonance landmarks."
+        },
+        {
+          "version": "1.0",
+          "date": "2024-11-12",
+          "notes": "Initial canon entry."
+        }
+      ]
+    }
+  },
+  {
+    "id": "place-002",
+    "name": "The Scorched Wastes",
+    "type": "Barren Zone",
+    "thumbnail": "",
+    "shortDesc": "A vast expanse of lifeless terrain created by the apocalypse that transformed Earth into Gemora.",
+    "fullDesc": "The Scorched Wastes stretch across what was once the central plains of a pre-apocalypse continent. The cataclysm that created Gemora left this region completely devoid of life - the soil is crystallized, the atmosphere is thin, and strange energy anomalies pulse beneath the surface.\n\nDespite its hostile nature, the Wastes are rich in Worldshard crystal deposits, making it a target for mining operations and the site of the Genesis Protocol terraforming project.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Scorched Wastes horizon"
+      }
+    ],
+    "meta": {
+      "creator": "Cartographer Lina",
+      "owner": "Geo Division",
+      "designer": "Cartographer Lina",
+      "team": "Geo-Cartography",
+      "projectName": "Atlas of Gemora",
+      "startedAt": "2024-11-01",
+      "completedAt": "2024-12-04",
+      "approvedAt": "2024-12-10",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "place-003",
+    "name": "Verdant Hollows",
+    "type": "Forest Settlement",
+    "thumbnail": "",
+    "shortDesc": "A Fae-touched settlement hidden within an ancient forest untouched by the apocalypse.",
+    "fullDesc": "The Verdant Hollows is one of the few regions of Gemora that survived the apocalypse relatively intact. This ancient forest is home to a community of Fae-touched Demi-humans who have maintained a symbiotic relationship with the natural leyline network.\n\nThe trees themselves are imbued with leyline energy, glowing faintly at night and producing a natural barrier against Voidborn intrusion. Morneven Institute maintains a small research outpost at the forest's edge with permission from the Fae-touched elders.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Bioluminescent forest canopy"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Fae-touched elder council chamber"
+      }
+    ],
+    "meta": {
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Concept Artist Mavi",
+      "team": "Archives Division",
+      "projectName": "Stellarum Archives",
+      "startedAt": "2025-01-15",
+      "completedAt": "2025-02-22",
+      "approvedAt": "2025-03-01",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "place-004",
+    "name": "Forbidden Sector 7",
+    "type": "Quarantine Zone",
+    "thumbnail": "",
+    "shortDesc": "The collapsed Jewerlian cathedral that hosts Annihilation Pattern Theta. Approach is sanctioned for no living personnel.",
+    "fullDesc": "Forbidden Sector 7 is the standing designation for the collapsed Jewerlian cathedral that contains Annihilation Pattern Theta. The sector perimeter is maintained by an automated counter-resonance bombardment system at a standing operational cost of twelve Institute operatives per quarter - the operators rotate, but the role is permanent.\n\n[L3+]Sector 7 is the Institute's single largest standing expenditure. Doctrine holds that any breach in the bombardment grid renders Gemora's eastern hemisphere uninhabitable within 72 hours. No living personnel are sanctioned to enter the inner ring under any clearance, including L7. The Stellar Pass is the only credential ever observed to have crossed the inner ring; its holder declined to comment on what she saw.[/L3+]",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Sector 7 outer ring - counter-resonance grid"
+      }
+    ],
+    "meta": {
+      "creator": "Quartermaster Bren",
+      "owner": "Logistics Division",
+      "designer": "Concept Artist Mavi",
+      "team": "Logistics Division",
+      "projectName": "Pantry Continuity Initiative",
+      "startedAt": "2024-12-22",
+      "completedAt": "2025-01-15",
+      "approvedAt": "2025-01-22",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "place-005",
+    "name": "Logistics Bay 4 - 'The Pantry'",
+    "type": "Support Facility",
+    "thumbnail": "",
+    "shortDesc": "Morneven Central's primary cold-storage and distribution bay. Sola's most frequent unscheduled stop.",
+    "fullDesc": "Logistics Bay 4, known across the Institute as 'The Pantry,' is Morneven Central's primary cold-storage and distribution facility. It services every Citadel mess hall and every outpost supply rotation.\n\nIt is also Sola's single most frequent unscheduled visit. Bay personnel of every level - including the L0 vendor rotation - are instructed to maintain a sealed Secret box on their person at all times during shift, in accordance with the standing Negotiation Protocol. The Bay maintains an internal joke-but-serious dashboard tracking 'Days Since Last Sola Visit.' It rarely exceeds three.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Bay 4 distribution floor"
+      }
+    ],
+    "meta": {
+      "creator": "Cartographer Lina",
+      "owner": "Geo Division",
+      "designer": "Cartographer Lina",
+      "team": "Geo-Cartography",
+      "projectName": "Atlas of Gemora",
+      "startedAt": "2025-04-01",
+      "completedAt": "2025-05-10",
+      "approvedAt": "2025-05-18",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "place-006",
+    "name": "Mechanic Bay 11 - 'The Playroom'",
+    "type": "Engineering Workshop",
+    "thumbnail": "",
+    "shortDesc": "Open-floor mecha assembly bay where in-progress frames are routinely 'inspected' by Sola.",
+    "fullDesc": "Mechanic Bay 11 is the open-floor assembly bay where Morneven's in-progress mecha frames spend their final integration phase. It is also where Sola most often drops in to play - climbing onto half-assembled cockpits, rerouting cables for fun, and occasionally completing a torque sequence that the assigned engineer had not yet started.\n\nBay 11 personnel of every level carry the standing Secret box. The Bay's internal style guide requires that no in-progress frame be left in a state where Sola's casual handling could trigger an unintended power-on event. Compliance with this rule is the single most enforced item in the workshop.",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Bay 11 floor - frame integration line"
+      }
+    ],
+    "meta": {
+      "creator": "Cmdr. Halen",
+      "owner": "Field Operations",
+      "designer": "Concept Artist Kiri",
+      "team": "Field Operations",
+      "startedAt": "2025-06-01",
+      "completedAt": "2025-07-02",
+      "approvedAt": "2025-07-10",
+      "approvedBy": "Director Morneven"
+    }
+  },
+  {
+    "id": "place-007",
+    "name": "The Stellar Anchor",
+    "type": "Orbital Platform",
+    "thumbnail": "",
+    "shortDesc": "Standing orbital platform that hosts Solar's Lens. Permanently uncrewed.",
+    "fullDesc": "The Stellar Anchor is the geostationary orbital platform that hosts Solar's Lens. It is the only Morneven facility designed to operate without a permanent human crew - all maintenance is performed by self-repairing automated systems, with on-site work performed by Sola personally on the rare occasions she chooses to.\n\n[L5+ track=field]The Anchor's orbital coordinates and station-keeping schedule are sealed under MOR-LEN-01. Approach by any vessel other than Sola's own transit is treated as a hostile act and is met with automated counter-resonance fire from the Anchor itself. The system has not been tested against an actual intruder. The Institute prefers to keep it that way.[/L5+]",
+    "docs": [],
+    "meta": {
+      "creator": "Director Morneven",
+      "owner": "Lore Division",
+      "designer": "Cartographer Lina",
+      "team": "Lore Division",
+      "projectName": "Atlas of Gemora",
+      "startedAt": "2024-10-01",
+      "completedAt": "2024-10-30",
+      "approvedAt": "2024-11-05",
+      "approvedBy": "Director Morneven"
+    }
+  }
+]
