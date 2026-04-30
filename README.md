@@ -173,7 +173,7 @@ Expected responses:
 This repository now includes `railway.json` for zero-config deploy defaults on Railway.
 
 ### Railway service settings
-- **Build Command:** handled by `railway.json` (`npm run build`)
+- **Build Command:** handled by `railway.json` (`npm run prisma:generate && npm run build`)
 - **Start Command:** handled by `railway.json` (`npm run start`)
 - **Healthcheck Path:** `/health`
 
