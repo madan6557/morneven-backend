@@ -11,7 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "prisma:deploy:safe": "npx prisma migrate deploy || npx prisma db push"
+    "prisma:deploy:safe": "npx prisma migrate deploy || npx prisma db push",
     "start:railway": "npx prisma migrate deploy || true; node dist/src/server.js"
   },
   "prisma": {
