@@ -98,7 +98,7 @@ npm run dev
 Before going live, validate these items:
 - Environment variables are set (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`).
 - `NODE_ENV=production` in deployment runtime.
-- Prisma migrations are applied with `npx prisma migrate deploy`.
+- Prisma migrations are applied with `npm run prisma:deploy:safe`.
 - Health probes respond with HTTP 200 at `/health` and `/ready`.
 - Storage mode is explicitly set:
   - Railway/local: `STORAGE_DRIVER=local` + persistent volume path (`LOCAL_STORAGE_PATH=/data/storage`).
@@ -119,7 +119,7 @@ Before going live, validate these items:
 ### 1) Infrastructure Preparation
 - Provision a PostgreSQL instance (managed or self-hosted).
 - Create a dedicated database user with least-privilege access to the target DB.
-- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB`, `STORAGE_DRIVER`, `LOCAL_STORAGE_*` or `GCS_*`).
+- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB`, `STORAGE_DRIVER`, `LOCAL_STORAGE_*` or `GCS_*` or `S3_*`).
 
 ### 2) Build Artifact
 ```bash
@@ -131,7 +131,7 @@ npm run build
 ### 3) Database Migration (Production)
 Use deployment-safe migration command in production pipeline:
 ```bash
-npx prisma migrate deploy
+npm run prisma:deploy:safe
 ```
 
 ### 4) Optional Initial Seed
@@ -173,8 +173,8 @@ Expected responses:
 This repository now includes `railway.json` for zero-config deploy defaults on Railway.
 
 ### Railway service settings
-- **Build Command:** handled by `railway.json` (`npm ci && npm run prisma:generate && npm run build`)
-- **Start Command:** handled by `railway.json` (`npx prisma migrate deploy && npm run start`)
+- **Build Command:** handled by `railway.json` (`npm ci --no-audit --no-fund && npm run prisma:generate && npm run build`)
+- **Start Command:** handled by `railway.json` (`npm run start:railway`)
 - **Healthcheck Path:** `/health`
 
 ### Required Railway environment variables
@@ -197,7 +197,7 @@ No `GCS_*` variables are required in local mode.
 ### Notes
 - `PORT` is injected by Railway automatically; this app already respects it.
 - Prisma client generation is also covered by `postinstall`.
-- Migrations run at startup via `prisma migrate deploy` before the server process starts.
+- `start:railway` runs migrations best-effort (`npm run prisma:deploy:safe || true`) then starts `node dist/server.js`, so app can still boot for healthchecks if migrations fail.
 
 ## Seed Data
 `prisma/seed.ts` now imports FE sample data from `fe-seed/` and seeds:
