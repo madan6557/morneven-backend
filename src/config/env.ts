@@ -15,12 +15,19 @@ const schema = z.object({
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(20),
-  STORAGE_DRIVER: z.enum(['local', 'gcs']).default('local'),
+  STORAGE_DRIVER: z.enum(['local', 'gcs', 's3']).default('local'),
   LOCAL_STORAGE_PATH: z.string().default('storage'),
   LOCAL_STORAGE_BASE_PATH: z.string().default('/storage'),
   GCS_BUCKET_NAME: z.string().optional(),
   GCS_PROJECT_ID: z.string().optional(),
-  GCS_PUBLIC_BASE_URL: z.string().url().optional()
+  GCS_PUBLIC_BASE_URL: z.string().url().optional(),
+  S3_BUCKET_NAME: z.string().optional(),
+  S3_REGION: z.string().optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_PUBLIC_BASE_URL: z.string().url().optional(),
+  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false)
 });
 
 const parsed = schema.safeParse(process.env);
@@ -46,5 +53,12 @@ export const env = {
   localStorageBasePath: parsed.data.LOCAL_STORAGE_BASE_PATH,
   gcsBucketName: parsed.data.GCS_BUCKET_NAME,
   gcsProjectId: parsed.data.GCS_PROJECT_ID,
-  gcsPublicBaseUrl: parsed.data.GCS_PUBLIC_BASE_URL
+  gcsPublicBaseUrl: parsed.data.GCS_PUBLIC_BASE_URL,
+  s3BucketName: parsed.data.S3_BUCKET_NAME,
+  s3Region: parsed.data.S3_REGION,
+  s3Endpoint: parsed.data.S3_ENDPOINT,
+  s3AccessKeyId: parsed.data.S3_ACCESS_KEY_ID,
+  s3SecretAccessKey: parsed.data.S3_SECRET_ACCESS_KEY,
+  s3PublicBaseUrl: parsed.data.S3_PUBLIC_BASE_URL,
+  s3ForcePathStyle: parsed.data.S3_FORCE_PATH_STYLE
 };
