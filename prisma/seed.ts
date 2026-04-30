@@ -210,9 +210,39 @@ async function main() {
     }
   });
 
-  console.log(`Seed complete: ${personnel.length} users, ${projects.length} projects, ${news.length} news, ${gallery.length} gallery, ${mapData.markers.length} markers`);
+  const [userCount, projectCount, newsCount, galleryCount, loreCount, markerCount] = await Promise.all([
+    prisma.user.count(),
+    prisma.project.count(),
+    prisma.news.count(),
+    prisma.galleryItem.count(),
+    prisma.loreItem.count(),
+    prisma.mapMarker.count()
+  ]);
+
+  console.log('Seed complete', {
+    expected: {
+      users: personnel.length,
+      projects: projects.length,
+      news: news.length,
+      gallery: gallery.length,
+      markers: mapData.markers.length
+    },
+    actual: {
+      users: userCount,
+      projects: projectCount,
+      news: newsCount,
+      gallery: galleryCount,
+      lore: loreCount,
+      markers: markerCount
+    }
+  });
 }
 
-main().finally(async () => {
-  await prisma.$disconnect();
-});
+main()
+  .catch((error) => {
+    console.error('Seed failed', error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
