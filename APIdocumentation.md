@@ -71,7 +71,144 @@ Auth endpoints:
 - `SERVICE_UNAVAILABLE`
 - `INTERNAL_SERVER_ERROR`
 
-## 4. RBAC Summary
+## 4. Cara Hit Endpoint (Lengkap)
+
+Bagian ini fokus ke langkah praktis untuk memanggil endpoint dari local/dev.
+
+### 4.1 Prasyarat
+1. Jalankan backend:
+   ```bash
+   npm install
+   npm run prisma:generate
+   npm run prisma:migrate
+   npm run prisma:seed
+   npm run dev
+   ```
+2. Pastikan service aktif di `http://localhost:3000`.
+3. Gunakan base API: `http://localhost:3000/api` (atau `/v1`).
+
+### 4.2 Quick check tanpa auth
+```bash
+curl -i http://localhost:3000/health
+curl -i http://localhost:3000/ready
+```
+
+### 4.3 Alur auth lengkap (register -> login -> akses endpoint protected)
+
+#### a) Register
+```bash
+curl -i -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "agent@example.com",
+    "username": "agentuser",
+    "password": "SuperSecurePass123"
+  }'
+```
+
+#### b) Login
+```bash
+curl -s -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "agent@example.com",
+    "password": "SuperSecurePass123"
+  }'
+```
+
+Ambil `accessToken` dari response, lalu set environment variable:
+```bash
+export TOKEN="<paste_access_token_di_sini>"
+```
+
+#### c) Hit endpoint protected
+```bash
+curl -i http://localhost:3000/api/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 4.4 Contoh hit endpoint per modul
+
+#### Projects
+```bash
+# list
+curl -i http://localhost:3000/api/projects -H "Authorization: Bearer $TOKEN"
+
+# detail by id
+curl -i http://localhost:3000/api/projects/<id> -H "Authorization: Bearer $TOKEN"
+
+# create (role/level tertentu)
+curl -i -X POST http://localhost:3000/api/projects \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Project A","summary":"Ringkas","status":"active"}'
+```
+
+#### Lore
+```bash
+# list category
+curl -i http://localhost:3000/api/lore/characters -H "Authorization: Bearer $TOKEN"
+
+# detail
+curl -i http://localhost:3000/api/lore/characters/<id> -H "Authorization: Bearer $TOKEN"
+```
+
+#### Gallery + Comment
+```bash
+# list gallery
+curl -i http://localhost:3000/api/gallery -H "Authorization: Bearer $TOKEN"
+
+# add comment
+curl -i -X POST http://localhost:3000/api/gallery/<id>/comments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"Keren!"}'
+```
+
+#### Map
+```bash
+curl -i http://localhost:3000/api/map/markers -H "Authorization: Bearer $TOKEN"
+curl -i http://localhost:3000/api/map/image -H "Authorization: Bearer $TOKEN"
+```
+
+#### Personnel
+```bash
+curl -i http://localhost:3000/api/personnel -H "Authorization: Bearer $TOKEN"
+curl -i http://localhost:3000/api/personnel/<id> -H "Authorization: Bearer $TOKEN"
+```
+
+#### Settings
+```bash
+curl -i http://localhost:3000/api/settings/command-center -H "Authorization: Bearer $TOKEN"
+```
+
+#### News
+```bash
+curl -i http://localhost:3000/api/news -H "Authorization: Bearer $TOKEN"
+```
+
+#### File upload (multipart)
+```bash
+curl -i -X POST "http://localhost:3000/api/files/upload?folder=gallery" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/absolute/path/to/image.png"
+```
+
+### 4.5 Menambahkan `X-Request-Id` (opsional)
+```bash
+curl -i http://localhost:3000/api/auth/me \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Request-Id: debug-req-001"
+```
+
+### 4.6 Troubleshooting umum
+- `401 UNAUTHORIZED`: token belum dikirim / token invalid / expired.
+- `403 FORBIDDEN`: role/level tidak memenuhi RBAC endpoint write.
+- `429 RATE_LIMITED` atau `AUTH_RATE_LIMITED`: terlalu banyak request di time window aktif.
+- `400 VALIDATION_ERROR`: payload tidak sesuai skema (cek field wajib & tipe data).
+- `503 SERVICE_UNAVAILABLE`: database belum ready (cek `/ready`).
+
+## 5. RBAC Summary
 
 ### Role
 - `author`
@@ -90,9 +227,9 @@ Auth endpoints:
 - L6 logistics: own gallery write only.
 - L0-L5: read-only on protected content modules.
 
-## 5. Endpoint Groups
+## 6. Endpoint Groups
 
-## 5.1 Health
+## 6.1 Health
 - `GET /health`
 - `GET /ready`
 
@@ -107,7 +244,7 @@ Sample readiness failure:
 { "success": false, "message": "Database not ready", "errorCode": "SERVICE_UNAVAILABLE" }
 ```
 
-## 5.2 Auth
+## 6.2 Auth
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/me`
@@ -116,7 +253,7 @@ Sample readiness failure:
 - `POST /auth/refresh`
 - `POST /auth/guest`
 
-## 5.3 Projects
+## 6.3 Projects
 - `GET /projects`
 - `GET /projects/:id`
 - `POST /projects`
@@ -125,7 +262,7 @@ Sample readiness failure:
 
 Write access: L7, or L6 executive/mechanic.
 
-## 5.4 Lore
+## 6.4 Lore
 Category routes:
 - `GET /lore/:category`
 - `GET /lore/:category/:id`
@@ -140,7 +277,7 @@ Category examples:
 - `creatures`
 - `other`
 
-## 5.5 Gallery
+## 6.5 Gallery
 - `GET /gallery`
 - `GET /gallery/:id`
 - `POST /gallery`
@@ -155,13 +292,13 @@ Comments & replies:
 - `PUT /gallery/:id/comments/:commentId/replies/:replyId`
 - `DELETE /gallery/:id/comments/:commentId/replies/:replyId`
 
-## 5.6 Map
+## 6.6 Map
 - `GET /map/markers`
 - `PUT /map/markers` (L7)
 - `GET /map/image`
 - `PUT /map/image` (L7)
 
-## 5.7 Personnel
+## 6.7 Personnel
 - `GET /personnel`
 - `GET /personnel/:id`
 - `POST /personnel`
@@ -177,13 +314,13 @@ Personnel authorization:
 - `PATCH /personnel/bulk`: PL >= 6
 - `DELETE /personnel/:id`: PL >= 7
 
-## 5.8 Settings
+## 6.8 Settings
 - `GET /settings/command-center`
 - `PUT /settings/command-center`
 
 Scope is always current token user.
 
-## 5.9 News
+## 6.9 News
 - `GET /news`
 - `POST /news`
 - `PUT /news/:id`
@@ -191,7 +328,7 @@ Scope is always current token user.
 
 Write access: L7 or L6 executive.
 
-## 5.10 Files (Storage Upload Handler: local/GCS)
+## 6.10 Files (Storage Upload Handler: local/GCS)
 - `POST /files/upload`
 
 Auth required: yes (Bearer token).
@@ -217,66 +354,3 @@ Sample response:
   }
 }
 ```
-
-## 6. Security Behavior
-- Dedicated auth rate limiting is active for register/login/refresh endpoints.
-- JWT Bearer authentication is required for protected routes.
-- Global rate limit protection is active; excessive requests return `RATE_LIMITED`.
-- Security headers are applied via Helmet.
-- CORS is controlled via `CORS_ORIGIN` env config.
-- Request payload size is capped (1 MB JSON).
-- Refresh tokens are stored hashed in the database layer.
-
-## 7. Example Usage
-
-### Register
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@morneven.com","username":"newuser","password":"VeryStrongPass123"}'
-```
-
-### Login
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@morneven.com","password":"VeryStrongPass123"}'
-```
-
-### Refresh
-```bash
-curl -X POST http://localhost:3000/api/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refreshToken":"<refresh_token>"}'
-```
-
-### Access protected endpoint
-```bash
-curl http://localhost:3000/api/projects \
-  -H "Authorization: Bearer <access_token>"
-```
-
-### Upload file (storage handler)
-```bash
-curl -X POST "http://localhost:3000/api/files/upload?folder=news" \
-  -H "Authorization: Bearer <access_token>" \
-  -F "file=@/path/to/image.png"
-```
-
-## 8. How to Use This Documentation
-1. Start at **Section 5 Endpoint Groups** to identify route path + module.
-2. Check **Section 4 RBAC Summary** before integrating write actions.
-3. Use **Section 3 Standard Response Format** to standardize frontend API handling.
-4. Use **Section 6 Security Behavior** to align gateway/WAF and client retry behavior.
-5. Use **Section 7 Example Usage** as starter templates for Postman/cURL.
-6. For deeper contract context, compare with `BERequierment.md`.
-
-
-## 9. Deployment Notes (Railway-ready)
-- Required runtime vars: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`, `NODE_ENV=production`.
-- Healthcheck path for platform probes: `GET /health` (liveness), `GET /ready` (database readiness).
-- Storage options:
-  - `STORAGE_DRIVER=local` for Railway Volume-backed uploads (recommended for current setup).
-  - `STORAGE_DRIVER=gcs` only when `GCS_BUCKET_NAME` and related `GCS_*` vars are configured.
-- Run deploy-safe migrations at startup/pipeline: `npx prisma migrate deploy`.
-- Run `npm run prisma:seed` only for non-production initialization.
