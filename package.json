@@ -11,7 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "start:railway": "npx prisma migrate deploy && node dist/server.js"
+    "start:railway": "prisma migrate deploy || true; node dist/server.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
