@@ -6,13 +6,13 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "start:railway": "npm run prisma:deploy:safe; node dist/server.js",
     "prisma:deploy:safe": "npx prisma migrate deploy || npx prisma db push"
+    "start:railway": "npx prisma migrate deploy || true; node dist/src/server.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
