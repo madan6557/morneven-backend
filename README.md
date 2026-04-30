@@ -173,8 +173,8 @@ Expected responses:
 This repository now includes `railway.json` for zero-config deploy defaults on Railway.
 
 ### Railway service settings
-- **Build Command:** handled by `railway.json` (`npm run prisma:generate && npm run build`)
-- **Start Command:** handled by `railway.json` (`npm run start`)
+- **Build Command:** handled by `railway.json` (`npm ci --no-audit --no-fund && npm run prisma:generate && npm run build`)
+- **Start Command:** handled by `railway.json` (`npx prisma migrate deploy && npm run start`)
 - **Healthcheck Path:** `/health`
 
 ### Required Railway environment variables
@@ -197,7 +197,7 @@ No `GCS_*` variables are required in local mode.
 ### Notes
 - `PORT` is injected by Railway automatically; this app already respects it.
 - Prisma client generation is also covered by `postinstall`.
-- Run migrations as a separate one-off command (`npx prisma migrate deploy`) before/after deploy to avoid blocking healthchecks.
+- Migrations run at startup via `prisma migrate deploy` before the server process starts.
 
 ## Seed Data
 `prisma/seed.ts` now imports FE sample data from `fe-seed/` and seeds:
