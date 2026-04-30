@@ -98,7 +98,7 @@ npm run dev
 Before going live, validate these items:
 - Environment variables are set (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`).
 - `NODE_ENV=production` in deployment runtime.
-- Prisma migrations are applied with `npx prisma migrate deploy`.
+- Prisma migrations are applied with `npm run prisma:deploy:safe`.
 - Health probes respond with HTTP 200 at `/health` and `/ready`.
 - Storage mode is explicitly set:
   - Railway/local: `STORAGE_DRIVER=local` + persistent volume path (`LOCAL_STORAGE_PATH=/data/storage`).
@@ -131,7 +131,7 @@ npm run build
 ### 3) Database Migration (Production)
 Use deployment-safe migration command in production pipeline:
 ```bash
-npx prisma migrate deploy
+npm run prisma:deploy:safe
 ```
 
 ### 4) Optional Initial Seed
