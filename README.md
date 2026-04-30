@@ -195,9 +195,12 @@ If you attach a Railway Volume to `/data`, uploads remain persistent across depl
 No `GCS_*` variables are required in local mode.
 
 ### Notes
+
+- For one-off initial data on Railway, create a separate **Job** service with start command `npm run prisma:setup` and run it manually once after backend deploy.
+- If you only need migrations (without seed), run a Job with `npm run prisma:migrate:deploy`.
 - `PORT` is injected by Railway automatically; this app already respects it.
 - Prisma client generation is also covered by `postinstall`.
-- `start:railway` runs migrations best-effort (`npx prisma migrate deploy || true`) then starts `node dist/server.js`, so app can still boot for healthchecks if migrations fail.
+- `start:railway` runs migrations best-effort (`npm run prisma:migrate:deploy || true`) then starts `node dist/src/server.js`, so app can still boot for healthchecks if migrations fail.
 
 ## Seed Data
 `prisma/seed.ts` now imports FE sample data from `fe-seed/` and seeds:
