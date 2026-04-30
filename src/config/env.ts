@@ -36,13 +36,17 @@ if (!parsed.success) {
   process.exit(1);
 }
 
+const corsOrigins = parsed.data.CORS_ORIGIN.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 export const env = {
   port: parsed.data.PORT,
   nodeEnv: parsed.data.NODE_ENV,
   databaseUrl: parsed.data.DATABASE_URL,
   jwtAccessSecret: parsed.data.JWT_ACCESS_SECRET,
   jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
-  corsOrigin: parsed.data.CORS_ORIGIN,
+  corsOrigins: corsOrigins.length > 0 ? corsOrigins : ['http://localhost:3000'],
   rateLimitWindowMs: parsed.data.RATE_LIMIT_WINDOW_MS,
   rateLimitMax: parsed.data.RATE_LIMIT_MAX,
   authRateLimitWindowMs: parsed.data.AUTH_RATE_LIMIT_WINDOW_MS,

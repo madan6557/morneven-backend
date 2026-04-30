@@ -36,7 +36,7 @@ export const applySecurityMiddleware = (app: Express) => {
   app.use(helmet());
   app.use(
     cors({
-      origin: env.corsOrigin,
+      origin: env.corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id']
