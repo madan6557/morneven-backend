@@ -5,7 +5,7 @@ import path from 'path';
 import { env } from './env.js';
 
 let storageClient: Storage | null = null;
-let s3Client: S3Client | null = null;
+let s3Client: any = null;
 
 const getStorageClient = () => {
   if (!storageClient) {

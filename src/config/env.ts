@@ -30,6 +30,13 @@ const schema = z.object({
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false)
 });
 
+
+const parseCorsOrigins = (value: string) =>
+  value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
   console.error('Invalid environment variables', parsed.error.flatten().fieldErrors);
@@ -42,7 +49,7 @@ export const env = {
   databaseUrl: parsed.data.DATABASE_URL,
   jwtAccessSecret: parsed.data.JWT_ACCESS_SECRET,
   jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
-  corsOrigin: parsed.data.CORS_ORIGIN,
+  corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGIN),
   rateLimitWindowMs: parsed.data.RATE_LIMIT_WINDOW_MS,
   rateLimitMax: parsed.data.RATE_LIMIT_MAX,
   authRateLimitWindowMs: parsed.data.AUTH_RATE_LIMIT_WINDOW_MS,
