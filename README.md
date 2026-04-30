@@ -197,7 +197,7 @@ No `GCS_*` variables are required in local mode.
 ### Notes
 - `PORT` is injected by Railway automatically; this app already respects it.
 - Prisma client generation is also covered by `postinstall`.
-- `start:railway` runs migrations best-effort (`prisma migrate deploy || true`) then starts `node dist/server.js`, so app can still boot for healthchecks if migrations fail.
+- `start:railway` runs migrations best-effort (`npx prisma migrate deploy || true`) then starts `node dist/server.js`, so app can still boot for healthchecks if migrations fail.
 
 ## Seed Data
 `prisma/seed.ts` now imports FE sample data from `fe-seed/` and seeds:
