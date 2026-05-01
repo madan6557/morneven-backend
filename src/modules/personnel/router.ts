@@ -7,7 +7,7 @@ import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { roleForLevel, serializeUser } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
-import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
+import { ensureInstituteMembership, reconcileAutoMemberships, syncDivisionMembership } from '../chat/service.js';
 
 export const personnelRouter = Router();
 
@@ -74,7 +74,7 @@ personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => 
       settings: { create: {} }
     }
   });
-  await ensureInstituteMembership(user.username);
+  await ensureInstituteMembership(user.username, user.level);
   await syncDivisionMembership(user.username, user.track, user.level);
   await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.create', entity: 'User', entityId: user.id });
   return res.status(201).json({ success: true, data: serializeUser(user) });
@@ -99,6 +99,7 @@ personnelRouter.put('/:id', auth, async (req, res) => {
       level
     }
   });
+  await ensureInstituteMembership(updated.username, updated.level);
   await syncDivisionMembership(updated.username, updated.track, updated.level);
   await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.update', entity: 'User', entityId: updated.id });
   return ok(res, serializeUser(updated));
@@ -122,6 +123,7 @@ personnelRouter.patch('/bulk', auth, allow((u) => u.level >= 6), async (req, res
           ...(item.note !== undefined ? { note: item.note } : {})
         }
       });
+      await ensureInstituteMembership(user.username, user.level, tx as any);
       await syncDivisionMembership(user.username, user.track, user.level, tx as any);
       results.push(user);
       if (nextLevel !== undefined) {
@@ -145,6 +147,7 @@ personnelRouter.delete('/:id', auth, allow((u) => u.level >= 7), async (req, res
   if (!target) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
   if (target.level >= 7) return fail(res, 403, 'PL7 users are protected', 'FORBIDDEN');
   await prisma.user.delete({ where: { id: req.params.id } });
+  await reconcileAutoMemberships();
   await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.delete', entity: 'User', entityId: req.params.id });
   return ok(res, { deleted: true });
 });

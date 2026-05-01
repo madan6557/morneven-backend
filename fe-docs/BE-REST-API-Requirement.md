@@ -25,6 +25,7 @@
 | 2026-05-01 | Content lazy load | Added explicit backend list contracts for high-volume Gallery and Lore card content. |
 | 2026-05-02 | Realtime and polling | Added explicit Chat WebSocket and Extraction polling progress requirements. |
 | 2026-05-02 | Sidebar indicators | Added navigation badge aggregate endpoint and realtime update requirements for Chat, Management, and Notifications. |
+| 2026-05-02 | Chat automation | Clarified backend-owned automation for institute, division, and team system-managed chat groups. |
 
 ## 1. Purpose and Reading Order [Updated 2026-05-01]
 
@@ -1436,6 +1437,26 @@ Backend must provide server-side equivalents for:
 - `syncDivisionMembership(username, track)`
 - `syncTeamGroup(teamId, teamName, members)`
 
+System-managed chat group ownership:
+
+- Backend is authoritative for creating and synchronizing `institute`, `division`, and `team` conversations.
+- FE must not create system-managed conversations directly.
+- FE should only read system-managed conversations from `GET /chat/conversations`.
+- Manual groups remain user-created through `POST /chat/groups`.
+- If `ChatConversation` is empty after seed, backend must still be able to create missing system-managed conversations at runtime through reconciliation or upsert logic.
+- Seed may pre-create system-managed conversations, but runtime reconciliation is still required.
+- Runtime reconciliation must be idempotent. Re-running it must not duplicate conversations or memberships.
+
+Required system-managed conversation rules:
+
+| Kind | Creation rule | Membership rule |
+|---|---|---|
+| `institute` | Exactly one singleton conversation should exist. Recommended stable id: `conv-institute`. | Every active personnel user is an active member. |
+| `division` | Exactly one conversation per `PersonnelTrack` should exist. Recommended stable id: `conv-div-{track}`. | PL7 users are active members of every division. Non-PL7 users are active members only in their current track division. |
+| `team` | One conversation per backend `Team` should exist. Recommended stable id: `conv-team-{teamId}`. | Team leader and current team members are active members. Removed team members must lose active membership. |
+
+Required reconciliation triggers:
+
 Triggers:
 
 - Personnel created.
@@ -1443,6 +1464,21 @@ Triggers:
 - Personnel track changed.
 - Team created.
 - Team members changed.
+- User is reactivated or deactivated.
+- `GET /chat/conversations` is called and required system-managed conversations are missing.
+- Scheduled or admin-triggered reconciliation runs.
+
+Expected side effects:
+
+- Personnel registration or creation must ensure institute membership and the correct division membership.
+- Track changes must remove or deactivate the user from the old division unless the user is PL7.
+- Promotion to PL7 must add the user to all division conversations.
+- Demotion from PL7 must leave the user active only in their current division.
+- Team creation must create or update the team conversation.
+- Team membership changes must update team conversation membership.
+- System-managed conversations must have `systemManaged=true`.
+- System-managed conversations must reject user actions that rename, leave, kick, or manually invite members.
+- Reconciliation should emit `chat.conversation.created` or `chat.conversation.updated` to affected users when visible chat state changes.
 
 ## 17. Files and Uploads [Updated 2026-05-01]
 

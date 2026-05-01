@@ -361,6 +361,35 @@ async function main() {
     });
   }
 
+  const seededTeams = await prisma.team.findMany();
+  const activeSeedUsernames = new Set(
+    personnel.filter((user) => Number(user.level ?? 1) >= 1).map((user) => String(user.username).toLowerCase())
+  );
+  for (const team of seededTeams) {
+    const teamMembers = Array.isArray(team.members) ? (team.members as string[]) : [];
+    const activeMembers = [...new Set([team.leader, ...teamMembers])]
+      .map((username) => username.toLowerCase())
+      .filter((username) => activeSeedUsernames.has(username));
+
+    await prisma.chatConversation.create({
+      data: {
+        id: `conv-team-${team.id}`,
+        kind: 'team',
+        name: `Team - ${team.name}`,
+        source: { teamId: team.id },
+        systemManaged: true,
+        createdBy: 'system',
+        members: {
+          create: activeMembers.map((username) => ({
+            username,
+            role: 'member',
+            status: 'active'
+          }))
+        }
+      }
+    });
+  }
+
   const [userCount, projectCount, newsCount, galleryCount, loreCount, markerCount] = await Promise.all([
     prisma.user.count(),
     prisma.project.count(),

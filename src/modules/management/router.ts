@@ -8,7 +8,7 @@ import { getSearchQuery, paginated, parsePagination } from '../../utils/paginati
 import { projectStatusFromApi, roleForLevel } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { createNotification } from '../notifications/service.js';
-import { syncDivisionMembership, syncTeamGroup } from '../chat/service.js';
+import { ensureInstituteMembership, syncDivisionMembership, syncTeamGroup } from '../chat/service.js';
 import { getManagementPendingCount } from '../me/badges.js';
 import { emitNavigationBadgesUpdated, emitNavigationBadgesUpdatedForUsers } from '../../realtime/events.js';
 
@@ -194,6 +194,7 @@ managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
     if (request.kind === 'clearance') {
       const targetLevel = Number(payload.targetLevel);
       await tx.user.update({ where: { id: requester.id }, data: { level: targetLevel, role: roleForLevel(targetLevel) } });
+      await ensureInstituteMembership(requester.username, targetLevel, tx as any);
       await syncDivisionMembership(requester.username, requester.track, targetLevel, tx as any);
     }
 
@@ -247,6 +248,7 @@ managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
 
     if (request.kind === 'executive_promotion') {
       await tx.user.update({ where: { id: requester.id }, data: { level: 5, role: roleForLevel(5) } });
+      await ensureInstituteMembership(requester.username, 5, tx as any);
       await syncDivisionMembership(requester.username, requester.track, 5, tx as any);
     }
 
