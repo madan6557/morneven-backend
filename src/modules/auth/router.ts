@@ -58,7 +58,7 @@ authRouter.post('/register', authRateLimiter, validateBody(registerSchema), asyn
 
   await prisma.commandCenterSettings.create({ data: { userId: user.id } });
   const { token, refreshToken } = await issueTokens(user);
-  await ensureInstituteMembership(user.username);
+  await ensureInstituteMembership(user.username, user.level);
   await syncDivisionMembership(user.username, user.track, user.level);
   await createNotification({
     kind: 'system',

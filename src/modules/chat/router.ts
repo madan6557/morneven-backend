@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { auth } from '../../middleware/auth.js';
+import { auth, allow } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { paginated, parsePagination } from '../../utils/pagination.js';
@@ -114,6 +114,11 @@ chatRouter.get('/conversations', auth, async (req, res) => {
     orderBy: { updatedAt: 'desc' }
   });
   return ok(res, conversations.map(serializeConversation));
+});
+
+chatRouter.post('/reconcile', auth, allow((user) => user.level >= 7 || (user.level >= 6 && user.track === 'executive')), async (_req, res) => {
+  await reconcileAutoMemberships();
+  return ok(res, { reconciled: true });
 });
 
 chatRouter.get('/invites', auth, async (req, res) => {
