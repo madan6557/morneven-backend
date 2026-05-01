@@ -39,6 +39,9 @@ src/
     settings/
     news/
     files/
+    management/
+    notifications/
+    chat/
   types/         # shared TS types + Express augmentation
   utils/         # shared response helper
   server.ts      # bootstrap + route mounting
@@ -51,6 +54,7 @@ prisma/
 - `APIdocumentation.md` → Backend API references, RBAC notes, security behavior, and request/response examples.
 - `BERequierment.md` → Original requirement contract source.
 - `Analasis BE Requierment.md` → Technical recommendation and relational design analysis.
+- `RAILWAY_DEPLOYMENT.md` → Railway service, variable, storage, migration, seed, and smoke-test notes.
 
 ## Environment Variables
 Create `.env` from `.env.example` and fill placeholders:

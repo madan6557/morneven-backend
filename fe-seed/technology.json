@@ -52,11 +52,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Project Aethon",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -64,7 +71,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-001-01",
+        "title": "Nexus Drive Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-001-02",
+        "title": "Nexus Drive Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-001-01",
+        "title": "Nexus Drive Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-002",
@@ -84,11 +113,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Project Aethon",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -96,7 +132,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-002-01",
+        "title": "Ashford Repeater Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-002-02",
+        "title": "Ashford Repeater Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-002-01",
+        "title": "Ashford Repeater Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-003",
@@ -116,11 +174,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Project Aethon",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -128,7 +193,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-003-01",
+        "title": "Voidborn Anomaly Scanner Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-003-02",
+        "title": "Voidborn Anomaly Scanner Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-003-01",
+        "title": "Voidborn Anomaly Scanner Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-004",
@@ -153,11 +240,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Project Aethon",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -165,7 +259,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-004-01",
+        "title": "Solar's Lens Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-004-02",
+        "title": "Solar's Lens Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-004-01",
+        "title": "Solar's Lens Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-005",
@@ -179,11 +295,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "MK-VII Frame",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -191,7 +314,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-005-01",
+        "title": "Stellar Pass Token Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-005-02",
+        "title": "Stellar Pass Token Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-005-01",
+        "title": "Stellar Pass Token Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-006",
@@ -211,11 +356,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "MK-VII Frame",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -223,7 +375,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-006-01",
+        "title": "Triad Resonance Rig MK-VII Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-006-02",
+        "title": "Triad Resonance Rig MK-VII Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-006-01",
+        "title": "Triad Resonance Rig MK-VII Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-007",
@@ -237,11 +411,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "MK-VII Frame",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -249,7 +430,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-007-01",
+        "title": "Violet Veil Comm Mesh Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-007-02",
+        "title": "Violet Veil Comm Mesh Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-007-01",
+        "title": "Violet Veil Comm Mesh Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-008",
@@ -263,11 +466,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "MK-VII Frame",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -275,7 +485,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-008-01",
+        "title": "Fracture-Point Analyzer FA-3 Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-008-02",
+        "title": "Fracture-Point Analyzer FA-3 Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-008-01",
+        "title": "Fracture-Point Analyzer FA-3 Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-012",
@@ -295,11 +527,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Echo Relay Network",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -307,7 +546,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-012-01",
+        "title": "RAIL-H100 Stormpiercer Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-012-02",
+        "title": "RAIL-H100 Stormpiercer Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-012-01",
+        "title": "RAIL-H100 Stormpiercer Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-013",
@@ -327,11 +588,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -339,7 +607,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-013-01",
+        "title": "PL-G3 Neon Reaper Pulse Gun Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-013-02",
+        "title": "PL-G3 Neon Reaper Pulse Gun Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-013-01",
+        "title": "PL-G3 Neon Reaper Pulse Gun Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-014",
@@ -359,11 +649,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -371,7 +668,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-014-01",
+        "title": "X-L4 Sol-Aether Laser Array Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-014-02",
+        "title": "X-L4 Sol-Aether Laser Array Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-014-01",
+        "title": "X-L4 Sol-Aether Laser Array Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-015",
@@ -391,11 +710,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -403,7 +729,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-015-01",
+        "title": "AGM-32 Goshawk Guided Missile Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-015-02",
+        "title": "AGM-32 Goshawk Guided Missile Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-015-01",
+        "title": "AGM-32 Goshawk Guided Missile Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-016",
@@ -423,11 +771,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -435,7 +790,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-016-01",
+        "title": "HS-16 Swarm Homing Missile Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-016-02",
+        "title": "HS-16 Swarm Homing Missile Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-016-01",
+        "title": "HS-16 Swarm Homing Missile Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-017",
@@ -455,11 +832,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -467,7 +851,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-017-01",
+        "title": "HX-01 Molten Javelin Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-017-02",
+        "title": "HX-01 Molten Javelin Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-017-01",
+        "title": "HX-01 Molten Javelin Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-009",
@@ -487,11 +893,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Echo Relay Network",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -499,7 +912,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-009-01",
+        "title": "AREX-V4 Aetherium Core Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-009-02",
+        "title": "AREX-V4 Aetherium Core Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-009-01",
+        "title": "AREX-V4 Aetherium Core Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-010",
@@ -519,11 +954,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Echo Relay Network",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -531,7 +973,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-010-01",
+        "title": "Integrated Litho Forge (ILF-Mobile) Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-010-02",
+        "title": "Integrated Litho Forge (ILF-Mobile) Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-010-01",
+        "title": "Integrated Litho Forge (ILF-Mobile) Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-011",
@@ -551,11 +1015,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Echo Relay Network",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -563,7 +1034,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-011-01",
+        "title": "Authority Maneuver System (AMS) Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-011-02",
+        "title": "Authority Maneuver System (AMS) Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-011-01",
+        "title": "Authority Maneuver System (AMS) Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-018",
@@ -577,11 +1070,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -589,7 +1089,29 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-018-01",
+        "title": "Stellar Companion Pass Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-018-02",
+        "title": "Stellar Companion Pass Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-018-01",
+        "title": "Stellar Companion Pass Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "tech-019",
@@ -609,11 +1131,18 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
       "projectName": "Worldshard Engine",
       "startedAt": "2025-03-01",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-04-12",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -621,6 +1150,28 @@
           "notes": "Initial spec ratified."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-019-01",
+        "title": "Amethys Frame Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-tech-019-02",
+        "title": "Amethys Frame Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-019-01",
+        "title": "Amethys Frame Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   }
 ]

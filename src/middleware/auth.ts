@@ -11,7 +11,25 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
   if (!header?.startsWith('Bearer ')) return fail(res, 401, 'Missing token', 'UNAUTHORIZED');
 
   try {
-    const payload = jwt.verify(header.slice(7), env.jwtAccessSecret) as { sub: string };
+    const payload = jwt.verify(header.slice(7), env.jwtAccessSecret) as {
+      sub: string;
+      username?: string;
+      role?: Role;
+      level?: number;
+      track?: Track;
+    };
+
+    if (payload.sub === 'guest' && payload.role === Role.guest) {
+      req.user = {
+        id: 'guest',
+        username: payload.username ?? 'guest',
+        role: Role.guest,
+        level: 0,
+        track: payload.track ?? Track.executive
+      };
+      return next();
+    }
+
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
 
     if (!user) return fail(res, 401, 'Invalid token', 'UNAUTHORIZED');

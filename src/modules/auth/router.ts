@@ -10,6 +10,9 @@ import { auth } from '../../middleware/auth.js';
 import { authRateLimiter } from '../../middleware/security.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
+import { serializeUser } from '../../utils/serializers.js';
+import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
+import { createNotification } from '../notifications/service.js';
 
 export const authRouter = Router();
 
@@ -54,11 +57,19 @@ authRouter.post('/register', authRateLimiter, validateBody(registerSchema), asyn
   });
 
   await prisma.commandCenterSettings.create({ data: { userId: user.id } });
-  return ok(
-    res,
-    { id: user.id, email: user.email, username: user.username, role: user.role, level: user.level, track: user.track },
-    'Registered'
-  );
+  const { token, refreshToken } = await issueTokens(user);
+  await ensureInstituteMembership(user.username);
+  await syncDivisionMembership(user.username, user.track, user.level);
+  await createNotification({
+    kind: 'system',
+    title: 'Welcome to Morneven Institute',
+    body: 'Your personnel account is active.',
+    recipient: user.username,
+    sender: 'system',
+    link: '/home'
+  });
+
+  return ok(res, { token, refreshToken, user: serializeUser(user) }, 'Registered');
 });
 
 authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req, res) => {

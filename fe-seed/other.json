@@ -41,12 +41,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -54,7 +60,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-001-01",
+        "title": "Gemora Danger Level (DL) Scale Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-001-02",
+        "title": "Gemora Danger Level (DL) Scale Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-001-01",
+        "title": "Gemora Danger Level (DL) Scale Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-002",
@@ -68,12 +96,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -81,7 +115,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-002-01",
+        "title": "Gemora Entropy Classification (GEC) - Mark II Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-002-02",
+        "title": "Gemora Entropy Classification (GEC) - Mark II Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-002-01",
+        "title": "Gemora Entropy Classification (GEC) - Mark II Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-004",
@@ -95,12 +151,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -108,7 +170,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-004-01",
+        "title": "The Morneven Doctrine: Elimination Over Containment Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-004-02",
+        "title": "The Morneven Doctrine: Elimination Over Containment Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-004-01",
+        "title": "The Morneven Doctrine: Elimination Over Containment Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-005",
@@ -122,12 +206,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -135,7 +225,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-005-01",
+        "title": "Personnel Level (PL) Clearance Matrix Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-005-02",
+        "title": "Personnel Level (PL) Clearance Matrix Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-005-01",
+        "title": "Personnel Level (PL) Clearance Matrix Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-003",
@@ -149,12 +261,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -162,7 +280,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-003-01",
+        "title": "The Gemosphere Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-003-02",
+        "title": "The Gemosphere Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-003-01",
+        "title": "The Gemosphere Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-006",
@@ -176,12 +316,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -189,7 +335,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-006-01",
+        "title": "Morneven - Founding History Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-006-02",
+        "title": "Morneven - Founding History Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-006-01",
+        "title": "Morneven - Founding History Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-007",
@@ -203,12 +371,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -216,7 +390,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-007-01",
+        "title": "Sola - The Stellar Pass and the Unstoppable Doctrine Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-007-02",
+        "title": "Sola - The Stellar Pass and the Unstoppable Doctrine Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-007-01",
+        "title": "Sola - The Stellar Pass and the Unstoppable Doctrine Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-008",
@@ -230,12 +426,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -243,7 +445,29 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-008-01",
+        "title": "Solar's Lens - Orbital Adapter Doctrine Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-008-02",
+        "title": "Solar's Lens - Orbital Adapter Doctrine Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-008-01",
+        "title": "Solar's Lens - Orbital Adapter Doctrine Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "other-009",
@@ -257,12 +481,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Codex Gemora",
       "startedAt": "2024-09-01",
       "completedAt": "2024-12-01",
       "approvedAt": "2024-12-15",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -270,6 +500,28 @@
           "notes": "Codex entry approved."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-other-009-01",
+        "title": "Personnel and Content Management System Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-other-009-02",
+        "title": "Personnel and Content Management System Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-other-009-01",
+        "title": "Personnel and Content Management System Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   }
 ]

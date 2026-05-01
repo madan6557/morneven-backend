@@ -52,12 +52,18 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Cartographer Lina",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Geo-Cartography",
       "projectName": "Atlas of Gemora",
       "startedAt": "2024-10-01",
       "completedAt": "2024-11-12",
       "approvedAt": "2024-11-20",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.2",
@@ -70,7 +76,29 @@
           "notes": "Initial canon entry."
         }
       ]
-    }
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-001-01",
+        "title": "The Iron Citadel Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-001-02",
+        "title": "The Iron Citadel Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-001-01",
+        "title": "The Iron Citadel Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "place-002",
@@ -90,13 +118,48 @@
       "creator": "Cartographer Lina",
       "owner": "Geo Division",
       "designer": "Cartographer Lina",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Geo-Cartography",
       "projectName": "Atlas of Gemora",
       "startedAt": "2024-11-01",
       "completedAt": "2024-12-04",
       "approvedAt": "2024-12-10",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-002-01",
+        "title": "The Scorched Wastes Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-002-02",
+        "title": "The Scorched Wastes Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-002-01",
+        "title": "The Scorched Wastes Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "place-003",
@@ -121,13 +184,48 @@
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Archives Division",
       "projectName": "Stellarum Archives",
       "startedAt": "2025-01-15",
       "completedAt": "2025-02-22",
       "approvedAt": "2025-03-01",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-003-01",
+        "title": "Verdant Hollows Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-003-02",
+        "title": "Verdant Hollows Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-003-01",
+        "title": "Verdant Hollows Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "place-004",
@@ -147,13 +245,48 @@
       "creator": "Quartermaster Bren",
       "owner": "Logistics Division",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Logistics Division",
       "projectName": "Pantry Continuity Initiative",
       "startedAt": "2024-12-22",
       "completedAt": "2025-01-15",
       "approvedAt": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-004-01",
+        "title": "Forbidden Sector 7 Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-004-02",
+        "title": "Forbidden Sector 7 Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-004-01",
+        "title": "Forbidden Sector 7 Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "place-005",
@@ -173,13 +306,48 @@
       "creator": "Cartographer Lina",
       "owner": "Geo Division",
       "designer": "Cartographer Lina",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Geo-Cartography",
       "projectName": "Atlas of Gemora",
       "startedAt": "2025-04-01",
       "completedAt": "2025-05-10",
       "approvedAt": "2025-05-18",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-005-01",
+        "title": "Logistics Bay 4 - 'The Pantry' Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-005-02",
+        "title": "Logistics Bay 4 - 'The Pantry' Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-005-01",
+        "title": "Logistics Bay 4 - 'The Pantry' Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "place-006",
@@ -199,12 +367,48 @@
       "creator": "Cmdr. Halen",
       "owner": "Field Operations",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Field Operations",
+      "projectName": "Mechanic Bay 11 - 'The Playroom'",
       "startedAt": "2025-06-01",
       "completedAt": "2025-07-02",
       "approvedAt": "2025-07-10",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-006-01",
+        "title": "Mechanic Bay 11 - 'The Playroom' Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-006-02",
+        "title": "Mechanic Bay 11 - 'The Playroom' Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-006-01",
+        "title": "Mechanic Bay 11 - 'The Playroom' Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "place-007",
@@ -218,12 +422,47 @@
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Cartographer Lina",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Atlas of Gemora",
       "startedAt": "2024-10-01",
       "completedAt": "2024-10-30",
       "approvedAt": "2024-11-05",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-place-007-01",
+        "title": "The Stellar Anchor Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-place-007-02",
+        "title": "The Stellar Anchor Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-place-007-01",
+        "title": "The Stellar Anchor Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   }
 ]

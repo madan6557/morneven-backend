@@ -32,6 +32,7 @@ enum MediaType {
   image
   video
   link
+  file
 }
 
 enum EntityType {
@@ -40,6 +41,7 @@ enum EntityType {
   place
   technology
   creature
+  event
   other
   project
 }
@@ -58,7 +60,7 @@ model User {
   email         String   @unique
   passwordHash  String
   role          Role     @default(personel)
-  level         Int      @default(2)
+  level         Int      @default(1)
   track         Track    @default(executive)
   note          String?
   createdAt     DateTime @default(now())
@@ -77,9 +79,14 @@ model CommandCenterSettings {
   showStats         Boolean @default(true)
   showProjects      Boolean @default(true)
   showNews          Boolean @default(true)
-  welcomeMessage    String?
-  itemLimits        Json?
-  manualSelections  Json?
+  showCharacters    Boolean @default(true)
+  showPlaces        Boolean @default(true)
+  showTechnology    Boolean @default(true)
+  showGallery       Boolean @default(true)
+  showQuickActions  Boolean @default(true)
+  welcomeMessage    String  @default("Here's your operational overview.")
+  itemLimits        Json    @default("{\"projects\":5,\"news\":6,\"characters\":3,\"places\":3,\"technology\":3,\"gallery\":4}")
+  manualSelections  Json    @default("{\"projects\":[],\"news\":[],\"characters\":[],\"places\":[],\"technology\":[],\"gallery\":[]}")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -97,9 +104,15 @@ model Project {
   id         String        @id @default(uuid())
   title      String
   status     ProjectStatus
-  thumbnail  String
+  thumbnail  String        @default("")
   shortDesc  String
   fullDesc   String
+  docs       Json          @default("[]")
+  archived   Boolean       @default(false)
+  contributor String?
+  meta       Json?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
   patches    ProjectPatch[]
 }
 
@@ -142,6 +155,8 @@ model LoreItem {
   shortDesc   String
   fullDesc    String
   metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model EntityDoc {
@@ -157,7 +172,7 @@ model GalleryItem {
   id         String    @id @default(uuid())
   type       MediaType
   title      String
-  thumbnail  String
+  thumbnail  String    @default("")
   caption    String
   videoUrl   String?
   uploadDate DateTime  @default(now())
@@ -221,4 +236,136 @@ model Mention {
   endIdx          Int
   comment         Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   reply           Reply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+}
+
+model ManagementRequest {
+  id              String   @id @default(uuid())
+  kind            String
+  requester       String
+  requesterTrack  Track
+  requesterLevel  Int
+  payload         Json     @default("{}")
+  reason          String
+  status          String   @default("pending")
+  reviewer        String?
+  reviewNote      String?
+  createdAt       DateTime @default(now())
+  decidedAt       DateTime?
+}
+
+model Team {
+  id         String   @id @default(uuid())
+  name       String
+  leader     String
+  members    Json     @default("[]")
+  track      Track
+  createdAt  DateTime @default(now())
+  cycleYear  Int
+  completed  Int      @default(0)
+}
+
+model QuotaRecord {
+  id         String @id @default(uuid())
+  username   String @unique
+  monthly    Json   @default("{}")
+  yearly     Json   @default("{}")
+  supervised Json   @default("{}")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  kind      String
+  title     String
+  body      String?
+  recipient String
+  sender    String?
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
+  link      String?
+  readStates NotificationRead[]
+}
+
+model NotificationRead {
+  id             String       @id @default(uuid())
+  notificationId String
+  username       String
+  readAt         DateTime     @default(now())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, username])
+}
+
+model ChatConversation {
+  id            String                   @id @default(uuid())
+  kind          String
+  name          String
+  source        Json?
+  systemManaged Boolean                  @default(false)
+  createdBy     String
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  members       ChatConversationMember[]
+  messages      ChatMessage[]
+  readStates    ChatReadState[]
+}
+
+model ChatConversationMember {
+  id             String           @id @default(uuid())
+  conversationId String
+  username       String
+  role           String           @default("member")
+  status         String           @default("active")
+  invitedBy      String?
+  joinedAt       DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, username])
+}
+
+model ChatMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  author         String
+  text           String           @default("")
+  attachments    Json             @default("[]")
+  system         Boolean          @default(false)
+  replyTo        Json?
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model ChatReadState {
+  id             String           @id @default(uuid())
+  conversationId String
+  username       String
+  lastReadAt     DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, username])
+}
+
+model ExtractionJob {
+  id           String   @id @default(uuid())
+  mode         String
+  autoDownload Boolean  @default(false)
+  status       String   @default("processing")
+  createdBy    String
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+  expiresAt    DateTime
+  downloadName String?
+  artifactPath String?
+  artifactUrl  String?
+  error        String?
+  progress     Json     @default("{\"percent\":0,\"stage\":\"queued\",\"message\":\"Queued\"}")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actor     String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
 }

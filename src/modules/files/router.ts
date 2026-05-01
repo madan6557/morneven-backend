@@ -10,7 +10,9 @@ import { fail, ok } from '../../utils/response.js';
 export const filesRouter = Router();
 
 const querySchema = z.object({
-  folder: z.string().min(1).max(80).optional()
+  folder: z
+    .enum(['gallery', 'lore', 'projects', 'news', 'map', 'chat', 'exports', 'uploads'])
+    .optional()
 });
 
 filesRouter.post('/upload', auth, (req, res) => {

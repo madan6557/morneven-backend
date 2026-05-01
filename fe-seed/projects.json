@@ -41,24 +41,13 @@
       }
     ],
     "meta": {
-      "0": {
-        "version": "0.4",
-        "date": "2026-04-10",
-        "notes": "Stabilized crystal harmonic frequency. Logged 34% bleed reduction."
-      },
-      "1": {
-        "version": "0.3",
-        "date": "2026-02-15",
-        "notes": "Prototype assembly completed."
-      },
-      "2": {
-        "version": "0.1",
-        "date": "2025-08-12",
-        "notes": "Project chartered."
-      },
       "creator": "Dr. Aelis Vance",
       "owner": "Propulsion Division",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Eng. Rho-7",
         "Cmdr. Halen"
@@ -66,8 +55,27 @@
       "projectName": "Lift Division",
       "startedAt": "Project Aethon",
       "completedAt": "2025-08-12",
-      "approvedBy": "2026-01-10",
-      "approvedBy": "Director Morneven"
+      "approvedAt": "2026-04-20",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "0.4",
+          "date": "2026-04-10",
+          "notes": "Stabilized crystal harmonic frequency. Logged 34% bleed reduction."
+        },
+        {
+          "version": "0.3",
+          "date": "2026-02-15",
+          "notes": "Prototype assembly completed."
+        },
+        {
+          "version": "0.1",
+          "date": "2025-08-12",
+          "notes": "Project chartered."
+        }
+      ]
     }
   },
   {
@@ -95,9 +103,18 @@
       "creator": "Worldshard Survey Group",
       "owner": "Geo Division",
       "designer": "Cartographer Lina",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Geo-Cartography",
       "projectName": "Worldshard Engine",
       "startedAt": "2026-03-01",
+      "completedAt": "2026-04-15",
+      "approvedAt": "2026-04-20",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "0.1",
@@ -142,11 +159,18 @@
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Archivist Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Stellarum Archives",
       "projectName": "Stellarum Archives",
       "startedAt": "2024-11-04",
+      "completedAt": "2026-04-15",
       "approvedAt": "2025-02-20",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "0.2",
@@ -177,19 +201,13 @@
     ],
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.2",
-        "date": "2026-03-12",
-        "notes": "Expanded sub-vault rotation to 4 sites."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2024-12-01",
-        "notes": "Initiative ratified after the Pantry Incident."
-      },
       "creator": "Cmdr. Halen",
       "owner": "Field Operations",
       "designer": "Quartermaster Bren",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Quartermaster Bren",
         "Logistics Cell 3"
@@ -197,8 +215,22 @@
       "projectName": "Logistics Division",
       "startedAt": "Pantry Continuity Initiative",
       "completedAt": "2024-06-18",
-      "approvedBy": "2024-07-02",
-      "approvedBy": "Director Morneven"
+      "approvedAt": "2026-04-20",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.2",
+          "date": "2026-03-12",
+          "notes": "Expanded sub-vault rotation to 4 sites."
+        },
+        {
+          "version": "1.0",
+          "date": "2024-12-01",
+          "notes": "Initiative ratified after the Pantry Incident."
+        }
+      ]
     }
   },
   {
@@ -225,9 +257,18 @@
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Dr. Vey",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Bio-Containment",
       "projectName": "Verdant Quarantine",
       "startedAt": "2025-04-22",
+      "completedAt": "2026-04-15",
+      "approvedAt": "2026-04-20",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "0.3",
@@ -267,9 +308,18 @@
       "creator": "Lt. Korr",
       "owner": "Mechanic Corps",
       "designer": "Eng. Tassia",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Mecha Forge",
       "projectName": "MK-VII Frame",
       "startedAt": "2025-12-01",
+      "completedAt": "2026-04-15",
+      "approvedAt": "2026-04-20",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "0.2",
@@ -303,12 +353,18 @@
       "creator": "Comms Officer Nila",
       "owner": "Communications",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Communications",
       "projectName": "Echo Relay Network",
       "startedAt": "2025-02-10",
       "completedAt": "2026-03-30",
       "approvedAt": "2026-04-05",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -342,12 +398,18 @@
       "creator": "Dr. Aelis Vance",
       "owner": "Propulsion Division",
       "designer": "Eng. Rho-7",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lift Division",
       "projectName": "Project Aethon",
       "startedAt": "2024-01-15",
       "completedAt": "2025-07-22",
       "approvedAt": "2025-08-01",
       "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "1.0",
@@ -387,12 +449,18 @@
       "creator": "Director Morneven",
       "owner": "Executive Office",
       "designer": "Director Morneven",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Executive Office",
       "projectName": "Institute Charter",
       "startedAt": "2014-09-01",
       "completedAt": "2015-01-01",
       "approvedAt": "2015-01-15",
       "approvedBy": "Council of Founders",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
       "patchNotes": [
         {
           "version": "3.1",

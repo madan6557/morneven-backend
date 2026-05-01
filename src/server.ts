@@ -13,6 +13,11 @@ import { personnelRouter } from './modules/personnel/router.js';
 import { settingsRouter } from './modules/settings/router.js';
 import { newsRouter } from './modules/news/router.js';
 import { filesRouter } from './modules/files/router.js';
+import { managementRouter } from './modules/management/router.js';
+import { notificationsRouter } from './modules/notifications/router.js';
+import { chatRouter } from './modules/chat/router.js';
+import { meRouter } from './modules/me/router.js';
+import { attachRealtimeWebSocket } from './realtime/websocket.js';
 
 const app = express();
 
@@ -44,6 +49,11 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/settings`, settingsRouter);
   app.use(`${base}/news`, newsRouter);
   app.use(`${base}/files`, filesRouter);
+  app.use(`${base}/mgmt`, managementRouter);
+  app.use(`${base}/management`, managementRouter);
+  app.use(`${base}/notifications`, notificationsRouter);
+  app.use(`${base}/chat`, chatRouter);
+  app.use(`${base}/me`, meRouter);
 };
 
 mountApiRoutes('/api');
@@ -59,6 +69,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 const server = app.listen(env.port, () => {
   console.log(`Morneven backend listening on ${env.port}`);
 });
+
+attachRealtimeWebSocket(server);
 
 const shutdown = async (signal: string) => {
   console.log(`${signal} received, shutting down gracefully...`);
