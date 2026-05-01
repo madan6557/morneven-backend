@@ -7,13 +7,24 @@ const prisma = new PrismaClient();
 const seedDir = path.resolve(process.cwd(), 'fe-seed');
 
 const toRole = (value: string): Role => (value === 'author' ? Role.author : value === 'guest' ? Role.guest : Role.personel);
-const toTrack = (value: string): Track => (value === 'field' ? Track.field : value === 'mechanic' ? Track.mechanic : Track.executive);
-const toMediaType = (value: string): MediaType => (value === 'video' ? MediaType.video : value === 'link' ? MediaType.link : MediaType.image);
+const toTrack = (value: string): Track => {
+  if (value === 'field') return Track.field;
+  if (value === 'mechanic') return Track.mechanic;
+  if (value === 'logistics') return Track.logistics;
+  return Track.executive;
+};
+const toMediaType = (value: string): MediaType => {
+  if (value === 'video') return MediaType.video;
+  if (value === 'link') return MediaType.link;
+  if (value === 'file') return MediaType.file;
+  return MediaType.image;
+};
 const toEntityType = (value: string): EntityType => {
   if (value === 'characters') return EntityType.character;
   if (value === 'places') return EntityType.place;
   if (value === 'technology') return EntityType.technology;
   if (value === 'creatures') return EntityType.creature;
+  if (value === 'events') return EntityType.event;
   return EntityType.other;
 };
 const toProjectStatus = (value: string): ProjectStatus => {
@@ -38,6 +49,16 @@ async function loadJson<T>(filename: string): Promise<T> {
 }
 
 async function main() {
+  await prisma.auditLog.deleteMany();
+  await prisma.extractionJob.deleteMany();
+  await prisma.chatReadState.deleteMany();
+  await prisma.chatMessage.deleteMany();
+  await prisma.chatConversationMember.deleteMany();
+  await prisma.chatConversation.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.quotaRecord.deleteMany();
+  await prisma.managementRequest.deleteMany();
+  await prisma.team.deleteMany();
   await prisma.mention.deleteMany();
   await prisma.reply.deleteMany();
   await prisma.comment.deleteMany();
@@ -74,6 +95,7 @@ async function main() {
     const passwordHash = await bcrypt.hash('SeedPassword123', 10);
     const created = await prisma.user.create({
       data: {
+        id: user.id,
         username: String(user.username).toLowerCase(),
         email: user.email,
         passwordHash,
@@ -93,11 +115,16 @@ async function main() {
   for (const item of projects) {
     await prisma.project.create({
       data: {
+        id: item.id,
         title: item.title,
         status: toProjectStatus(item.status),
-        thumbnail: item.thumbnail || 'https://placeholder.local/project.jpg',
+        thumbnail: item.thumbnail || '',
         shortDesc: item.shortDesc,
         fullDesc: item.fullDesc,
+        docs: item.docs ?? [],
+        archived: Boolean(item.archived),
+        contributor: item.contributor ?? null,
+        meta: item.meta ?? undefined,
         patches: {
           create: (item.patches ?? []).map((p: any) => ({
             version: p.version,
@@ -112,6 +139,7 @@ async function main() {
   for (const item of news) {
     await prisma.news.create({
       data: {
+        id: item.id,
         authorId: fallbackAuthorId,
         text: item.text,
         publishDate: new Date(item.date),
@@ -131,17 +159,46 @@ async function main() {
 
   for (const item of gallery) {
     const uploader = usersByUsername.get(String(item.uploadedBy).toLowerCase()) ?? fallbackAuthorId;
-    await prisma.galleryItem.create({
+    const createdGallery = await prisma.galleryItem.create({
       data: {
+        id: item.id,
         type: toMediaType(item.type),
         title: item.title,
-        thumbnail: item.thumbnail || 'https://placeholder.local/gallery.jpg',
+        thumbnail: item.thumbnail || '',
         caption: item.caption,
+        videoUrl: item.videoUrl || null,
         uploadDate: item.date ? new Date(item.date) : new Date(),
         uploadedBy: uploader,
         tags: { create: (item.tags ?? []).map((tag: string) => ({ tag })) }
       }
     });
+
+    for (const comment of item.comments ?? []) {
+      const commentAuthor = usersByUsername.get(String(comment.author).toLowerCase()) ?? fallbackAuthorId;
+      const createdComment = await prisma.comment.create({
+        data: {
+          id: comment.id,
+          entityType: EntityType.gallery,
+          entityId: createdGallery.id,
+          authorId: commentAuthor,
+          text: comment.text,
+          createdAt: comment.date ? new Date(comment.date) : new Date()
+        }
+      });
+
+      for (const reply of comment.replies ?? []) {
+        const replyAuthor = usersByUsername.get(String(reply.author).toLowerCase()) ?? fallbackAuthorId;
+        await prisma.reply.create({
+          data: {
+            id: reply.id,
+            commentId: createdComment.id,
+            authorId: replyAuthor,
+            text: reply.text,
+            createdAt: reply.date ? new Date(reply.date) : new Date()
+          }
+        });
+      }
+    }
   }
 
   const loreGroups = [
@@ -150,13 +207,14 @@ async function main() {
     { category: 'technology', items: technology },
     { category: 'creatures', items: creatures },
     { category: 'other', items: other },
-    { category: 'other', items: events }
+    { category: 'events', items: events }
   ];
 
   for (const group of loreGroups) {
     for (const item of group.items) {
       const createdLore = await prisma.loreItem.create({
         data: {
+          id: item.id,
           category: toEntityType(group.category),
           name: item.name ?? item.title,
           type: item.type ?? item.category ?? item.classification ?? item.era ?? null,
@@ -194,6 +252,7 @@ async function main() {
 
   await prisma.mapMarker.createMany({
     data: mapData.markers.map((m) => ({
+      id: m.id,
       name: m.name,
       status: toMapStatus(m.status),
       x: Number(m.x),
@@ -209,6 +268,98 @@ async function main() {
       imageUrl: mapData.mapImage || 'https://placeholder.local/map.png'
     }
   });
+
+  await prisma.team.createMany({
+    data: [
+      {
+        id: 'team-seed-ops',
+        name: 'Field Recon Alpha',
+        leader: 'p.salim',
+        members: ['i.stratos', 't.bremmer'],
+        track: Track.field,
+        cycleYear: new Date().getFullYear(),
+        completed: 0
+      },
+      {
+        id: 'team-seed-eng',
+        name: 'Nexus Maintenance Cell',
+        leader: 'j.huang',
+        members: ['a.koval', 's.okafor'],
+        track: Track.mechanic,
+        cycleYear: new Date().getFullYear(),
+        completed: 1
+      }
+    ]
+  });
+
+  await prisma.managementRequest.createMany({
+    data: [
+      {
+        id: 'req-seed-1',
+        kind: 'clearance',
+        requester: 'i.stratos',
+        requesterTrack: Track.field,
+        requesterLevel: 1,
+        payload: { targetLevel: 2 },
+        reason: 'Completed trainee obligations and ready for PL2 review.',
+        status: 'pending',
+        createdAt: new Date('2026-04-20')
+      },
+      {
+        id: 'req-seed-2',
+        kind: 'transfer',
+        requester: 'e.ravel',
+        requesterTrack: Track.logistics,
+        requesterLevel: 2,
+        payload: { targetTrack: 'mechanic' },
+        reason: 'Background in propulsion systems; better fit with ENG track.',
+        status: 'pending',
+        createdAt: new Date('2026-04-21')
+      }
+    ]
+  });
+
+  await prisma.chatConversation.create({
+    data: {
+      id: 'conv-institute',
+      kind: 'institute',
+      name: 'Institute - All Personnel',
+      source: { institute: true },
+      systemManaged: true,
+      createdBy: 'system',
+      members: {
+        create: personnel
+          .filter((user) => Number(user.level ?? 1) >= 1)
+          .map((user) => ({
+            username: String(user.username).toLowerCase(),
+            role: Number(user.level ?? 1) >= 7 ? 'admin' : 'member',
+            status: 'active'
+          }))
+      }
+    }
+  });
+
+  for (const track of [Track.executive, Track.field, Track.mechanic, Track.logistics]) {
+    await prisma.chatConversation.create({
+      data: {
+        id: `conv-div-${track}`,
+        kind: 'division',
+        name: `Division - ${track.toUpperCase()}`,
+        source: { track },
+        systemManaged: true,
+        createdBy: 'system',
+        members: {
+          create: personnel
+            .filter((user) => Number(user.level ?? 1) >= 7 || toTrack(user.track) === track)
+            .map((user) => ({
+              username: String(user.username).toLowerCase(),
+              role: Number(user.level ?? 1) >= 7 ? 'admin' : 'member',
+              status: 'active'
+            }))
+        }
+      }
+    });
+  }
 
   const [userCount, projectCount, newsCount, galleryCount, loreCount, markerCount] = await Promise.all([
     prisma.user.count(),

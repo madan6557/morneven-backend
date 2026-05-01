@@ -77,19 +77,13 @@
       }
     ],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Updated bio with post-Resonance activities."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2024-10-12",
-        "notes": "Canonical entry approved."
-      },
       "creator": "Director Morneven",
       "owner": "Lore Division",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Concept Artist Kiri",
         "Writer Solen"
@@ -98,9 +92,44 @@
       "startedAt": "Founders Codex",
       "completedAt": "2024-09-01",
       "approvedAt": "2024-10-12",
-      "approvedBy": "2024-10-20",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Updated bio with post-Resonance activities."
+        },
+        {
+          "version": "1.0",
+          "date": "2024-10-12",
+          "notes": "Canonical entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-001-01",
+        "title": "Kael Vorthane Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-001-02",
+        "title": "Kael Vorthane Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-001-01",
+        "title": "Kael Vorthane Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-002",
@@ -153,13 +182,48 @@
       "creator": "Writer Solen",
       "owner": "Lore Division",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Founders Codex",
       "startedAt": "2024-09-04",
       "completedAt": "2024-10-15",
       "approvedAt": "2024-10-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-002-01",
+        "title": "Elynra Moonveil Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-002-02",
+        "title": "Elynra Moonveil Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-002-01",
+        "title": "Elynra Moonveil Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-003",
@@ -198,6 +262,10 @@
       "creator": "Cmdr. Halen",
       "owner": "Field Operations",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Tactics Cell"
       ],
@@ -205,9 +273,39 @@
       "startedAt": "Field Roster",
       "completedAt": "2025-01-10",
       "approvedAt": "2025-02-02",
-      "approvedBy": "2025-02-10",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-003-01",
+        "title": "Rex Ashford Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-003-02",
+        "title": "Rex Ashford Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-003-01",
+        "title": "Rex Ashford Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-004",
@@ -246,13 +344,48 @@
       "creator": "Dr. Aelis Vance",
       "owner": "Propulsion Division",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lift Division",
       "projectName": "Project Aethon",
       "startedAt": "2025-03-01",
       "completedAt": "2025-04-12",
       "approvedAt": "2025-04-20",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-004-01",
+        "title": "Lyra Fenwick Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-004-02",
+        "title": "Lyra Fenwick Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-004-01",
+        "title": "Lyra Fenwick Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-005",
@@ -306,13 +439,48 @@
       "creator": "Quartermaster Bren",
       "owner": "Logistics Division",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Logistics Division",
       "projectName": "Pantry Continuity Initiative",
       "startedAt": "2024-12-05",
       "completedAt": "2024-12-20",
       "approvedAt": "2024-12-30",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-005-01",
+        "title": "Sola Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-005-02",
+        "title": "Sola Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-005-01",
+        "title": "Sola Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-006",
@@ -358,13 +526,48 @@
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Archives Division",
       "projectName": "Stellarum Archives",
       "startedAt": "2025-05-01",
       "completedAt": "2025-05-30",
       "approvedAt": "2025-06-05",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-006-01",
+        "title": "Garnet Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-006-02",
+        "title": "Garnet Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-006-01",
+        "title": "Garnet Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-007",
@@ -422,13 +625,48 @@
       "creator": "Lt. Korr",
       "owner": "Mechanic Corps",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Mecha Forge",
       "projectName": "MK-VII Frame",
       "startedAt": "2025-11-15",
       "completedAt": "2025-12-10",
       "approvedAt": "2025-12-15",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-007-01",
+        "title": "Ameth Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-007-02",
+        "title": "Ameth Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-007-01",
+        "title": "Ameth Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-008",
@@ -479,12 +717,48 @@
       "creator": "Eng. Rho-7",
       "owner": "Engineering",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Engineering",
+      "projectName": "Diana",
       "startedAt": "2025-07-04",
       "completedAt": "2025-07-22",
       "approvedAt": "2025-07-30",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-008-01",
+        "title": "Diana Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-008-02",
+        "title": "Diana Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-008-01",
+        "title": "Diana Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-009",
@@ -537,13 +811,48 @@
       "creator": "Comms Officer Nila",
       "owner": "Communications",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Communications",
       "projectName": "Echo Relay Network",
       "startedAt": "2025-02-15",
       "completedAt": "2025-03-05",
       "approvedAt": "2025-03-12",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-009-01",
+        "title": "Sora Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-009-02",
+        "title": "Sora Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-009-01",
+        "title": "Sora Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-010",
@@ -594,13 +903,48 @@
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Bio-Containment",
       "projectName": "Verdant Quarantine",
       "startedAt": "2025-04-22",
       "completedAt": "2025-05-15",
       "approvedAt": "2025-05-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-010-01",
+        "title": "Era Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-010-02",
+        "title": "Era Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-010-01",
+        "title": "Era Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-011",
@@ -654,12 +998,48 @@
       "creator": "Eng. Tassia",
       "owner": "Mechanic Corps",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Mecha Forge",
+      "projectName": "Marine",
       "startedAt": "2026-01-08",
       "completedAt": "2026-01-30",
       "approvedAt": "2026-02-05",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-011-01",
+        "title": "Marine Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-011-02",
+        "title": "Marine Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-011-01",
+        "title": "Marine Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-012",
@@ -712,13 +1092,48 @@
       "creator": "Cartographer Lina",
       "owner": "Geo Division",
       "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Geo-Cartography",
       "projectName": "Worldshard Engine",
       "startedAt": "2026-03-01",
       "completedAt": "2026-03-25",
       "approvedAt": "2026-04-02",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-012-01",
+        "title": "John Halberd Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-012-02",
+        "title": "John Halberd Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-012-01",
+        "title": "John Halberd Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "char-013",
@@ -771,12 +1186,47 @@
       "creator": "Council of Founders",
       "owner": "Lore Division",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": "Lore Division",
       "projectName": "Founders Codex",
       "startedAt": "2024-09-10",
       "completedAt": "2024-10-30",
       "approvedAt": "2024-11-05",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-04-20",
+          "notes": "Initial canon seed."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-013-01",
+        "title": "Mira Halden Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-char-013-02",
+        "title": "Mira Halden Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-013-01",
+        "title": "Mira Halden Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   }
 ]

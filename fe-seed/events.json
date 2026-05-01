@@ -36,19 +36,13 @@
       }
     ],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -56,9 +50,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-001-01",
+        "title": "The Final Resonance Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-001-02",
+        "title": "The Final Resonance Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-001-01",
+        "title": "The Final Resonance Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-002",
@@ -85,19 +114,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -105,9 +128,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-002-01",
+        "title": "First Contact - The Falling Stars Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-002-02",
+        "title": "First Contact - The Falling Stars Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-002-01",
+        "title": "First Contact - The Falling Stars Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-003",
@@ -138,19 +196,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -158,9 +210,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-003-01",
+        "title": "The War of Light Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-003-02",
+        "title": "The War of Light Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-003-01",
+        "title": "The War of Light Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-004",
@@ -191,19 +278,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -211,9 +292,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-004-01",
+        "title": "The Founding Charter Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-004-02",
+        "title": "The Founding Charter Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-004-01",
+        "title": "The Founding Charter Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-005",
@@ -263,19 +379,13 @@
       }
     ],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -283,9 +393,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-005-01",
+        "title": "Year of Lanterns - The Pantry Incident Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-005-02",
+        "title": "Year of Lanterns - The Pantry Incident Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-005-01",
+        "title": "Year of Lanterns - The Pantry Incident Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-006",
@@ -312,19 +457,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -332,9 +471,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-006-01",
+        "title": "Violet Veil - Activation Ceremony Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-006-02",
+        "title": "Violet Veil - Activation Ceremony Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-006-01",
+        "title": "Violet Veil - Activation Ceremony Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-007",
@@ -361,19 +535,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -381,9 +549,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-007-01",
+        "title": "Cataloguing Day Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-007-02",
+        "title": "Cataloguing Day Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-007-01",
+        "title": "Cataloguing Day Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-008",
@@ -410,19 +613,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -430,9 +627,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-008-01",
+        "title": "Code Aurora - Standing Drill Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-008-02",
+        "title": "Code Aurora - Standing Drill Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-008-01",
+        "title": "Code Aurora - Standing Drill Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-009",
@@ -459,19 +691,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -479,9 +705,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-009-01",
+        "title": "Day of Light Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-009-02",
+        "title": "Day of Light Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-009-01",
+        "title": "Day of Light Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-010",
@@ -508,19 +769,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -528,9 +783,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-010-01",
+        "title": "Sector 7 - Crystalline Bloom Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-010-02",
+        "title": "Sector 7 - Crystalline Bloom Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-010-01",
+        "title": "Sector 7 - Crystalline Bloom Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-011",
@@ -561,19 +851,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -581,9 +865,44 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-011-01",
+        "title": "Promotion Ceremony - Issuance of the First Badge Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-011-02",
+        "title": "Promotion Ceremony - Issuance of the First Badge Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-011-01",
+        "title": "Promotion Ceremony - Issuance of the First Badge Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "evt-012",
@@ -610,19 +929,13 @@
     "docs": [],
     "discussions": [],
     "meta": {
-      "0": {
-        "version": "1.1",
-        "date": "2026-02-08",
-        "notes": "Cross-referenced with newly recovered ledgers."
-      },
-      "1": {
-        "version": "1.0",
-        "date": "2025-01-15",
-        "notes": "Canonical event entry approved."
-      },
       "creator": "Archivist Solen",
       "owner": "Archives Division",
       "designer": "Writer Solen",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Historian Cell"
       ],
@@ -630,8 +943,43 @@
       "startedAt": "Chronicles of Gemora",
       "completedAt": "2024-11-01",
       "approvedAt": "2025-01-15",
-      "approvedBy": "2025-01-22",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.1",
+          "date": "2026-02-08",
+          "notes": "Cross-referenced with newly recovered ledgers."
+        },
+        {
+          "version": "1.0",
+          "date": "2025-01-15",
+          "notes": "Canonical event entry approved."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-012-01",
+        "title": "Charter Review - Decennial Audit Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-evt-012-02",
+        "title": "Charter Review - Decennial Audit Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-012-01",
+        "title": "Charter Review - Decennial Audit Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   }
 ]

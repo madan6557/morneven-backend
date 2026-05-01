@@ -41,14 +41,13 @@
       }
     ],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -56,9 +55,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-001-01",
+        "title": "Glassfang Stalker Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-001-02",
+        "title": "Glassfang Stalker Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-001-01",
+        "title": "Glassfang Stalker Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-002",
@@ -72,14 +101,13 @@
     "fullDesc": "The Hollow Choir is not a single creature but a colonial intelligence formed when Jewerlian vocal-print fragments bonded to mutated locust biomass during the Final Resonance. Field recordings describe choirs of stolen voices - children, partners, fallen comrades - emanating from sealed substructures.\n\nThe Choir shifts vocal frequency the moment a counter-signal is broadcast, defeating most acoustic countermeasures. Doctrine therefore mandates High-Intensity Suppression: incendiary saturation before the swarm completes its adaptive cycle. All encounters are designated Code Black.\n\n[L3+]Identified Fracture Point: the colonial nucleus collapses when exposed to a sustained 14.7 kHz Jewerlian counter-resonance for ≥ 9 seconds, provided the broadcast originates from at least three spatially separated emitters. Field teams holding L3+ clearance may requisition the MK-VII triad rig from Armory West. Any attempt below the three-emitter threshold has resulted in 100% operative loss in past trials (see incident dossiers HC-04 through HC-09).[/L3+]",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -87,9 +115,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-002-01",
+        "title": "Hollow Choir Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-002-02",
+        "title": "Hollow Choir Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-002-01",
+        "title": "Hollow Choir Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-003",
@@ -103,14 +161,13 @@
     "fullDesc": "The Mossback Drifter is one of the few large mutated species considered fully benign. Its dorsal carapace is colonized by symbiotic moss that filters airborne Gemosphere particulates, making the creature a walking air-purifier in sealed habitats.\n\nGEC protocol is Routine Survey only - elimination is not authorized unless a herd obstructs an active expansion path. Drifters bond readily with handlers and have been integrated into Verdant Hollow caravans as low-impact pack animals. No incident has been recorded in 47 years of cohabitation.",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -118,9 +175,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-003-01",
+        "title": "Mossback Drifter Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-003-02",
+        "title": "Mossback Drifter Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-003-01",
+        "title": "Mossback Drifter Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-004",
@@ -134,14 +221,13 @@
     "fullDesc": "The Resonant Vessel is not a living entity in the traditional sense, but rather a crystalline formation that emerged when concentrated Gemosphere deposits fused with decayed Jewerlian machinery. Unlike hostile anomalies, the Vessel exhibits a symbiotic relationship with controlled energy fields - it absorbs ambient resonance and redirects it in stable, harvestable pulses.\n\nMorneven Institute Directive: Vessels are designated as Strategic Assets under Protocol CATALYST-7. Field teams are authorized to locate, secure, and transport intact specimens to Institute facilities for integration into power generation systems. Destruction is prohibited without Executive override. All Vessels are logged as renewable resource nodes rather than threats.",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -149,9 +235,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-004-01",
+        "title": "Resonant Vessel Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-004-02",
+        "title": "Resonant Vessel Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-004-01",
+        "title": "Resonant Vessel Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-005",
@@ -165,14 +281,13 @@
     "fullDesc": "Annihilation Pattern Theta represents the absolute failure category of the GEC system - an entity that cannot be contained, negotiated with, or weaponized. It manifests as a geometric void approximately 3 meters in diameter, surrounded by a corona of inverted light. Anything crossing its event horizon - matter, energy, even Gemosphere resonance - ceases to exist.\n\nMorneven Doctrine is explicit: Singularity-class entities are Existential Threats requiring Immediate Neutralization. All available resources, including tactical nuclear assets and Fracture-Point teams, are authorized for deployment. Theta's containment zone is maintained by a perpetual bombardment of counter-resonance fields at the cost of 12 Institute operatives per quarter. If containment fails, Gemora's eastern hemisphere will be uninhabitable within 72 hours.",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -180,9 +295,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-005-01",
+        "title": "Annihilation Pattern Theta Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-005-02",
+        "title": "Annihilation Pattern Theta Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-005-01",
+        "title": "Annihilation Pattern Theta Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-006",
@@ -196,14 +341,13 @@
     "fullDesc": "Echo Remnants are the terminal state of Gemora anomalies that have been successfully neutralized through Morneven intervention. They appear as faintly luminescent crystalline dust or ashen formations, devoid of the energetic signatures that defined their active states. No behavioral patterns, no threat assessment, no Fracture Points - only the archaeological record remains.\n\nGEC Protocol ZS-1 applies: Zero-State entities are Closed Files. They require no tactical response, no observation protocols, and no resource allocation. Remnants are marked on survey maps solely to prevent redundant investigation by field teams. The presence of a Zero-State marker indicates a successful operation and the permanent elimination of a threat to human survival.",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -211,9 +355,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-006-01",
+        "title": "Echo Remnant Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-006-02",
+        "title": "Echo Remnant Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-006-01",
+        "title": "Echo Remnant Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-007",
@@ -227,14 +401,13 @@
     "fullDesc": "The Tideglass Leviathan is the largest confirmed Crystalline-class entity in the catalogue. Its body is composed of layered Gemosphere quartz suspended in a living connective matrix, allowing it to refract not only light but also sonar pulses, producing dozens of false returns on any active sensor sweep.\n\nMorneven shipping lanes route around its known migration corridors. Engagement is not authorized below DL-4 and requires Director sign-off. The entity has not initiated hostilities against Institute vessels in seventeen years, but doctrine assumes that pattern is not a guarantee.\n\n[L3+]The Leviathan's only confirmed Fracture Point is a 14-meter-wide cardiac aperture that opens for approximately 2.3 seconds during deep-dive descent. Any strike must be delivered through the aperture during that window. Three confirmed kills in recorded history; all three were delivered by Sola without the use of Solar's Lens.[/L3+]",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -242,9 +415,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-007-01",
+        "title": "Tideglass Leviathan Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-007-02",
+        "title": "Tideglass Leviathan Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-007-01",
+        "title": "Tideglass Leviathan Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-008",
@@ -258,14 +461,13 @@
     "fullDesc": "The Pale Surveyor is a soft-tissue Metamorphic that imprints on the body language of any human or demi-human it observes for more than ninety consecutive seconds. It uses the imprinted gait and posture to approach checkpoints, often impersonating operatives reported missing or killed within the previous 30 days.\n\nIt does not speak; it mimics silhouette only. The standard counter-protocol is the 'three-question gate' - a rotating set of personnel-specific questions never recorded in writing. Any approach failing the gate is to be engaged immediately.\n\nThe Surveyor's body adapts within seconds when struck, shifting its mass to absorb impact. High-Intensity Suppression doctrine applies: it must be neutralized before it completes the second adaptation cycle (~4 seconds).",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -273,9 +475,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-008-01",
+        "title": "Pale Surveyor Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-008-02",
+        "title": "Pale Surveyor Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-008-01",
+        "title": "Pale Surveyor Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-009",
@@ -289,14 +521,13 @@
     "fullDesc": "Lantern Moth Blooms are seasonal swarms of small bioluminescent moths whose wing-scales contain trace counter-resonance compounds. A passing bloom will weaken nearby Crystalline and Metamorphic activity by an average of 11% for several hours.\n\nThe blooms are non-aggressive and are deliberately encouraged by Verdant Hollow caretakers. The DL-2 rating reflects only respiratory irritation in unmasked personnel and an elevated risk of small electrical fires when the bloom passes through unsealed switchgear. Field teams are issued mesh hoods during bloom season.",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -304,9 +535,39 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-009-01",
+        "title": "Lantern Moth Bloom Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-009-02",
+        "title": "Lantern Moth Bloom Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-009-01",
+        "title": "Lantern Moth Bloom Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   },
   {
     "id": "crea-010",
@@ -320,14 +581,13 @@
     "fullDesc": "The Heliograph Spire is a slow-growing Catalyst-class formation that erects itself over decades on plateaus with consistent Gemosphere exposure. Once mature, it captures the violet-dawn refraction event each morning and slowly releases the stored energy across the day as a tightly collimated beam.\n\nMorneven uses mature Spires as off-grid power relays for remote outposts. The DL-3 rating reflects the genuine hazard of standing within the beam's projection arc - the discharge is invisible to unaugmented vision and has flash-vaporized at least two unbriefed handlers. Project SOLSTICE maintains a registry of all known Spires and their beam vectors.",
     "docs": [],
     "meta": {
-      "0": {
-        "version": "1.0",
-        "date": "2025-06-30",
-        "notes": "Classified under GEC Mark II."
-      },
       "creator": "Dr. Vey",
       "owner": "Bio-Research",
       "designer": "Concept Artist Kiri",
+      "collaborators": [
+        "Archivist Solen",
+        "Analyst Mira"
+      ],
       "team": [
         "Field Survey Team"
       ],
@@ -335,8 +595,38 @@
       "startedAt": "Bestiarum Gemora",
       "completedAt": "2025-04-22",
       "approvedAt": "2025-06-30",
-      "approvedBy": "2025-07-08",
-      "approvedBy": "Director Morneven"
-    }
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2025-06-30",
+          "notes": "Classified under GEC Mark II."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-crea-010-01",
+        "title": "Heliograph Spire Survey Log",
+        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+        "date": "2026-04-18"
+      },
+      {
+        "id": "fn-crea-010-02",
+        "title": "Heliograph Spire Handling Directive",
+        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+        "date": "2026-04-24"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-crea-010-01",
+        "title": "Heliograph Spire Observation",
+        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+        "date": "2026-04-26"
+      }
+    ]
   }
 ]
