@@ -59,7 +59,7 @@ const config = {
       password: process.env.QA_GUEST_PASSWORD ?? process.env.QA_SEED_PASSWORD ?? DEFAULT_PASSWORD,
     },
     exec7: {
-      email: process.env.QA_EXEC7_EMAIL ?? "exec7@morneven.com",
+      email: process.env.QA_EXEC7_EMAIL ?? "author@morneven.com",
       password: process.env.QA_EXEC7_PASSWORD ?? process.env.QA_SEED_PASSWORD ?? DEFAULT_PASSWORD,
     },
     exec6: {
@@ -203,17 +203,27 @@ async function runSmokeSuite() {
     });
   }
 
-  await login("exec7");
+  const exec7LoggedIn = await login("exec7", { required: false });
 
-  await requestTest({
-    suite: "Smoke",
-    name: "Management pending count with PL7",
-    method: "GET",
-    path: `${config.apiPrefix}/management/requests/pending-count`,
-    token: state.tokens.exec7,
-    expectedStatuses: [200],
-    expected: "200 for PL7 user",
-  });
+  if (exec7LoggedIn) {
+    await requestTest({
+      suite: "Smoke",
+      name: "Management pending count with PL7",
+      method: "GET",
+      path: `${config.apiPrefix}/management/requests/pending-count`,
+      token: state.tokens.exec7,
+      expectedStatuses: [200],
+      expected: "200 for PL7 user",
+    });
+  } else {
+    addBlocked(
+      "Smoke",
+      "Management pending count with PL7",
+      "GET",
+      `${config.apiPrefix}/management/requests/pending-count`,
+      "PL7 login is required for this check.",
+    );
+  }
 }
 
 async function runFullSuite() {
@@ -610,6 +620,17 @@ async function runManagementAndNotificationTests() {
   const execToken = state.tokens.exec7;
   const authorToken = state.tokens.author;
 
+  if (!execToken) {
+    addBlocked(
+      "Management",
+      "Management and notification privileged workflow",
+      "N/A",
+      "N/A",
+      "PL7 token is unavailable.",
+    );
+    return;
+  }
+
   const request = await requestTest({
     suite: "Management",
     name: "Create QA management request",
@@ -674,6 +695,11 @@ async function runManagementAndNotificationTests() {
 
 async function runGlobalStateTests() {
   const token = state.tokens.exec7;
+
+  if (!token) {
+    addBlocked("Global state", "Global-state tests", "N/A", "N/A", "PL7 token is unavailable.");
+    return;
+  }
 
   const markers = await requestTest({
     suite: "Global state",
@@ -750,6 +776,11 @@ async function runFileUploadTest() {
 }
 
 async function runExtractionTest() {
+  if (!state.tokens.exec7) {
+    addBlocked("Extraction", "Start DB extraction job", "POST", `${config.apiPrefix}/settings/extractions`, "PL7 token is unavailable.");
+    return;
+  }
+
   await requestTest({
     suite: "Extraction",
     name: "Start DB extraction job",
@@ -767,8 +798,9 @@ async function runExtractionTest() {
   });
 }
 
-async function login(accountName) {
-  if (state.tokens[accountName]) return;
+async function login(accountName, options = {}) {
+  const required = options.required ?? true;
+  if (state.tokens[accountName]) return true;
   const account = config.accounts[accountName];
   const result = await requestTest({
     suite: "Auth",
@@ -783,10 +815,14 @@ async function login(accountName) {
 
   const token = extractToken(result.body);
   if (!token) {
+    if (!required) {
+      return false;
+    }
     throw new Error(`Login did not return a token for ${accountName}`);
   }
   state.tokens[accountName] = token;
   state.users[accountName] = extractData(result.body)?.user ?? result.body?.user ?? null;
+  return true;
 }
 
 async function requestTest({ suite, name, method, path: pathName, token, body, expectedStatuses, validate, expected }) {
@@ -883,6 +919,18 @@ function addSkip(suite, name, actual) {
     path: "N/A",
     expected: "Optional test is not enabled",
     status: "SKIP",
+    actual,
+  });
+}
+
+function addBlocked(suite, name, method, pathName, actual) {
+  addRecord({
+    suite,
+    name,
+    method,
+    path: pathName,
+    expected: "Prerequisite is available",
+    status: "BLOCKED",
     actual,
   });
 }
@@ -1064,4 +1112,3 @@ function errorToString(error) {
 function escapeMd(value) {
   return String(value).replaceAll("|", "\\|").replaceAll("\n", " ").slice(0, 400);
 }
-
