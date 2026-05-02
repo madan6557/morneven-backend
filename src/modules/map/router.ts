@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { MapStatus } from '@prisma/client';
+import { z } from 'zod';
 import { auth, allow } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
@@ -7,33 +8,32 @@ import { fail, ok } from '../../utils/response.js';
 export const mapRouter = Router();
 
 const canWriteMap = (u: NonNullable<Express.Request['user']>) => u.level === 7 || (u.level === 6 && u.track === 'executive');
+const markerSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1),
+  status: z.nativeEnum(MapStatus),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  description: z.string().optional().default(''),
+  loreLink: z.string().optional().nullable()
+});
+const markersSchema = z.object({ markers: z.array(markerSchema) });
 
 mapRouter.get('/markers', auth, async (_req, res) => ok(res, await prisma.mapMarker.findMany()));
 mapRouter.put('/markers', auth, allow(canWriteMap), async (req, res) => {
-  const markers = req.body.markers as Array<{
-    id?: string;
-    name: string;
-    status: MapStatus;
-    x: number;
-    y: number;
-    description: string;
-    loreLink?: string;
-  }>;
-  if (!Array.isArray(markers)) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR');
-  if (markers.some((marker) => marker.x < 0 || marker.x > 1 || marker.y < 0 || marker.y > 1 || !marker.name)) {
-    return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR');
-  }
+  const parsed = markersSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
   await prisma.$transaction(async (tx) => {
     await tx.mapMarker.deleteMany();
     await tx.mapMarker.createMany({
-      data: markers.map((marker) => ({
+      data: parsed.data.markers.map((marker) => ({
         id: marker.id,
         name: marker.name,
         status: marker.status,
         x: marker.x,
         y: marker.y,
-        description: marker.description ?? '',
+        description: marker.description,
         loreLink: marker.loreLink || null
       }))
     });

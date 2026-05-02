@@ -29,15 +29,22 @@ if (env.storageDriver === 'local') {
   app.use(env.localStorageBasePath, express.static(env.localStoragePath));
 }
 
-app.get('/health', (_req, res) => ok(res, { status: 'ok', env: env.nodeEnv }));
-app.get('/ready', async (_req, res) => {
+const healthHandler = (_req: Request, res: Response) => ok(res, { status: 'ok', env: env.nodeEnv });
+const readyHandler = async (_req: Request, res: Response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return ok(res, { status: 'ready' });
   } catch {
     return fail(res, 503, 'Database not ready', 'SERVICE_UNAVAILABLE');
   }
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/ready', readyHandler);
+app.get('/api/health', healthHandler);
+app.get('/api/ready', readyHandler);
+app.get('/v1/health', healthHandler);
+app.get('/v1/ready', readyHandler);
 
 const mountApiRoutes = (base: string) => {
   app.use(`${base}/auth`, authRouter);
