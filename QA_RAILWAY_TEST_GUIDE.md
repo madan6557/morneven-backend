@@ -75,20 +75,20 @@ Default headers:
 
 ```http
 Content-Type: application/json
-Authorization: Bearer <accessToken>
+Authorization: Bearer <token>
 ```
 
 Upload headers:
 
 ```http
-Authorization: Bearer <accessToken>
+Authorization: Bearer <token>
 Content-Type: multipart/form-data
 ```
 
 Authentication rules:
 
 - Public endpoints: health, readiness, login, register, guest login.
-- Protected endpoints require `Authorization: Bearer <accessToken>`.
+- Protected endpoints require `Authorization: Bearer <token>`.
 - Missing token should return `401`.
 - Valid token with insufficient role or level should return `403`.
 - Invalid JSON body or invalid validation fields should return `400` or `422`, depending on middleware behavior.
@@ -207,7 +207,7 @@ Expected login response:
 {
   "success": true,
   "data": {
-    "accessToken": "jwt-token",
+    "token": "jwt-token",
     "refreshToken": "refresh-token",
     "user": {
       "id": "user-id",
@@ -547,8 +547,7 @@ Valid body:
 {
   "conversationId": "conv-institute",
   "text": "QA-20260502 message test",
-  "attachments": [],
-  "replyTo": null
+  "attachments": []
 }
 ```
 
@@ -575,7 +574,7 @@ Validation:
 | `conversationId` | string | yes | Non-empty |
 | `text` | string | no | Defaults to empty string |
 | `attachments` | array of objects | no | Defaults to empty array |
-| `replyTo` | object | no | Optional reply reference |
+| `replyTo` | object | no | Optional reply reference. Omit the field when there is no reply target. Do not send `null`. |
 
 Important validation:
 
@@ -1238,9 +1237,7 @@ Valid body:
     }
   ],
   "archived": false,
-  "contributor": {
-    "username": "author"
-  },
+  "contributor": "author",
   "meta": {
     "qaRun": "QA-20260502"
   }
@@ -1259,7 +1256,7 @@ Validation:
 | `patches` | array | no | Defaults to `[]` |
 | `docs` | array | no | Defaults to `[]` |
 | `archived` | boolean | no | Defaults to `false` |
-| `contributor` | object | no | Optional metadata |
+| `contributor` | string | no | Optional username |
 | `meta` | object | no | Optional metadata |
 
 Invalid body:
@@ -1599,7 +1596,7 @@ Valid body:
     {
       "id": "qa-marker-20260502",
       "name": "QA Marker",
-      "status": "active",
+      "status": "safe",
       "x": 0.35,
       "y": 0.45,
       "description": "QA map marker",
@@ -1616,7 +1613,7 @@ Validation:
 | `markers` | array | yes | Array of marker objects |
 | `id` | string | no | Optional |
 | `name` | string | yes | Non-empty |
-| `status` | enum | yes | Backend MapStatus enum |
+| `status` | enum | yes | `safe`, `caution`, `danger`, `restricted`, `mission` |
 | `x` | number | yes | Minimum `0`, maximum `1` |
 | `y` | number | yes | Minimum `0`, maximum `1` |
 | `description` | string | yes | Non-empty |
@@ -1642,7 +1639,7 @@ Expected:
 
 - PL7 or PL6 executive can update.
 - Lower-level user receives `403`.
-- Invalid coordinates fail validation.
+- Invalid coordinates or invalid status values fail validation with `422`.
 
 ### Update Map Image
 
@@ -1902,7 +1899,7 @@ Example curl:
 
 ```bash
 curl -X POST "https://morneven-backend-development.up.railway.app/api/files/upload?folder=gallery" \
-  -H "Authorization: Bearer <accessToken>" \
+  -H "Authorization: Bearer <token>" \
   -F "file=@./qa-image.png"
 ```
 

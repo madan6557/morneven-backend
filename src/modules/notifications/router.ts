@@ -113,3 +113,24 @@ notificationsRouter.delete('/', auth, async (req, res) => {
   await emitNavigationBadgesUpdated(req.user!);
   return ok(res, { deleted: direct.count + broadcasts.length });
 });
+
+notificationsRouter.delete('/:id', auth, async (req, res) => {
+  const notification = await prisma.notification.findFirst({
+    where: { id: req.params.id, OR: [{ recipient: req.user!.username }, { recipient: '*' }] }
+  });
+  if (!notification) return fail(res, 404, 'Notification not found', 'NOT_FOUND');
+
+  if (notification.recipient === '*') {
+    await prisma.notificationRead.upsert({
+      where: { notificationId_username: { notificationId: notification.id, username: req.user!.username } },
+      update: { readAt: new Date() },
+      create: { notificationId: notification.id, username: req.user!.username }
+    });
+    await emitNavigationBadgesUpdated(req.user!);
+    return ok(res, { deleted: 1 });
+  }
+
+  await prisma.notification.delete({ where: { id: notification.id } });
+  await emitNavigationBadgesUpdated(req.user!);
+  return ok(res, { deleted: 1 });
+});

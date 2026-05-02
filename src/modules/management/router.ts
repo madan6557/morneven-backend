@@ -119,9 +119,10 @@ managementRouter.get('/requests', auth, async (req, res) => {
   return ok(res, paginated(items, page, pageSize, total));
 });
 
-managementRouter.get('/requests/pending-count', auth, async (req, res) =>
-  ok(res, { count: await getManagementPendingCount(req.user!) })
-);
+managementRouter.get('/requests/pending-count', auth, async (req, res) => {
+  if (req.user!.level < 1) return fail(res, 403, 'Personnel access required', 'FORBIDDEN');
+  return ok(res, { count: await getManagementPendingCount(req.user!) });
+});
 
 managementRouter.post('/requests', auth, async (req, res) => {
   if (req.user!.level < 1) return fail(res, 403, 'Personnel access required', 'FORBIDDEN');
