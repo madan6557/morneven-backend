@@ -58,8 +58,8 @@ jobs:
       QA_AUTHOR_EMAIL: ${{ vars.QA_AUTHOR_EMAIL || 'author@morneven.com' }}
       QA_GUEST_EMAIL: ${{ vars.QA_GUEST_EMAIL || 'guest@morneven.com' }}
       QA_EXEC7_EMAIL: ${{ vars.QA_EXEC7_EMAIL || 'author@morneven.com' }}
-      QA_EXEC6_EMAIL: ${{ vars.QA_EXEC6_EMAIL || 'exec6@morneven.com' }}
-      QA_FIELD5_EMAIL: ${{ vars.QA_FIELD5_EMAIL || 'field5@morneven.com' }}
+      QA_EXEC6_EMAIL: ${{ vars.QA_EXEC6_EMAIL || 'v.kessler@morneven.com' }}
+      QA_FIELD5_EMAIL: ${{ vars.QA_FIELD5_EMAIL || 'm.varga@morneven.com' }}
 
     steps:
       - name: Check out development branch
@@ -71,6 +71,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Align QA runner with development seed data
+        run: |
+          perl -0pi -e 's/exec6\@morneven\.com/v.kessler\@morneven.com/g; s/field5\@morneven\.com/m.varga\@morneven.com/g; s/Create DM with field5/Create DM with m.varga/g; s/body: \{ username: "field5" \}/body: { username: "m.varga" }/g; s/invitees: \["field5", "mech4"\]/invitees: ["m.varga", "s.okafor"]/g; s/username: "field5",/username: "t.bremmer",/g; s/sender: "exec7"/sender: "author"/g' qa/dev-api-qa.mjs
+          node --check qa/dev-api-qa.mjs
 
       - name: Verify connectivity
         run: |

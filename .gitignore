@@ -3,4 +3,3 @@ dist/
 .env
 prisma/dev.db
 package-lock.json
-QA_RAILWAY_TEST_GUIDE.md

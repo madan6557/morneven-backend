@@ -52,6 +52,14 @@ QA_FIELD5_EMAIL
 
 By default, `QA_EXEC7_EMAIL` falls back to `author@morneven.com` because the current development seed has verified author login. Override it if development has a separate PL7 account.
 
+Default seed mapping:
+
+```txt
+QA_EXEC7_EMAIL=author@morneven.com
+QA_EXEC6_EMAIL=v.kessler@morneven.com
+QA_FIELD5_EMAIL=m.varga@morneven.com
+```
+
 ## Local Run
 
 Smoke test:
