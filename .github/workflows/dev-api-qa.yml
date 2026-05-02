@@ -57,7 +57,7 @@ jobs:
       QA_SEED_PASSWORD: ${{ secrets.QA_SEED_PASSWORD || 'SeedPassword123' }}
       QA_AUTHOR_EMAIL: ${{ vars.QA_AUTHOR_EMAIL || 'author@morneven.com' }}
       QA_GUEST_EMAIL: ${{ vars.QA_GUEST_EMAIL || 'guest@morneven.com' }}
-      QA_EXEC7_EMAIL: ${{ vars.QA_EXEC7_EMAIL || 'exec7@morneven.com' }}
+      QA_EXEC7_EMAIL: ${{ vars.QA_EXEC7_EMAIL || 'author@morneven.com' }}
       QA_EXEC6_EMAIL: ${{ vars.QA_EXEC6_EMAIL || 'exec6@morneven.com' }}
       QA_FIELD5_EMAIL: ${{ vars.QA_FIELD5_EMAIL || 'field5@morneven.com' }}
 
@@ -87,4 +87,3 @@ jobs:
           name: dev-api-qa-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: qa/reports/
           if-no-files-found: warn
-
