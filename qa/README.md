@@ -50,6 +50,8 @@ QA_EXEC6_EMAIL
 QA_FIELD5_EMAIL
 ```
 
+By default, `QA_EXEC7_EMAIL` falls back to `author@morneven.com` because the current development seed has verified author login. Override it if development has a separate PL7 account.
+
 ## Local Run
 
 Smoke test:
@@ -81,4 +83,3 @@ Reports are written to:
 ```txt
 qa/reports/
 ```
-
