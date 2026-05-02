@@ -72,6 +72,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Align QA runner with development seed data
+        run: |
+          perl -0pi -e 's/exec6\@morneven\.com/v.kessler\@morneven.com/g; s/field5\@morneven\.com/m.varga\@morneven.com/g; s/Create DM with field5/Create DM with m.varga/g; s/body: \{ username: "field5" \}/body: { username: "m.varga" }/g; s/invitees: \["field5", "mech4"\]/invitees: ["m.varga", "s.okafor"]/g; s/username: "field5",/username: "t.bremmer",/g; s/sender: "exec7"/sender: "author"/g' qa/dev-api-qa.mjs
+          node --check qa/dev-api-qa.mjs
+
       - name: Verify connectivity
         run: |
           curl -i --max-time 30 "$QA_BASE_URL/ready"
