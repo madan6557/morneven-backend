@@ -1,0 +1,1829 @@
+{
+  "summary": {
+    "runId": "QA-25244921580-1",
+    "startedAt": "2026-05-02T05:37:08.585Z",
+    "endedAt": "2026-05-02T05:37:19.832Z",
+    "baseUrl": "https://backend.dev.morneven.com/",
+    "apiPrefix": "/api",
+    "scope": "full",
+    "allowDestructive": true,
+    "includeGlobalState": false,
+    "includeFileUpload": true,
+    "includeExtraction": false,
+    "totals": {
+      "PASS": 15,
+      "FAIL": 4
+    },
+    "created": []
+  },
+  "records": [
+    {
+      "timestamp": "2026-05-02T05:37:09.423Z",
+      "suite": "Smoke",
+      "name": "Root health endpoint",
+      "method": "GET",
+      "path": "/health",
+      "expected": "200 and success true",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 834,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "status": "ok",
+          "env": "development"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:10.068Z",
+      "suite": "Smoke",
+      "name": "Root readiness endpoint",
+      "method": "GET",
+      "path": "/ready",
+      "expected": "200 and success true",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 644,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "status": "ready"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:10.605Z",
+      "suite": "Smoke",
+      "name": "API health endpoint",
+      "method": "GET",
+      "path": "/api/health",
+      "expected": "200 and success true",
+      "status": "FAIL",
+      "httpStatus": 404,
+      "durationMs": 536,
+      "actual": "HTTP 404 message=Route not found errorCode=NOT_FOUND",
+      "response": {
+        "success": false,
+        "message": "Route not found",
+        "errorCode": "NOT_FOUND"
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:11.143Z",
+      "suite": "Smoke",
+      "name": "API readiness endpoint",
+      "method": "GET",
+      "path": "/api/ready",
+      "expected": "200 and success true",
+      "status": "FAIL",
+      "httpStatus": 404,
+      "durationMs": 538,
+      "actual": "HTTP 404 message=Route not found errorCode=NOT_FOUND",
+      "response": {
+        "success": false,
+        "message": "Route not found",
+        "errorCode": "NOT_FOUND"
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:11.679Z",
+      "suite": "Auth",
+      "name": "Protected current user rejects missing token",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "expected": "401 without Authorization header",
+      "status": "PASS",
+      "httpStatus": 401,
+      "durationMs": 536,
+      "actual": "HTTP 401 message=Missing token errorCode=UNAUTHORIZED",
+      "response": {
+        "success": false,
+        "message": "Missing token",
+        "errorCode": "UNAUTHORIZED"
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:12.142Z",
+      "suite": "Auth",
+      "name": "Login as author",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": "200 and access token returned",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 462,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwc24tMDAxIiwidXNlcm5hbWUiOiJhdXRob3IiLCJyb2xlIjoiYXV0aG9yIiwibGV2ZWwiOjcsInRyYWNrIjoiZXhlY3V0aXZlIiwiaWF0IjoxNzc3NzAwMjMxLCJleHAiOjE3Nzc3MDM4MzF9.0AX845cJnB5XdOUSYBjEme-JqhO3IMqkkNuCCKlLeVE",
+          "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwc24tMDAxIiwiaWF0IjoxNzc3NzAwMjMxLCJleHAiOjE3NzgzMDUwMzF9.U3VlW448qkjAURAEi2SHjZmbYN2oKvcmFqfvUigGkrc",
+          "user": {
+            "id": "psn-001",
+            "username": "author",
+            "email": "author@morneven.com",
+            "role": "author",
+            "level": 7,
+            "track": "executive",
+            "note": "Founder · Full Authority"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:12.449Z",
+      "suite": "Auth",
+      "name": "Current user accepts author token",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "expected": "200 with authenticated user",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 307,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "id": "psn-001",
+          "username": "author",
+          "role": "author",
+          "level": 7,
+          "track": "executive"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:13.069Z",
+      "suite": "Smoke",
+      "name": "Projects list",
+      "method": "GET",
+      "path": "/api/projects?page=1&pageSize=5",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 620,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "id": "proj-009",
+              "title": "ECLIPSE-Class Starfighter",
+              "status": "On Progress",
+              "thumbnail": "",
+              "shortDesc": "The most advanced Jewerlian airframe, integrating Aetherium power, molecular fabrication, and adaptive flight control.",
+              "fullDesc": "ECLIPSE (Experimental Combat Liaison Intercept, Precision Strike, & Evacuation) is the pinnacle of Jewerlian aerospace engineering. Designed for air-to-air and air-to-ground supremacy. Powered by the AREX-V4 Aetherium Core with VTOL capability, stealth, and kinetic shielding. The integrated Litho Forge enables real-time ammunition fabrication and autonomous self-repair. The Authority Maneuver System allows for extreme maneuvers impossible for conventional aircraft. Equipped with the most advanced anti-creature weaponry.",
+              "patches": [
+                {
+                  "version": "0.5.0",
+                  "date": "2026-04-20",
+                  "notes": "Prototype assembly complete. Initial flight tests scheduled for Q3."
+                },
+                {
+                  "version": "0.4.0",
+                  "date": "2026-02-10",
+                  "notes": "AREX-V4 Aetherium Core successfully integrated and tested."
+                }
+              ],
+              "docs": [
+                {
+                  "url": "",
+                  "type": "image",
+                  "caption": "ECLIPSE-class starfighter schematic"
+                }
+              ],
+              "archived": false,
+              "meta": {
+                "team": "Executive Office",
+                "owner": "Executive Office",
+                "creator": "Director Morneven",
+                "license": "Morneven Internal Canon License",
+                "designer": "Director Morneven",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2014-09-01",
+                "approvedAt": "2015-01-15",
+                "approvedBy": "Council of Founders",
+                "patchNotes": [
+                  {
+                    "date": "2025-12-01",
+                    "notes": "Tenth amendment — added Pantry Continuity clause.",
+                    "version": "3.1"
+                  }
+                ],
+                "completedAt": "2015-01-01",
+                "projectName": "Institute Charter",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              }
+            },
+            {
+              "id": "proj-008",
+              "title": "Pillar Doctrine Review",
+              "status": "On Hold",
+              "thumbnail": "",
+              "shortDesc": "Quietly-shelved Board review on whether to recertify Solar's Lens for any future engagement.",
+              "fullDesc": "The Pillar Doctrine Review was opened by the Board of Trustees to formally evaluate whether Solar's Lens should be recertified for future engagement against Singularity-class entities. The review was placed on indefinite hold after the second session.\n\n[L5+ track=field]Internal minutes (sealed): the review stalled because no member of the Board was willing to be the one to formally request Sola's consent. The matter has not been raised again. The Lens remains in standing orbit, uncrewed, uncertified for new use.[/L5+]",
+              "patches": [
+                {
+                  "version": "0.0.2",
+                  "date": "2025-06-10",
+                  "notes": "Review placed on indefinite hold pending operator availability."
+                }
+              ],
+              "docs": [],
+              "archived": false,
+              "meta": {
+                "team": "Lift Division",
+                "owner": "Propulsion Division",
+                "creator": "Dr. Aelis Vance",
+                "license": "Morneven Internal Canon License",
+                "designer": "Eng. Rho-7",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2024-01-15",
+                "approvedAt": "2025-08-01",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2025-07-22",
+                    "notes": "Predecessor program closed; results migrated to Aethon.",
+                    "version": "1.0"
+                  }
+                ],
+                "completedAt": "2025-07-22",
+                "projectName": "Project Aethon",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              }
+            },
+            {
+              "id": "proj-007",
+              "title": "Pantry Continuity Initiative",
+              "status": "On Progress",
+              "thumbnail": "",
+              "shortDesc": "Logistics-led standing supply program to keep every shift fully provisioned with sealed Secret boxes.",
+              "fullDesc": "The Pantry Continuity Initiative is the Logistics Division's standing program to ensure that every shift, in every Morneven facility, is fully provisioned with sealed Secret boxes (chicken-drum) in accordance with the Negotiation Protocol.\n\nThe project sounds light. It is not. A failed handoff during the Year of Lanterns produced a Step-Forward Signal alert that turned out to be Sola's response to a snack shortage rather than an actual catastrophe - but the resulting evacuation cost the Institute approximately three days of continental productivity. The Initiative now operates with the same uptime targets as the Violet Veil.",
+              "patches": [
+                {
+                  "version": "3.4.1",
+                  "date": "2026-04-15",
+                  "notes": "Box rotation cycle reduced from 8h to 6h. Zero stockouts in current quarter."
+                },
+                {
+                  "version": "3.4.0",
+                  "date": "2026-03-01",
+                  "notes": "Mechanic Bay 11 added to priority distribution tier."
+                }
+              ],
+              "docs": [],
+              "archived": false,
+              "meta": {
+                "team": "Communications",
+                "owner": "Communications",
+                "creator": "Comms Officer Nila",
+                "license": "Morneven Internal Canon License",
+                "designer": "Eng. Rho-7",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-02-10",
+                "approvedAt": "2026-04-05",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-03-30",
+                    "notes": "Network operational — full continental coverage.",
+                    "version": "1.0"
+                  },
+                  {
+                    "date": "2025-09-12",
+                    "notes": "First long-range handshake achieved.",
+                    "version": "0.5"
+                  }
+                ],
+                "completedAt": "2026-03-30",
+                "projectName": "Echo Relay Network",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              }
+            },
+            {
+              "id": "proj-006",
+              "title": "Project SOLSTICE",
+              "status": "On Progress",
+              "thumbnail": "",
+              "shortDesc": "Registry and beam-vector mapping of every known Heliograph Spire on Gemora.",
+              "fullDesc": "Project SOLSTICE is the Mechanic Division's standing registry of all known Heliograph Spires - the Catalyst-class crystal towers that capture violet-dawn refraction and release it as collimated daily energy beams. Each registered Spire is mapped, vector-charted, and integrated into the Violet Veil grid as an off-grid power relay.\n\nThe project's secondary mandate is hazard prevention: unregistered Spires have been responsible for two flash-vaporization incidents involving unbriefed handlers. SOLSTICE survey teams are dispatched the moment a candidate plateau is reported.",
+              "patches": [
+                {
+                  "version": "1.2.0",
+                  "date": "2026-04-18",
+                  "notes": "Registry now contains 312 confirmed Spires across 41 plateaus."
+                },
+                {
+                  "version": "1.1.0",
+                  "date": "2026-02-02",
+                  "notes": "Beam-vector overlay integrated into standard field HUD."
+                }
+              ],
+              "docs": [
+                {
+                  "url": "",
+                  "type": "image",
+                  "caption": "Spire vector overlay sample"
+                }
+              ],
+              "archived": false,
+              "meta": {
+                "team": "Mecha Forge",
+                "owner": "Mechanic Corps",
+                "creator": "Lt. Korr",
+                "license": "Morneven Internal Canon License",
+                "designer": "Eng. Tassia",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-12-01",
+                "approvedAt": "2026-04-20",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-04-22",
+                    "notes": "Joint actuator stress test passed.",
+                    "version": "0.2"
+                  }
+                ],
+                "completedAt": "2026-04-15",
+                "projectName": "MK-VII Frame",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              }
+            },
+            {
+              "id": "proj-005",
+              "title": "Genesis Protocol",
+              "status": "Completed",
+              "thumbnail": "",
+              "shortDesc": "Terraforming barren zones of Gemora using modified Jewerlian biotech to restore ecosystems.",
+              "fullDesc": "The Genesis Protocol is an ambitious terraforming initiative that seeks to restore life to the Scorched Wastes - vast barren zones created during the apocalypse. Using modified Jewerlian biological technology combined with Worldshard energy, the project aims to accelerate ecological recovery.\n\nEarly simulations show a 73% success rate for grassland restoration within a 5-year timeline.",
+              "patches": [],
+              "docs": [
+                {
+                  "url": "",
+                  "type": "image",
+                  "caption": "Scorched Wastes aerial survey"
+                },
+                {
+                  "url": "",
+                  "type": "image",
+                  "caption": "Biotech seed pod prototype"
+                }
+              ],
+              "archived": false,
+              "meta": {
+                "team": "Bio-Containment",
+                "owner": "Bio-Research",
+                "creator": "Dr. Vey",
+                "license": "Morneven Internal Canon License",
+                "designer": "Dr. Vey",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-04-22",
+                "approvedAt": "2026-04-20",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-01-15",
+                    "notes": "Containment baffles upgraded to GEC Mark II spec.",
+                    "version": "0.3"
+                  }
+                ],
+                "completedAt": "2026-04-15",
+                "projectName": "Verdant Quarantine",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              }
+            }
+          ],
+          "page": 1,
+          "pageSize": 5,
+          "total": 9,
+          "totalPages": 2,
+          "hasNextPage": true,
+          "nextCursor": "2",
+          "pageInfo": {
+            "page": 1,
+            "pageSize": 5,
+            "total": 9,
+            "totalPages": 2,
+            "hasNextPage": true,
+            "nextCursor": "2"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:13.644Z",
+      "suite": "Smoke",
+      "name": "News list",
+      "method": "GET",
+      "path": "/api/news?page=1&pageSize=5",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 575,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "id": "news-007",
+              "text": "Marine sighting reported off the Coral Reach",
+              "date": "2026-04-23",
+              "hasDetail": true,
+              "body": "A confirmed Marine sighting was logged at 14:22 by Logistics Patrol 03 along the outer Coral Reach. The Core Figure surfaced briefly to escort a supply caravan past a reef formation, then returned to the deep without further interaction.\n\nLogistics has filed a standard appreciation note. No follow-up is required. Personnel are reminded that approach is not solicited and visit attempts must not be coordinated through duty channels.",
+              "attachments": [
+                {
+                  "type": "link",
+                  "url": "/lore/characters/char-011",
+                  "caption": "Marine: Core Figure dossier"
+                }
+              ]
+            },
+            {
+              "id": "news-008",
+              "text": "Amethys Frame branch review scheduled",
+              "date": "2026-04-22",
+              "hasDetail": true,
+              "body": "The Executive Board has scheduled the annual review of the Amethys Frame, the standing civilizational-scale contingency model authored by Ameth. Three of seven branches will be inspected in this cycle. Two branches remain non-reviewable in the absence of the author.\n\nAttendance is restricted to L4 Executive and above. Field and Mechanic representation may be requested by branch as needed.",
+              "attachments": [
+                {
+                  "type": "link",
+                  "url": "/lore/characters/char-007",
+                  "caption": "Ameth: Core Figure dossier"
+                }
+              ]
+            },
+            {
+              "id": "news-002",
+              "text": "New character concept art released: Kael Vorthane",
+              "date": "2026-04-12",
+              "hasDetail": false,
+              "attachments": []
+            },
+            {
+              "id": "news-001",
+              "text": "Patch 0.4.2 deployed for Project Aethon",
+              "date": "2026-04-10",
+              "hasDetail": false,
+              "attachments": []
+            },
+            {
+              "id": "news-003",
+              "text": "Lore entry added: The Voidborn",
+              "date": "2026-04-08",
+              "hasDetail": false,
+              "attachments": []
+            }
+          ],
+          "page": 1,
+          "pageSize": 5,
+          "total": 8,
+          "totalPages": 2,
+          "hasNextPage": true,
+          "nextCursor": "2",
+          "pageInfo": {
+            "page": 1,
+            "pageSize": 5,
+            "total": 8,
+            "totalPages": 2,
+            "hasNextPage": true,
+            "nextCursor": "2"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:14.233Z",
+      "suite": "Smoke",
+      "name": "Characters lore list",
+      "method": "GET",
+      "path": "/api/lore/characters?page=1&pageSize=5",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 589,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "id": "char-007",
+              "meta": {
+                "team": "Mecha Forge",
+                "owner": "Mechanic Corps",
+                "creator": "Lt. Korr",
+                "license": "Morneven Internal Canon License",
+                "designer": "Concept Artist Kiri",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-11-15",
+                "approvedAt": "2025-12-15",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-04-20",
+                    "notes": "Initial canon seed.",
+                    "version": "1.0"
+                  }
+                ],
+                "completedAt": "2025-12-10",
+                "projectName": "MK-VII Frame",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              },
+              "race": "Jewerlian (Core Figure)",
+              "likes": [
+                "Open research questions",
+                "Cross-discipline labs",
+                "Explainig"
+              ],
+              "stats": {
+                "combat": 55,
+                "stealth": 50,
+                "charisma": 82,
+                "endurance": 75,
+                "intelligence": 100
+              },
+              "height": "Not on file. Ameth considers the question imprecise.",
+              "traits": [
+                "Brilliant",
+                "Cryptic",
+                "Curious"
+              ],
+              "dislikes": [
+                "Administrative seating",
+                "Being asked for short explanation"
+              ],
+              "fieldNotes": [
+                {
+                  "id": "fn-char-007-01",
+                  "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+                  "date": "2026-04-18",
+                  "title": "Ameth Survey Log"
+                },
+                {
+                  "id": "fn-char-007-02",
+                  "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+                  "date": "2026-04-24",
+                  "title": "Ameth Handling Directive"
+                }
+              ],
+              "occupation": "Core Figure · Advisor (formerly Founding President)",
+              "accentColor": "#8E44AD",
+              "observations": [
+                {
+                  "id": "ob-char-007-01",
+                  "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+                  "date": "2026-04-26",
+                  "title": "Ameth Observation"
+                }
+              ],
+              "contributions": [
+                {
+                  "id": "ctr-008",
+                  "date": "Founding Era",
+                  "title": "Founding Stabilization of Morneven",
+                  "description": "Held the President's seat only long enough to ratify a survivable charter, then stepped down to Advisor by personal request."
+                },
+                {
+                  "id": "ctr-009",
+                  "date": "War of Light",
+                  "title": "War of Light Strategic Frame",
+                  "description": "Authored the casualty-minimization strategy that governed every Morneven engagement during the War of Light."
+                },
+                {
+                  "id": "ctr-016",
+                  "date": "Recovery Era",
+                  "title": "The Shard Procedure",
+                  "description": "Designed and personally performed the unprecedented surgical intervention that stabilized Era and enabled her Litho Forge manipulation capacity."
+                }
+              ],
+              "thumbnail": "",
+              "shortDesc": "Jewerlian Core Figure. Founding 'President' of Morneven turned Advisor. PL6-GOV.",
+              "fullDesc": "Ameth is the Jewerlian Core Figure most associated with Morneven's intellectual backbone. She was the pioneering organizer of the Institute and served as its first 'President', a title she accepted only long enough to stabilize the founding charter, and then handed off. Sitting in a chair of authority bored her; research did not.\n\nJewerlian society has no caste and no hierarchy. They simply follow specific reliable individuals, the ones Morneven documentation classifies as 'Core Jewerlians.' Ameth is one of them, and her contribution during the Dark Times was structural: she designed the resilience plans that allowed the civilization to survive, and authored the strategic frame for the War of Light that kept casualties at the lowest figure any post-war analyst has been able to model.\n\nShe currently holds PL6-GOV clearance, which she uses almost exclusively to wander into laboratories and divisions that interest her on a given day. She is approachable. Be warned, however: ask Ameth a question, and the answer will be technically correct, exhaustively complete, and not at all easy to parse on the first pass.\n\n[L4+ track=executive]Ameth's pre-war contingency models, internally referenced as the 'Amethys Frame' (formerly catalogued as 'Ameth Frame' before being renamed in her honor), remain the Institute's standing reference for civilizational-scale threat planning. The Amethys Frame is structured into seven branches; three have never been activated, and two cannot, by current understanding, be activated by anyone other than Ameth herself. The naming change was ratified administratively to prevent confusion with the author's name and to match the gemstone-derived convention used across other Core-authored doctrines.[/L4+]",
+              "docs": [],
+              "name": "Ameth",
+              "type": ""
+            },
+            {
+              "id": "char-008",
+              "meta": {
+                "team": "Engineering",
+                "owner": "Engineering",
+                "creator": "Eng. Rho-7",
+                "license": "Morneven Internal Canon License",
+                "designer": "Concept Artist Kiri",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-07-04",
+                "approvedAt": "2025-07-30",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-04-20",
+                    "notes": "Initial canon seed.",
+                    "version": "1.0"
+                  }
+                ],
+                "completedAt": "2025-07-22",
+                "projectName": "Diana",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              },
+              "race": "Jewerlian (Core Figure)",
+              "likes": [
+                "Children visiting the Chamber",
+                "Stillness",
+                "Quiet observation"
+              ],
+              "stats": {
+                "combat": 96,
+                "stealth": 60,
+                "charisma": 88,
+                "endurance": 100,
+                "intelligence": 90
+              },
+              "height": "Recorded as 'unchanged.' She has not moved from the altar long enough for a second measurement.",
+              "traits": [
+                "Silent",
+                "Immovable",
+                "Unexpectedly gentle"
+              ],
+              "dislikes": [
+                "Threats to those under her watch"
+              ],
+              "fieldNotes": [
+                {
+                  "id": "fn-char-008-01",
+                  "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+                  "date": "2026-04-18",
+                  "title": "Diana Survey Log"
+                },
+                {
+                  "id": "fn-char-008-02",
+                  "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+                  "date": "2026-04-24",
+                  "title": "Diana Handling Directive"
+                }
+              ],
+              "occupation": "Core Figure · Jewerlian Telepathic Hub",
+              "accentColor": "#7cbbb6",
+              "observations": [
+                {
+                  "id": "ob-char-008-01",
+                  "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+                  "date": "2026-04-26",
+                  "title": "Diana Observation"
+                }
+              ],
+              "contributions": [
+                {
+                  "id": "ctr-010",
+                  "date": "Ongoing",
+                  "title": "The Jewerlian Chamber",
+                  "description": "Continuous presence at the Chamber altar. Functions as the standing telepathic relay for every Jewerlian operating outside Morneven Central."
+                },
+                {
+                  "id": "ctr-011",
+                  "date": "Ongoing",
+                  "title": "Safest Place in Gemora",
+                  "description": "Emergent designation by local civilians. Children play in the Chamber unsupervised; no incident has ever been recorded inside its perimeter."
+                }
+              ],
+              "thumbnail": "",
+              "shortDesc": "Jewerlian Core Figure. Telepathic Hub of the Jewerlian Chamber. The Embodiment of Immovable.",
+              "fullDesc": "Diana holds the position immediately after Sola among the Core Figures, and she is, in the most literal sense, silent. She is almost always found in the Jewerlian Chamber, a hall of massive pillars crowned with a single resonant crystal that responds to her, which legend holds to be part of her body. She stands at the center of the great altar, day and night, regardless of weather or season, serving as a guiding signal for Jewerlians who have not yet arrived at Gemora, helping them find their way to Morneven.\n\nDiana is widely assumed to be a defensive type, and she is, but her offense is unconventional. Where most defenders pull allies away from danger, Diana isolates the threat itself and crushes it inside its own pocket. Field personnel have learned not to offend her by accident. They have also learned that she is, when undisturbed, extraordinarily gentle: there are repeated reports of children entering the Chamber unsupervised and being treated with a kindness that has turned the location into what the locals now call 'the safest place in Gemora.' Families visit because the children play there. Diana, as a result, is not always alone.\n\nShe serves as the Jewerlian Telepathic Hub. Her catalogued abilities include transparent, indestructible barriers and the teleportation of herself or any chosen object or subject. Doctrine pairs her with Sola as an opposing constant: Sola is the Embodiment of Unstoppable, Diana is the Embodiment of Immovable. They share one trait: when either of them moves with intent, something significant is occurring.\n\nIt should be noted that because Jewerlians have the ability to share information, personnel are expected to be cautious when interacting with them, as information spreads rapidly through their network.\n\nShe carries a great sword at all times. Analysts believe it functions as a focusing catalyst rather than a weapon. Her eyes are closed for the majority of every observation, but she is recorded to open them when something genuinely catches her attention, or simply for the sake of looking. She holds no PL clearance and has never requested one. Morneven receives her without challenge; she arrives by teleporting into whichever room she chooses. Her arrival is itself the message.\n\n[L4+]Approved Chamber-experiment protocol: any test on Diana's barrier system requires her direct, unambiguous consent given on-site. No proxy authorization is valid. To date, three barrier-stress experiments have been authorized; all three concluded when Diana, without comment, dismissed the apparatus.[/L4+]",
+              "docs": [],
+              "name": "Diana",
+              "type": ""
+            },
+            {
+              "id": "char-002",
+              "meta": {
+                "team": "Lore Division",
+                "owner": "Lore Division",
+                "creator": "Writer Solen",
+                "license": "Morneven Internal Canon License",
+                "designer": "Concept Artist Kiri",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2024-09-04",
+                "approvedAt": "2024-10-22",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-04-20",
+                    "notes": "Initial canon seed.",
+                    "version": "1.0"
+                  }
+                ],
+                "completedAt": "2024-10-15",
+                "projectName": "Founders Codex",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              },
+              "race": "Jewerlian",
+              "likes": [
+                "Crystal harmonics",
+                "Stargazing",
+                "Diplomatic discussions"
+              ],
+              "stats": {
+                "combat": 35,
+                "stealth": 30,
+                "charisma": 95,
+                "endurance": 60,
+                "intelligence": 98
+              },
+              "height": "172 cm",
+              "traits": [
+                "Visionary",
+                "Compassionate",
+                "Unyielding"
+              ],
+              "dislikes": [
+                "Violence",
+                "Deception",
+                "Waste of resources"
+              ],
+              "fieldNotes": [
+                {
+                  "id": "fn-char-002-01",
+                  "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+                  "date": "2026-04-18",
+                  "title": "Elynra Moonveil Survey Log"
+                },
+                {
+                  "id": "fn-char-002-02",
+                  "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+                  "date": "2026-04-24",
+                  "title": "Elynra Moonveil Handling Directive"
+                }
+              ],
+              "occupation": "Director - Morneven Institute",
+              "accentColor": "#9B59B6",
+              "observations": [
+                {
+                  "id": "ob-char-002-01",
+                  "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+                  "date": "2026-04-26",
+                  "title": "Elynra Moonveil Observation"
+                }
+              ],
+              "contributions": [
+                {
+                  "id": "ctr-003",
+                  "date": "2018-04-02",
+                  "title": "Founding Charter of Morneven",
+                  "description": "Drafted and ratified the cross-species cooperation charter that established the Institute as a neutral research and defense body."
+                },
+                {
+                  "id": "ctr-004",
+                  "date": "2022-11-19",
+                  "title": "Crystal Resonance Lattice",
+                  "description": "Personally designed the Institute's primary leyline-stabilization lattice, currently powering 70% of Morneven Central's anomaly containment grid."
+                }
+              ],
+              "thumbnail": "",
+              "shortDesc": "Director of Morneven Institute. A Jewerlian leader guiding cross-species cooperation.",
+              "fullDesc": "Director Elynra Moonveil is the founding leader of Morneven Institute and one of the most influential Jewerlians of her generation. She established the Institute with the vision of uniting Jewerlians, Humans, and Demi-humans under a shared pursuit of knowledge and peace.\n\nHer mastery of crystal resonance technology is unparalleled, and she personally oversees the most sensitive research projects. Under her leadership, Morneven has become a beacon of hope in a world still scarred by the apocalypse.",
+              "docs": [],
+              "name": "Elynra Moonveil",
+              "type": ""
+            },
+            {
+              "id": "char-010",
+              "meta": {
+                "team": "Bio-Containment",
+                "owner": "Bio-Research",
+                "creator": "Dr. Vey",
+                "license": "Morneven Internal Canon License",
+                "designer": "Concept Artist Kiri",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-04-22",
+                "approvedAt": "2025-05-22",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-04-20",
+                    "notes": "Initial canon seed.",
+                    "version": "1.0"
+                  }
+                ],
+                "completedAt": "2025-05-15",
+                "projectName": "Verdant Quarantine",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              },
+              "race": "Human (Adopted by the Jewerlians)",
+              "likes": [
+                "Workshops",
+                "Sola's visit",
+                "Experiment"
+              ],
+              "stats": {
+                "combat": 70,
+                "stealth": 60,
+                "charisma": 78,
+                "endurance": 88,
+                "intelligence": 90
+              },
+              "height": "On file; updated annually by the Medical Office.",
+              "traits": [
+                "Quietly resilient",
+                "Curious"
+              ],
+              "dislikes": [
+                "Being asked about her past",
+                "John"
+              ],
+              "fieldNotes": [
+                {
+                  "id": "fn-char-010-01",
+                  "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+                  "date": "2026-04-18",
+                  "title": "Era Survey Log"
+                },
+                {
+                  "id": "fn-char-010-02",
+                  "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+                  "date": "2026-04-24",
+                  "title": "Era Handling Directive"
+                }
+              ],
+              "occupation": "Adopted Figure · Litho Forge Specialist (Engineering)",
+              "accentColor": "#6ea0aa",
+              "observations": [
+                {
+                  "id": "ob-char-010-01",
+                  "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+                  "date": "2026-04-26",
+                  "title": "Era Observation"
+                }
+              ],
+              "contributions": [
+                {
+                  "id": "ctr-014",
+                  "date": "Post-Surgery",
+                  "title": "Litho Forge Manipulation",
+                  "description": "Sole non-Jewerlian on record capable of direct molecular manipulation of Litho Forge. Foundational to current Engineering output."
+                },
+                {
+                  "id": "ctr-015",
+                  "date": "Recovery Era",
+                  "title": "The Shard Procedure",
+                  "description": "Subject of Ameth's unprecedented surgical intervention. Outcome: full recovery and emergent molecular-manipulation capacity."
+                }
+              ],
+              "thumbnail": "",
+              "shortDesc": "Adopted Figure. Litho Forge specialist sustained by a shard of Sola's accumulated energy. PL6-ENG.",
+              "fullDesc": "Era is not a Jewerlian. The Jewerlians consider her family regardless. She was originally an ordinary girl whose hometown was destroyed in a stampede; Sola found her in the ruins in critical condition and brought her back to Morneven personally. Sola's affection for Era is documented and unmistakable, though the reason has never been explained, and no one - including Sora - has pressed the question.\n\nEra's condition deteriorated sharply during a period when Sola was away on a scouting deployment. To this day, it is Sola who functions as the vital support for Era's continued existence. Ameth intervened with a high-risk, unprecedented surgical procedure; the operation succeeded beyond projection. Era recovered, and emerged with molecular-manipulation abilities reminiscent of Sola's, though her control is constrained to a single material: Litho Forge.\n\nThe persistent rumor - neither confirmed nor denied at the executive level - is that Era was given a 'Shard' of Sola. Jewerlian physiology accumulates unspent energy in the chest cavity as a dense condensation that is often, incorrectly, assumed to be a heart. The rumor holds that Sola requested this shard transfer herself.\n\nEra holds PL6-ENG clearance. Her ability to shape Litho Forge - Morneven's primary structural and weaponized resource - makes her contribution to the Engineering track effectively foundational. A great deal about her remains under active research and validation. The Institute does not rush this work.\n\n[L5+ track=executive]Era-Sola dependency advisory: any operation that would separate Era from Sola for longer than the established interval requires direct executive sign-off and a contingency protocol filed in advance. The interval is not published in the standard clearance matrix.[/L5+]",
+              "docs": [],
+              "name": "Era",
+              "type": ""
+            },
+            {
+              "id": "char-006",
+              "meta": {
+                "team": "Archives Division",
+                "owner": "Archives Division",
+                "creator": "Archivist Solen",
+                "license": "Morneven Internal Canon License",
+                "designer": "Concept Artist Mavi",
+                "sourceUrl": "https://morneven.local/archive",
+                "startedAt": "2025-05-01",
+                "approvedAt": "2025-06-05",
+                "approvedBy": "Director Morneven",
+                "patchNotes": [
+                  {
+                    "date": "2026-04-20",
+                    "notes": "Initial canon seed.",
+                    "version": "1.0"
+                  }
+                ],
+                "completedAt": "2025-05-30",
+                "projectName": "Stellarum Archives",
+                "collaborators": [
+                  "Archivist Solen",
+                  "Analyst Mira"
+                ]
+              },
+              "race": "Jewerlian (Core Figure)",
+              "likes": [
+                "Swords",
+                "Training fields",
+                "Listening"
+              ],
+              "stats": {
+                "combat": 90,
+                "stealth": 55,
+                "charisma": 78,
+                "endurance": 92,
+                "intelligence": 80
+              },
+              "height": "Unrecorded - Garnet has not asked, and no one has measured.",
+              "traits": [
+                "Quiet",
+                "Observant",
+                "Respected"
+              ],
+              "dislikes": [
+                "Idle chatter",
+                "Being interrupted mid-watch"
+              ],
+              "fieldNotes": [
+                {
+                  "id": "fn-char-006-01",
+                  "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
+                  "date": "2026-04-18",
+                  "title": "Garnet Survey Log"
+                },
+                {
+                  "id": "fn-char-006-02",
+                  "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
+                  "date": "2026-04-24",
+                  "title": "Garnet Handling Directive"
+                }
+              ],
+              "occupation": "Core Figure · Squad Leader (Field, by presence)",
+              "accentColor": "#b24034",
+              "observations": [
+                {
+                  "id": "ob-char-006-01",
+                  "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
+                  "date": "2026-04-26",
+                  "title": "Garnet Observation"
+                }
+              ],
+              "contributions": [
+                {
+                  "id": "ctr-007",
+                  "date": "Ongoing",
+                  "title": "Standing Field Mentorship",
+                  "description": "Unscheduled, unending presence at training grounds. Credited by instructors as the single largest factor in Field Division retention."
+                }
+              ],
+              "thumbnail": "",
+              "shortDesc": "Jewerlian Core Figure. Quiet squad-leader and geo-material specialist with PL4-OPS clearance.",
+              "fullDesc": "Garnet is one of the twelve Jewerlian Core Figures. Her demeanor is famously calm - sometimes overwhelmingly so. Conversations with Garnet often consist of a 'yes,' a 'no,' or a long, considered silence; none of it is unfriendly. She is, by every account, easy to talk to as long as you do not need her to fill the air for you.\n\nHer ability is the manipulation of geo-materials and minerals. She wields a sword forged from compacted red mineral, though combat doctrine notes she does not actually require a weapon - she simply likes swords. Despite her quiet nature, Garnet enjoys being around others and most often takes the role of listener.\n\nShe holds PL4-OPS clearance. The level is modest on paper, but her standing among Jewerlians and field personnel is not. The clearance was issued because Garnet routinely visits training fields to observe drills and assist instructors, not by mandate or appointment. When she leads a squad - which she does often - she is regarded as one of the most reliable field commanders the Institute has ever fielded.\n\n[L3+ track=field]Garnet's mineral-manipulation envelope has never been formally bounded; field tests are halted whenever instructors feel they are 'imposing.' Squads under her command have a recorded mission-success rate of 100% across logged operations. No casualty has ever been attributed to a Garnet-led engagement.[/L3+]",
+              "docs": [],
+              "name": "Garnet",
+              "type": ""
+            }
+          ],
+          "page": 1,
+          "pageSize": 5,
+          "total": 13,
+          "totalPages": 3,
+          "hasNextPage": true,
+          "nextCursor": "2",
+          "pageInfo": {
+            "page": 1,
+            "pageSize": 5,
+            "total": 13,
+            "totalPages": 3,
+            "hasNextPage": true,
+            "nextCursor": "2"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:14.564Z",
+      "suite": "Smoke",
+      "name": "Gallery list",
+      "method": "GET",
+      "path": "/api/gallery?page=1&pageSize=5",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 331,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "id": "gal-009",
+              "type": "image",
+              "title": "Sola - Stellar Pass Holder",
+              "thumbnail": "",
+              "caption": "Sola, sole holder of the Stellar Pass and only certified operator of Solar's Lens. Photographed mid-stride during a routine Pantry visit. Note the relaxed posture - this is not the Step-Forward Signal.",
+              "tags": [
+                "character",
+                "jewerlian",
+                "sola",
+                "portrait"
+              ],
+              "date": "2026-04-22",
+              "uploadedBy": "author",
+              "comments": []
+            },
+            {
+              "id": "gal-001",
+              "type": "image",
+              "title": "Kael Vorthane - Character Concept",
+              "thumbnail": "",
+              "caption": "Official character concept art for Kael Vorthane, Shadow Operative. Featuring his signature dark armor and dual-blade configuration.",
+              "tags": [
+                "character",
+                "concept-art",
+                "kael"
+              ],
+              "date": "2026-04-12",
+              "uploadedBy": "author",
+              "comments": []
+            },
+            {
+              "id": "gal-002",
+              "type": "image",
+              "title": "Iron Citadel - Exterior View",
+              "thumbnail": "",
+              "caption": "Panoramic view of the Iron Citadel at sunset, showing the Spire of Echoes and the surrounding crystal-reinforced walls.",
+              "tags": [
+                "environment",
+                "citadel",
+                "concept-art"
+              ],
+              "date": "2026-04-08",
+              "uploadedBy": "author",
+              "comments": []
+            },
+            {
+              "id": "gal-003",
+              "type": "video",
+              "title": "Gemora World Overview - Teaser",
+              "thumbnail": "",
+              "videoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+              "caption": "A brief teaser showcasing the world of Gemora, its landscapes, and the civilizations that inhabit it.",
+              "tags": [
+                "world",
+                "teaser",
+                "animation"
+              ],
+              "date": "2026-03-30",
+              "uploadedBy": "author",
+              "comments": []
+            },
+            {
+              "id": "gal-004",
+              "type": "image",
+              "title": "Elynra Moonveil - Director Portrait",
+              "thumbnail": "",
+              "caption": "Official portrait of Director Elynra Moonveil in her ceremonial Jewerlian robes, with the Morneven Institute emblem visible.",
+              "tags": [
+                "character",
+                "portrait",
+                "elynra"
+              ],
+              "date": "2026-03-25",
+              "uploadedBy": "author",
+              "comments": []
+            }
+          ],
+          "page": 1,
+          "pageSize": 5,
+          "total": 9,
+          "totalPages": 2,
+          "hasNextPage": true,
+          "nextCursor": "2",
+          "pageInfo": {
+            "page": 1,
+            "pageSize": 5,
+            "total": 9,
+            "totalPages": 2,
+            "hasNextPage": true,
+            "nextCursor": "2"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:16.603Z",
+      "suite": "Smoke",
+      "name": "Chat conversations",
+      "method": "GET",
+      "path": "/api/chat/conversations",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 2039,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "conv-div-logistics",
+            "kind": "division",
+            "name": "Division - LOGISTICS",
+            "members": [
+              {
+                "username": "author",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.470Z"
+              },
+              {
+                "username": "admin",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.470Z"
+              },
+              {
+                "username": "h.kato",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.470Z"
+              },
+              {
+                "username": "n.osei",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.470Z"
+              },
+              {
+                "username": "e.ravel",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.470Z"
+              },
+              {
+                "username": "v.kessler",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.010Z"
+              },
+              {
+                "username": "m.varga",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.115Z"
+              },
+              {
+                "username": "s.okafor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.213Z"
+              },
+              {
+                "username": "t.bremmer",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.415Z"
+              },
+              {
+                "username": "r.alves",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.530Z"
+              },
+              {
+                "username": "guest_visitor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.685Z"
+              },
+              {
+                "username": "j.huang",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.783Z"
+              },
+              {
+                "username": "p.salim",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.972Z"
+              },
+              {
+                "username": "a.koval",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.168Z"
+              },
+              {
+                "username": "i.stratos",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.263Z"
+              },
+              {
+                "username": "y.tanaka",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.351Z"
+              }
+            ],
+            "source": {
+              "track": "logistics"
+            },
+            "systemManaged": true,
+            "createdBy": "system",
+            "createdAt": "2026-05-02T05:36:41.470Z"
+          },
+          {
+            "id": "conv-div-mechanic",
+            "kind": "division",
+            "name": "Division - MECHANIC",
+            "members": [
+              {
+                "username": "author",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.446Z"
+              },
+              {
+                "username": "admin",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.446Z"
+              },
+              {
+                "username": "s.okafor",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.446Z"
+              },
+              {
+                "username": "j.huang",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.446Z"
+              },
+              {
+                "username": "a.koval",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.446Z"
+              },
+              {
+                "username": "v.kessler",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:14.986Z"
+              },
+              {
+                "username": "m.varga",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.086Z"
+              },
+              {
+                "username": "h.kato",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.302Z"
+              },
+              {
+                "username": "t.bremmer",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.389Z"
+              },
+              {
+                "username": "r.alves",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.498Z"
+              },
+              {
+                "username": "guest_visitor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.633Z"
+              },
+              {
+                "username": "n.osei",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.871Z"
+              },
+              {
+                "username": "p.salim",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.950Z"
+              },
+              {
+                "username": "e.ravel",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.061Z"
+              },
+              {
+                "username": "i.stratos",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.236Z"
+              },
+              {
+                "username": "y.tanaka",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.329Z"
+              }
+            ],
+            "source": {
+              "track": "mechanic"
+            },
+            "systemManaged": true,
+            "createdBy": "system",
+            "createdAt": "2026-05-02T05:36:41.446Z"
+          },
+          {
+            "id": "conv-div-field",
+            "kind": "division",
+            "name": "Division - FIELD",
+            "members": [
+              {
+                "username": "v.kessler",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:14.952Z"
+              },
+              {
+                "username": "s.okafor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.179Z"
+              },
+              {
+                "username": "h.kato",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.273Z"
+              },
+              {
+                "username": "r.alves",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.471Z"
+              },
+              {
+                "username": "guest_visitor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.610Z"
+              },
+              {
+                "username": "j.huang",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.741Z"
+              },
+              {
+                "username": "n.osei",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.846Z"
+              },
+              {
+                "username": "e.ravel",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.031Z"
+              },
+              {
+                "username": "a.koval",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.131Z"
+              },
+              {
+                "username": "y.tanaka",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.306Z"
+              },
+              {
+                "username": "author",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.430Z"
+              },
+              {
+                "username": "admin",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.430Z"
+              },
+              {
+                "username": "m.varga",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.430Z"
+              },
+              {
+                "username": "t.bremmer",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.430Z"
+              },
+              {
+                "username": "p.salim",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.430Z"
+              },
+              {
+                "username": "i.stratos",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.430Z"
+              }
+            ],
+            "source": {
+              "track": "field"
+            },
+            "systemManaged": true,
+            "createdBy": "system",
+            "createdAt": "2026-05-02T05:36:41.430Z"
+          },
+          {
+            "id": "conv-div-executive",
+            "kind": "division",
+            "name": "Division - EXECUTIVE",
+            "members": [
+              {
+                "username": "m.varga",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.052Z"
+              },
+              {
+                "username": "s.okafor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.150Z"
+              },
+              {
+                "username": "h.kato",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.252Z"
+              },
+              {
+                "username": "t.bremmer",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.349Z"
+              },
+              {
+                "username": "j.huang",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.718Z"
+              },
+              {
+                "username": "n.osei",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.819Z"
+              },
+              {
+                "username": "p.salim",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.916Z"
+              },
+              {
+                "username": "e.ravel",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.007Z"
+              },
+              {
+                "username": "a.koval",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.109Z"
+              },
+              {
+                "username": "i.stratos",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:16.198Z"
+              },
+              {
+                "username": "author",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.407Z"
+              },
+              {
+                "username": "admin",
+                "role": "admin",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.407Z"
+              },
+              {
+                "username": "v.kessler",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.407Z"
+              },
+              {
+                "username": "r.alves",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.407Z"
+              },
+              {
+                "username": "y.tanaka",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.407Z"
+              },
+              {
+                "username": "guest_visitor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:36:41.407Z"
+              }
+            ],
+            "source": {
+              "track": "executive"
+            },
+            "systemManaged": true,
+            "createdBy": "system",
+            "createdAt": "2026-05-02T05:36:41.407Z"
+          },
+          {
+            "id": "conv-institute",
+            "kind": "institute",
+            "name": "Institute - All Personnel",
+            "members": [
+              {
+                "username": "guest_visitor",
+                "role": "member",
+                "status": "removed",
+                "joinedAt": "2026-05-02T05:37:15.553Z"
+              },
+              {
+                "username": "v.kessler",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "m.varga",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "s.okafor",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "h.kato",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "t.bremmer",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "r.alves",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "j.huang",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "n.osei",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "p.salim",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "e.ravel",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "a.koval",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "i.stratos",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "y.tanaka",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "author",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              },
+              {
+                "username": "admin",
+                "role": "member",
+                "status": "active",
+                "joinedAt": "2026-05-02T05:36:41.378Z"
+              }
+            ],
+            "source": {
+              "institute": true
+            },
+            "systemManaged": true,
+            "createdBy": "system",
+            "createdAt": "2026-05-02T05:36:41.378Z"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:17.236Z",
+      "suite": "Smoke",
+      "name": "Navigation badges",
+      "method": "GET",
+      "path": "/api/me/navigation-badges",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 632,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "chatUnreadCount": 0,
+          "managementPendingCount": 2,
+          "notificationUnreadCount": 0
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:17.890Z",
+      "suite": "Smoke",
+      "name": "Notification unread count",
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "expected": "200 and no server error",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 654,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "count": 0
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:18.564Z",
+      "suite": "Auth",
+      "name": "Login as exec7",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": "200 and access token returned",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 674,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwc24tMDAxIiwidXNlcm5hbWUiOiJhdXRob3IiLCJyb2xlIjoiYXV0aG9yIiwibGV2ZWwiOjcsInRyYWNrIjoiZXhlY3V0aXZlIiwiaWF0IjoxNzc3NzAwMjM4LCJleHAiOjE3Nzc3MDM4Mzh9.joY1OzO0L7e5k9sco5RtWaBtWqK4zd39_KzqpY1i93s",
+          "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwc24tMDAxIiwiaWF0IjoxNzc3NzAwMjM4LCJleHAiOjE3NzgzMDUwMzh9.vgo0krh4UCLq1rgP01HiJTVaEd-UAhzkOXL4vVthiGs",
+          "user": {
+            "id": "psn-001",
+            "username": "author",
+            "email": "author@morneven.com",
+            "role": "author",
+            "level": 7,
+            "track": "executive",
+            "note": "Founder · Full Authority"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:18.877Z",
+      "suite": "Smoke",
+      "name": "Management pending count with PL7",
+      "method": "GET",
+      "path": "/api/management/requests/pending-count",
+      "expected": "200 for PL7 user",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 313,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "count": 2
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:19.295Z",
+      "suite": "Auth",
+      "name": "Login as guest",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": "200 and access token returned",
+      "status": "PASS",
+      "httpStatus": 200,
+      "durationMs": 418,
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwc24tMDA5IiwidXNlcm5hbWUiOiJndWVzdF92aXNpdG9yIiwicm9sZSI6Imd1ZXN0IiwibGV2ZWwiOjAsInRyYWNrIjoiZXhlY3V0aXZlIiwiaWF0IjoxNzc3NzAwMjM5LCJleHAiOjE3Nzc3MDM4Mzl9.WvUB1bPCaT_CjmhBlptlW6yugWk9Z4Z1jTcsMKRhMhs",
+          "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwc24tMDA5IiwiaWF0IjoxNzc3NzAwMjM5LCJleHAiOjE3NzgzMDUwMzl9.7juJW1o85dGSQnhL7HnBlkDa0gIOzbJ0j_-j-eNtqoo",
+          "user": {
+            "id": "psn-009",
+            "username": "guest_visitor",
+            "email": "guest@morneven.com",
+            "role": "guest",
+            "level": 0,
+            "track": "executive",
+            "note": "External - escort required"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:19.832Z",
+      "suite": "Auth",
+      "name": "Login as exec6",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": "200 and access token returned",
+      "status": "FAIL",
+      "httpStatus": 401,
+      "durationMs": 537,
+      "actual": "HTTP 401 message=Invalid credentials errorCode=UNAUTHORIZED",
+      "response": {
+        "success": false,
+        "message": "Invalid credentials",
+        "errorCode": "UNAUTHORIZED"
+      }
+    },
+    {
+      "timestamp": "2026-05-02T05:37:19.832Z",
+      "suite": "Runner",
+      "name": "Unhandled runner error",
+      "method": "N/A",
+      "path": "N/A",
+      "expected": "Runner completes without unhandled errors",
+      "status": "FAIL",
+      "actual": "Error: Login did not return a token for exec6\n    at login (file:///home/runner/work/morneven-backend/morneven-backend/qa/dev-api-qa.mjs:821:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async runFullSuite (file:///home/runner/work/morneven-backend/morneven-backend/qa/dev-api-qa.mjs:231:3)\n    at async file:///home/runner/work/morneven-backend/morneven-backend/qa/dev-api-qa.mjs:97:5"
+    }
+  ]
+}

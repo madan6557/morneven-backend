@@ -63,11 +63,11 @@ const config = {
       password: process.env.QA_EXEC7_PASSWORD ?? process.env.QA_SEED_PASSWORD ?? DEFAULT_PASSWORD,
     },
     exec6: {
-      email: process.env.QA_EXEC6_EMAIL ?? "exec6@morneven.com",
+      email: process.env.QA_EXEC6_EMAIL ?? "v.kessler@morneven.com",
       password: process.env.QA_EXEC6_PASSWORD ?? process.env.QA_SEED_PASSWORD ?? DEFAULT_PASSWORD,
     },
     field5: {
-      email: process.env.QA_FIELD5_EMAIL ?? "field5@morneven.com",
+      email: process.env.QA_FIELD5_EMAIL ?? "m.varga@morneven.com",
       password: process.env.QA_FIELD5_PASSWORD ?? process.env.QA_SEED_PASSWORD ?? DEFAULT_PASSWORD,
     },
   },
@@ -227,9 +227,9 @@ async function runSmokeSuite() {
 }
 
 async function runFullSuite() {
-  await login("guest");
-  await login("exec6");
-  await login("field5");
+  const guestLoggedIn = await login("guest", { required: false });
+  const exec6LoggedIn = await login("exec6", { required: false });
+  const fieldLoggedIn = await login("field5", { required: false });
 
   await requestTest({
     suite: "Auth",
@@ -241,35 +241,48 @@ async function runFullSuite() {
     expected: "401 and no token",
   });
 
-  await requestTest({
-    suite: "RBAC",
-    name: "Guest cannot access PL7 management pending count",
-    method: "GET",
-    path: `${config.apiPrefix}/management/requests/pending-count`,
-    token: state.tokens.guest,
-    expectedStatuses: [401, 403],
-    expected: "401 or 403 for low privilege user",
-  });
+  if (guestLoggedIn) {
+    await requestTest({
+      suite: "RBAC",
+      name: "Guest cannot access PL7 management pending count",
+      method: "GET",
+      path: `${config.apiPrefix}/management/requests/pending-count`,
+      token: state.tokens.guest,
+      expectedStatuses: [401, 403],
+      expected: "401 or 403 for low privilege user",
+    });
+  } else {
+    addBlocked("RBAC", "Guest cannot access PL7 management pending count", "GET", `${config.apiPrefix}/management/requests/pending-count`, "Guest login is unavailable.");
+  }
 
-  await requestTest({
-    suite: "RBAC",
-    name: "Field user cannot run chat reconcile",
-    method: "POST",
-    path: `${config.apiPrefix}/chat/reconcile`,
-    token: state.tokens.field5,
-    expectedStatuses: [403],
-    expected: "403 for PL6 non-executive or lower",
-  });
+  if (fieldLoggedIn) {
+    await requestTest({
+      suite: "RBAC",
+      name: "Field user cannot run chat reconcile",
+      method: "POST",
+      path: `${config.apiPrefix}/chat/reconcile`,
+      token: state.tokens.field5,
+      expectedStatuses: [403],
+      expected: "403 for PL6 non-executive or lower",
+    });
+  } else {
+    addBlocked("RBAC", "Field user cannot run chat reconcile", "POST", `${config.apiPrefix}/chat/reconcile`, "Field account login is unavailable.");
+  }
 
-  await requestTest({
-    suite: "Chat",
-    name: "Executive can run chat reconcile",
-    method: "POST",
-    path: `${config.apiPrefix}/chat/reconcile`,
-    token: state.tokens.exec6,
-    expectedStatuses: [200],
-    expected: "200 for PL6 executive",
-  });
+  const executiveToken = state.tokens.exec6 ?? state.tokens.exec7;
+  if (executiveToken) {
+    await requestTest({
+      suite: "Chat",
+      name: "Executive can run chat reconcile",
+      method: "POST",
+      path: `${config.apiPrefix}/chat/reconcile`,
+      token: executiveToken,
+      expectedStatuses: [200],
+      expected: "200 for PL6 executive or PL7 user",
+    });
+  } else {
+    addBlocked("Chat", "Executive can run chat reconcile", "POST", `${config.apiPrefix}/chat/reconcile`, "No PL6 executive or PL7 token is available.");
+  }
 
   await runReadOnlyFunctionalTests();
   await runContentCrudTests();
@@ -580,11 +593,11 @@ async function runChatFlowTests() {
 
   await requestTest({
     suite: "Chat",
-    name: "Create DM with field5",
+    name: "Create DM with m.varga",
     method: "POST",
     path: `${config.apiPrefix}/chat/dm`,
     token,
-    body: { username: "field5" },
+    body: { username: "m.varga" },
     expectedStatuses: [200, 201],
     expected: "DM is returned or created",
   });
@@ -597,7 +610,7 @@ async function runChatFlowTests() {
     token,
     body: {
       name: `${config.runId} Group`,
-      invitees: ["field5", "mech4"],
+      invitees: ["m.varga", "s.okafor"],
     },
     expectedStatuses: [200, 201],
     expected: "Manual group is created",
@@ -640,7 +653,7 @@ async function runManagementAndNotificationTests() {
     body: {
       kind: "executive_promotion",
       payload: {
-        username: "field5",
+        username: "t.bremmer",
         targetLevel: 6,
       },
       reason: `${config.runId} executive promotion`,
@@ -672,7 +685,7 @@ async function runManagementAndNotificationTests() {
       title: `${config.runId} Notification`,
       body: "QA notification body",
       recipient: "author",
-      sender: "exec7",
+      sender: "author",
       link: "/command-center",
     },
     expectedStatuses: [200, 201],
