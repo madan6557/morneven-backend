@@ -1,0 +1,90 @@
+name: Development API QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Development API base URL"
+        required: true
+        default: "https://backend.dev.morneven.com"
+      scope:
+        description: "QA scope"
+        required: true
+        type: choice
+        default: "full"
+        options:
+          - smoke
+          - full
+      allow_destructive_cleanup:
+        description: "Allow cleanup DELETE calls for QA-owned records"
+        required: true
+        type: boolean
+        default: true
+      include_global_state:
+        description: "Include map/settings style global-state tests with rollback"
+        required: true
+        type: boolean
+        default: false
+      include_file_upload:
+        description: "Include small multipart upload test"
+        required: true
+        type: boolean
+        default: true
+      include_extraction:
+        description: "Include extraction job test"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  dev-api-qa:
+    name: Run development API QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      QA_BASE_URL: ${{ inputs.base_url }}
+      QA_SCOPE: ${{ inputs.scope }}
+      QA_ALLOW_DESTRUCTIVE: ${{ inputs.allow_destructive_cleanup }}
+      QA_INCLUDE_GLOBAL_STATE: ${{ inputs.include_global_state }}
+      QA_INCLUDE_FILE_UPLOAD: ${{ inputs.include_file_upload }}
+      QA_INCLUDE_EXTRACTION: ${{ inputs.include_extraction }}
+      QA_RUN_ID: QA-${{ github.run_id }}-${{ github.run_attempt }}
+      QA_OUTPUT_DIR: qa/reports
+      QA_SEED_PASSWORD: ${{ secrets.QA_SEED_PASSWORD || 'SeedPassword123' }}
+      QA_AUTHOR_EMAIL: ${{ vars.QA_AUTHOR_EMAIL || 'author@morneven.com' }}
+      QA_GUEST_EMAIL: ${{ vars.QA_GUEST_EMAIL || 'guest@morneven.com' }}
+      QA_EXEC7_EMAIL: ${{ vars.QA_EXEC7_EMAIL || 'exec7@morneven.com' }}
+      QA_EXEC6_EMAIL: ${{ vars.QA_EXEC6_EMAIL || 'exec6@morneven.com' }}
+      QA_FIELD5_EMAIL: ${{ vars.QA_FIELD5_EMAIL || 'field5@morneven.com' }}
+
+    steps:
+      - name: Check out development branch
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify connectivity
+        run: |
+          curl -i --max-time 30 "$QA_BASE_URL/ready"
+
+      - name: Run API QA
+        run: |
+          node qa/dev-api-qa.mjs
+
+      - name: Upload QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-api-qa-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: qa/reports/
+          if-no-files-found: warn
+
