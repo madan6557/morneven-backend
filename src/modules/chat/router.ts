@@ -11,6 +11,7 @@ import { reconcileAutoMemberships } from './service.js';
 import { emitNavigationBadgesUpdated, emitToUsers } from '../../realtime/events.js';
 import { writeAudit } from '../../utils/audit.js';
 import { env } from '../../config/env.js';
+import { buildObjectProxyUrl, isReadableObjectPath, normalizeObjectPath } from '../files/object-path.js';
 
 export const chatRouter = Router();
 
@@ -121,6 +122,20 @@ const normalizeMessageAttachments = (message: any) => {
   const normalized = attachments.map((attachment: unknown) => {
     if (!attachment || typeof attachment !== 'object') return attachment;
     const next = { ...(attachment as Record<string, unknown>) };
+
+    if (typeof next.objectPath === 'string') {
+      const objectPath = normalizeObjectPath(next.objectPath);
+      if (isReadableObjectPath(objectPath)) {
+        const proxyUrl = buildObjectProxyUrl(objectPath);
+        next.objectPath = objectPath;
+        next.proxyUrl = proxyUrl;
+        next.url = proxyUrl;
+        next.src = proxyUrl;
+        next.thumbnailUrl = proxyUrl;
+        return next;
+      }
+    }
+
     if (typeof next.url === 'string') next.url = normalizeAttachmentUrl(next.url);
     if (typeof next.src === 'string') next.src = normalizeAttachmentUrl(next.src);
     if (typeof next.thumbnailUrl === 'string') next.thumbnailUrl = normalizeAttachmentUrl(next.thumbnailUrl);

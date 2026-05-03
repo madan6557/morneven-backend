@@ -42,6 +42,14 @@ type SaveFileResult = {
   url: string;
 };
 
+export type ReadFileFromStorageResult = {
+  buffer: Buffer;
+  contentType?: string;
+  contentLength?: number;
+  etag?: string;
+  lastModified?: Date;
+};
+
 const getStorageBucket = () => {
   if (!env.gcsBucketName) {
     throw new Error('GCS_BUCKET_NAME is required when STORAGE_DRIVER=gcs');
@@ -133,11 +141,15 @@ const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
   return Buffer.concat(chunks);
 };
 
-export const readFileFromStorage = async (objectPath: string): Promise<Buffer> => {
+export const readFileWithMetadataFromStorage = async (objectPath: string): Promise<ReadFileFromStorageResult> => {
   if (env.storageDriver === 'local') {
     const fullPath = path.join(env.localStoragePath, objectPath);
     const { readFile } = await import('fs/promises');
-    return readFile(fullPath);
+    const buffer = await readFile(fullPath);
+    return {
+      buffer,
+      contentLength: buffer.byteLength
+    };
   }
 
   if (env.storageDriver === 's3') {
@@ -149,11 +161,29 @@ export const readFileFromStorage = async (objectPath: string): Promise<Buffer> =
       })
     );
     if (!response.Body) throw new Error('S3 object body is empty');
-    return streamToBuffer(response.Body as Readable);
+    const buffer = await streamToBuffer(response.Body as Readable);
+    return {
+      buffer,
+      contentType: response.ContentType,
+      contentLength: response.ContentLength,
+      etag: response.ETag,
+      lastModified: response.LastModified
+    };
   }
 
   const bucket = getStorageBucket();
   const file = bucket.file(objectPath);
-  const [buffer] = await file.download();
-  return buffer;
+  const [[buffer], [metadata]] = await Promise.all([file.download(), file.getMetadata()]);
+  return {
+    buffer,
+    contentType: metadata.contentType,
+    contentLength: metadata.size ? Number(metadata.size) : undefined,
+    etag: metadata.etag,
+    lastModified: metadata.updated ? new Date(metadata.updated) : undefined
+  };
+};
+
+export const readFileFromStorage = async (objectPath: string): Promise<Buffer> => {
+  const file = await readFileWithMetadataFromStorage(objectPath);
+  return file.buffer;
 };
