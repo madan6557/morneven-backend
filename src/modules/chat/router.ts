@@ -9,6 +9,7 @@ import { createNotification } from '../notifications/service.js';
 import { getChatUnreadCount } from '../me/badges.js';
 import { reconcileAutoMemberships } from './service.js';
 import { emitNavigationBadgesUpdated, emitToUsers } from '../../realtime/events.js';
+import { writeAudit } from '../../utils/audit.js';
 
 export const chatRouter = Router();
 
@@ -129,13 +130,58 @@ chatRouter.post('/reconcile', auth, allow((user) => user.level >= 7 || (user.lev
       where: { conversation: { systemManaged: true }, status: 'removed' }
     })
   ]);
-  return ok(res, {
+  const report = {
     instituteGroups,
     divisionGroups,
     teamGroups,
     activeMemberships,
     removedMemberships,
     ranAt: new Date().toISOString()
+  };
+  await writeAudit(prisma, {
+    actor: _req.user?.username ?? 'system',
+    action: 'chat.reconcile',
+    entity: 'ChatConversation',
+    metadata: report
+  });
+  return ok(res, report);
+});
+
+chatRouter.get('/reconcile/status', auth, allow((user) => user.level >= 7 || (user.level >= 6 && user.track === 'executive')), async (_req, res) => {
+  const latest = await prisma.auditLog.findFirst({
+    where: { action: 'chat.reconcile' },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (latest?.metadata && typeof latest.metadata === 'object') {
+    const meta = latest.metadata as Record<string, unknown>;
+    return ok(res, {
+      instituteGroups: Number(meta.instituteGroups ?? 0),
+      divisionGroups: Number(meta.divisionGroups ?? 0),
+      teamGroups: Number(meta.teamGroups ?? 0),
+      activeMemberships: Number(meta.activeMemberships ?? 0),
+      removedMemberships: Number(meta.removedMemberships ?? 0),
+      ranAt: String(meta.ranAt ?? latest.createdAt.toISOString())
+    });
+  }
+
+  const [instituteGroups, divisionGroups, teamGroups, activeMemberships, removedMemberships] = await Promise.all([
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'institute' } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'division' } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'team' } }),
+    prisma.chatConversationMember.count({
+      where: { conversation: { systemManaged: true }, status: 'active' }
+    }),
+    prisma.chatConversationMember.count({
+      where: { conversation: { systemManaged: true }, status: 'removed' }
+    })
+  ]);
+  return ok(res, {
+    instituteGroups,
+    divisionGroups,
+    teamGroups,
+    activeMemberships,
+    removedMemberships,
+    ranAt: latest?.createdAt.toISOString() ?? new Date(0).toISOString()
   });
 });
 
