@@ -1,7 +1,8 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Storage } from '@google-cloud/storage';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { Readable } from 'stream';
 import { env } from './env.js';
 
 let storageClient: Storage | null = null;
@@ -122,4 +123,37 @@ export const saveFileToStorage = async (input: SaveFileInput): Promise<SaveFileR
     location: bucket.name,
     url: buildGcsUrl(input.objectPath)
   };
+};
+
+const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+};
+
+export const readFileFromStorage = async (objectPath: string): Promise<Buffer> => {
+  if (env.storageDriver === 'local') {
+    const fullPath = path.join(env.localStoragePath, objectPath);
+    const { readFile } = await import('fs/promises');
+    return readFile(fullPath);
+  }
+
+  if (env.storageDriver === 's3') {
+    const bucketName = getS3BucketName();
+    const response = await getS3Client().send(
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: objectPath
+      })
+    );
+    if (!response.Body) throw new Error('S3 object body is empty');
+    return streamToBuffer(response.Body as Readable);
+  }
+
+  const bucket = getStorageBucket();
+  const file = bucket.file(objectPath);
+  const [buffer] = await file.download();
+  return buffer;
 };

@@ -8,6 +8,7 @@ import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
 import { saveFileToStorage } from '../../config/storage.js';
+import { readFileFromStorage } from '../../config/storage.js';
 import { fail, ok } from '../../utils/response.js';
 import {
   serializeGalleryItem,
@@ -362,20 +363,9 @@ settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
     entityId: job.id
   });
 
-  if (env.storageDriver !== 'local') {
-    if (!job.artifactUrl) return fail(res, 404, 'Artifact URL not found', 'NOT_FOUND');
-    const upstream = await fetch(job.artifactUrl);
-    if (!upstream.ok) return fail(res, 502, 'Failed to fetch artifact from storage', 'BAD_GATEWAY');
-    const arrayBuffer = await upstream.arrayBuffer();
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-extract-${job.id}.zip`}"`);
-    return res.send(Buffer.from(arrayBuffer));
-  }
-
-  const fullPath = path.join(env.localStoragePath, job.artifactPath);
-  const file = await readFile(fullPath);
+  const file = await readFileFromStorage(job.artifactPath);
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? 'morneven-export.zip'}"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-extract-${job.id}.zip`}"`);
   return res.send(file);
 });
 
