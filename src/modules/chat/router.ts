@@ -10,6 +10,7 @@ import { getChatUnreadCount } from '../me/badges.js';
 import { reconcileAutoMemberships } from './service.js';
 import { emitNavigationBadgesUpdated, emitToUsers } from '../../realtime/events.js';
 import { writeAudit } from '../../utils/audit.js';
+import { env } from '../../config/env.js';
 
 export const chatRouter = Router();
 
@@ -106,6 +107,27 @@ const notifyConversationMembers = async (conversationId: string, sender: string,
 
 const activeUsernames = (conversation: ConversationWithMembers) =>
   conversation.members.filter((member) => member.status === 'active').map((member) => member.username);
+
+const normalizeAttachmentUrl = (value: string) => {
+  if (!value) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) return value;
+  const base = env.localStorageBasePath.replace(/\/$/, '');
+  return `${base}/${value.replace(/^\/+/, '')}`;
+};
+
+const normalizeMessageAttachments = (message: any) => {
+  const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+  const normalized = attachments.map((attachment: unknown) => {
+    if (!attachment || typeof attachment !== 'object') return attachment;
+    const next = { ...(attachment as Record<string, unknown>) };
+    if (typeof next.url === 'string') next.url = normalizeAttachmentUrl(next.url);
+    if (typeof next.src === 'string') next.src = normalizeAttachmentUrl(next.src);
+    if (typeof next.thumbnailUrl === 'string') next.thumbnailUrl = normalizeAttachmentUrl(next.thumbnailUrl);
+    return next;
+  });
+  return { ...message, attachments: normalized };
+};
 
 chatRouter.get('/conversations', auth, async (req, res) => {
   await reconcileAutoMemberships();
@@ -205,7 +227,7 @@ chatRouter.get('/conversations/:id/messages', auth, async (req, res) => {
     prisma.chatMessage.findMany({ where, orderBy: { createdAt: 'asc' }, skip, take }),
     prisma.chatMessage.count({ where })
   ]);
-  return ok(res, paginated(messages, page, pageSize, total));
+  return ok(res, paginated(messages.map(normalizeMessageAttachments), page, pageSize, total));
 });
 
 chatRouter.post('/messages', auth, async (req, res) => {
@@ -230,14 +252,14 @@ chatRouter.post('/messages', auth, async (req, res) => {
   });
   await notifyConversationMembers(conversation.id, req.user!.username, 'New chat message');
   const recipients = activeUsernames(conversation);
-  emitToUsers(recipients, 'chat.message.created', message as unknown as Record<string, unknown>);
+  emitToUsers(recipients, 'chat.message.created', normalizeMessageAttachments(message) as unknown as Record<string, unknown>);
   emitToUsers(
     recipients.filter((username) => username !== req.user!.username),
     'chat.unread.updated',
     { conversationId: conversation.id }
   );
   await Promise.all(recipients.filter((username) => username !== req.user!.username).map((username) => emitNavigationBadgesUpdated(username)));
-  return res.status(201).json({ success: true, data: message });
+  return res.status(201).json({ success: true, data: normalizeMessageAttachments(message) });
 });
 
 chatRouter.delete('/messages/:id', auth, async (req, res) => {
