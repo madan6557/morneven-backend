@@ -41,7 +41,12 @@ mapRouter.put('/markers', auth, allow(canWriteMap), async (req, res) => {
   return ok(res, await prisma.mapMarker.findMany());
 });
 
-mapRouter.get('/image', auth, async (_req, res) => ok(res, await prisma.mapImage.findUnique({ where: { id: 'main' } })));
+mapRouter.get('/image', auth, async (_req, res) => {
+  const image = await prisma.mapImage.findUnique({ where: { id: 'main' } });
+  const rawUrl = image?.imageUrl ?? '';
+  const normalizedUrl = rawUrl.includes('placeholder.local') ? '' : rawUrl;
+  return ok(res, { url: normalizedUrl });
+});
 mapRouter.put('/image', auth, allow(canWriteMap), async (req, res) =>
   ok(
     res,
