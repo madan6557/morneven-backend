@@ -17,36 +17,11 @@ import {
 } from '../../utils/serializers.js';
 import { makeZip, ZipFile } from '../../utils/zip.js';
 import { writeAudit } from '../../utils/audit.js';
+import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from './preset-service.js';
 
 export const settingsRouter = Router();
 
-const defaultSettings = {
-  showStats: true,
-  showProjects: true,
-  showNews: true,
-  showCharacters: true,
-  showPlaces: true,
-  showTechnology: true,
-  showGallery: true,
-  showQuickActions: true,
-  welcomeMessage: "Here's your operational overview.",
-  itemLimits: {
-    projects: 5,
-    news: 6,
-    characters: 3,
-    places: 3,
-    technology: 3,
-    gallery: 4
-  },
-  manualSelections: {
-    projects: [],
-    news: [],
-    characters: [],
-    places: [],
-    technology: [],
-    gallery: []
-  }
-};
+const defaultSettings = defaultCommandCenterSettings;
 
 const settingsSchema = z.object({
   showStats: z.boolean().optional(),
@@ -102,10 +77,7 @@ const mergeSettings = (settings?: Record<string, unknown> | null) => ({
 settingsRouter.get('/command-center/defaults', auth, async (_req, res) => ok(res, defaultSettings));
 
 settingsRouter.get('/command-center', auth, async (req, res) => {
-  const settings = await prisma.commandCenterSettings.findFirst({
-    where: { isActive: true },
-    orderBy: { updatedAt: 'desc' }
-  });
+  const settings = await ensureActiveCommandCenterPreset('system');
   return ok(res, mergeSettings(settings as Record<string, unknown> | null));
 });
 
@@ -116,7 +88,7 @@ settingsRouter.put('/command-center', auth, async (req, res) => {
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
   const merged = mergeSettings(parsed.data);
-  const active = await prisma.commandCenterSettings.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
+  const active = await ensureActiveCommandCenterPreset(req.user!.username);
   const saved = active
     ? await prisma.commandCenterSettings.update({
         where: { id: active.id },

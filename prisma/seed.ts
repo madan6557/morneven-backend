@@ -6,17 +6,27 @@ import path from 'node:path';
 const prisma = new PrismaClient();
 const seedDir = path.resolve(process.cwd(), 'fe-seed');
 
+const normalizeText = (value: unknown) => String(value ?? '').trim();
+const normalizeUsername = (value: unknown) => normalizeText(value).toLowerCase();
+const clampLevel = (value: unknown) => {
+  const num = Number(value ?? 1);
+  if (Number.isNaN(num)) return 1;
+  return Math.max(0, Math.min(7, Math.trunc(num)));
+};
+
 const toRole = (value: string): Role => (value === 'author' ? Role.author : value === 'guest' ? Role.guest : Role.personel);
 const toTrack = (value: string): Track => {
-  if (value === 'field') return Track.field;
-  if (value === 'mechanic') return Track.mechanic;
-  if (value === 'logistics') return Track.logistics;
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === 'field') return Track.field;
+  if (normalized === 'mechanic') return Track.mechanic;
+  if (normalized === 'logistics') return Track.logistics;
   return Track.executive;
 };
 const toMediaType = (value: string): MediaType => {
-  if (value === 'video') return MediaType.video;
-  if (value === 'link') return MediaType.link;
-  if (value === 'file') return MediaType.file;
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === 'video') return MediaType.video;
+  if (normalized === 'link') return MediaType.link;
+  if (normalized === 'file') return MediaType.file;
   return MediaType.image;
 };
 const toEntityType = (value: string): EntityType => {
@@ -28,10 +38,11 @@ const toEntityType = (value: string): EntityType => {
   return EntityType.other;
 };
 const toProjectStatus = (value: string): ProjectStatus => {
-  if (value === 'Planning') return ProjectStatus.Planning;
-  if (value === 'On Hold') return ProjectStatus.OnHold;
-  if (value === 'Completed') return ProjectStatus.Completed;
-  if (value === 'Canceled') return ProjectStatus.Canceled;
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === 'planning') return ProjectStatus.Planning;
+  if (normalized === 'on hold' || normalized === 'onhold') return ProjectStatus.OnHold;
+  if (normalized === 'completed') return ProjectStatus.Completed;
+  if (normalized === 'canceled' || normalized === 'cancelled') return ProjectStatus.Canceled;
   return ProjectStatus.OnProgress;
 };
 const toMapStatus = (value: string): MapStatus => {
@@ -91,16 +102,24 @@ async function main() {
   ]);
 
   const usersByUsername = new Map<string, string>();
+  const usedEmails = new Set<string>();
   for (const user of personnel) {
+    const username = normalizeUsername(user.username);
+    const email = normalizeText(user.email).toLowerCase();
+    if (!username || !email) throw new Error(`Invalid user seed row: missing username/email for id=${String(user.id ?? '')}`);
+    if (usersByUsername.has(username)) throw new Error(`Duplicate username in seed: ${username}`);
+    if (usedEmails.has(email)) throw new Error(`Duplicate email in seed: ${email}`);
+    usedEmails.add(email);
+
     const passwordHash = await bcrypt.hash('SeedPassword123', 10);
     const created = await prisma.user.create({
       data: {
         id: user.id,
-        username: String(user.username).toLowerCase(),
-        email: user.email,
+        username,
+        email,
         passwordHash,
         role: toRole(user.role),
-        level: Number(user.level ?? 1),
+        level: clampLevel(user.level),
         track: toTrack(user.track),
         note: user.note
       }
@@ -122,7 +141,7 @@ async function main() {
         fullDesc: item.fullDesc,
         docs: item.docs ?? [],
         archived: Boolean(item.archived),
-        contributor: item.contributor ?? null,
+        contributor: normalizeText(item.contributor) || 'author',
         meta: item.meta ?? undefined,
         patches: {
           create: (item.patches ?? []).map((p: any) => ({
@@ -157,7 +176,7 @@ async function main() {
   }
 
   for (const item of gallery) {
-    const uploader = usersByUsername.get(String(item.uploadedBy).toLowerCase()) ?? fallbackAuthorId;
+    const uploader = usersByUsername.get(normalizeUsername(item.uploadedBy)) ?? fallbackAuthorId;
     const createdGallery = await prisma.galleryItem.create({
       data: {
         id: item.id,
@@ -173,7 +192,7 @@ async function main() {
     });
 
     for (const comment of item.comments ?? []) {
-      const commentAuthor = usersByUsername.get(String(comment.author).toLowerCase()) ?? fallbackAuthorId;
+      const commentAuthor = usersByUsername.get(normalizeUsername(comment.author)) ?? fallbackAuthorId;
       const createdComment = await prisma.comment.create({
         data: {
           id: comment.id,
@@ -186,7 +205,7 @@ async function main() {
       });
 
       for (const reply of comment.replies ?? []) {
-        const replyAuthor = usersByUsername.get(String(reply.author).toLowerCase()) ?? fallbackAuthorId;
+        const replyAuthor = usersByUsername.get(normalizeUsername(reply.author)) ?? fallbackAuthorId;
         await prisma.reply.create({
           data: {
             id: reply.id,
@@ -268,12 +287,14 @@ async function main() {
     }
   });
 
-  await prisma.commandCenterSettings.create({
-    data: {
-      id: 'main',
+  await prisma.commandCenterSettings.upsert({
+    where: { presetKey: 'default' },
+    update: { presetName: 'Default System Preset', isActive: true, updatedBy: 'system' },
+    create: {
       presetKey: 'default',
       presetName: 'Default System Preset',
-      isActive: true
+      isActive: true,
+      updatedBy: 'system'
     }
   });
 
