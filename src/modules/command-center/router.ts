@@ -4,36 +4,11 @@ import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { ok } from '../../utils/response.js';
 import { serializeGalleryItem, serializeLoreItem, serializeProject } from '../../utils/serializers.js';
+import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from '../settings/preset-service.js';
 
 export const commandCenterRouter = Router();
 
-const defaultSettings = {
-  showStats: true,
-  showProjects: true,
-  showNews: true,
-  showCharacters: true,
-  showPlaces: true,
-  showTechnology: true,
-  showGallery: true,
-  showQuickActions: true,
-  welcomeMessage: "Here's your operational overview.",
-  itemLimits: {
-    projects: 5,
-    news: 6,
-    characters: 3,
-    places: 3,
-    technology: 3,
-    gallery: 4
-  },
-  manualSelections: {
-    projects: [] as string[],
-    news: [] as string[],
-    characters: [] as string[],
-    places: [] as string[],
-    technology: [] as string[],
-    gallery: [] as string[]
-  }
-};
+const defaultSettings = defaultCommandCenterSettings;
 
 const mergeSettings = (settings?: Record<string, unknown> | null) => ({
   ...defaultSettings,
@@ -54,10 +29,7 @@ const inManualOrder = <T extends { id: string }>(items: T[], ids: string[]) => {
 };
 
 commandCenterRouter.get('/', auth, async (req, res) => {
-  const rawSettings = await prisma.commandCenterSettings.findFirst({
-    where: { isActive: true },
-    orderBy: { updatedAt: 'desc' }
-  });
+  const rawSettings = await ensureActiveCommandCenterPreset('system');
   const settings = mergeSettings(rawSettings as Record<string, unknown> | null);
 
   const docs = await prisma.entityDoc.findMany();
