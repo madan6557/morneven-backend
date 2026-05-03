@@ -9,7 +9,7 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 | Item | Value |
 | --- | --- |
 | Production URL | `https://morneven-backend-production.up.railway.app` |
-| Development URL | `https://morneven-backend-development.up.railway.app` |
+| Development URL | `https://backend.dev.morneven.com` |
 | Default API prefix | `/api` |
 | Compatibility prefix | `/v1` |
 | Deployment type | Railway deployments for demo and backend integration testing |
@@ -1898,7 +1898,7 @@ Query params:
 Example curl:
 
 ```bash
-curl -X POST "https://morneven-backend-development.up.railway.app/api/files/upload?folder=gallery" \
+curl -X POST "https://backend.dev.morneven.com/api/files/upload?folder=gallery" \
   -H "Authorization: Bearer <token>" \
   -F "file=@./qa-image.png"
 ```

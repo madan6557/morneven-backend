@@ -116,9 +116,9 @@ curl -s -X POST http://localhost:3000/api/auth/login \
   }'
 ```
 
-Ambil `accessToken` dari response, lalu set environment variable:
+Ambil `token` dari `data.token` di response, lalu set environment variable:
 ```bash
-export TOKEN="<paste_access_token_di_sini>"
+export TOKEN="<paste_token_di_sini>"
 ```
 
 #### c) Hit endpoint protected
@@ -141,7 +141,7 @@ curl -i http://localhost:3000/api/projects/<id> -H "Authorization: Bearer $TOKEN
 curl -i -X POST http://localhost:3000/api/projects \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Project A","summary":"Ringkas","status":"active"}'
+  -d '{"title":"Project A","status":"Planning","shortDesc":"Ringkas","fullDesc":"Deskripsi lengkap","contributor":"author"}'
 ```
 
 #### Lore
@@ -162,7 +162,7 @@ curl -i http://localhost:3000/api/gallery -H "Authorization: Bearer $TOKEN"
 curl -i -X POST http://localhost:3000/api/gallery/<id>/comments \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"content":"Keren!"}'
+  -d '{"text":"Keren!"}'
 ```
 
 #### Map

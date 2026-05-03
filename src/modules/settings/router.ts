@@ -61,6 +61,16 @@ const settingsSchema = z.object({
   itemLimits: z.record(z.coerce.number().int().min(0).max(100)).optional(),
   manualSelections: z.record(z.array(z.string())).optional()
 });
+const presetCreateSchema = z.object({
+  presetKey: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/),
+  presetName: z.string().min(2).max(120),
+  settings: settingsSchema.optional()
+});
+const presetUpdateSchema = z.object({
+  presetKey: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/).optional(),
+  presetName: z.string().min(2).max(120).optional(),
+  settings: settingsSchema.optional()
+});
 
 const extractionSchema = z.object({
   mode: z.enum(['db', 'images', 'all']),
@@ -92,7 +102,10 @@ const mergeSettings = (settings?: Record<string, unknown> | null) => ({
 settingsRouter.get('/command-center/defaults', auth, async (_req, res) => ok(res, defaultSettings));
 
 settingsRouter.get('/command-center', auth, async (req, res) => {
-  const settings = await prisma.commandCenterSettings.findUnique({ where: { userId: req.user!.id } });
+  const settings = await prisma.commandCenterSettings.findFirst({
+    where: { isActive: true },
+    orderBy: { updatedAt: 'desc' }
+  });
   return ok(res, mergeSettings(settings as Record<string, unknown> | null));
 });
 
@@ -103,13 +116,84 @@ settingsRouter.put('/command-center', auth, async (req, res) => {
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
   const merged = mergeSettings(parsed.data);
-  const saved = await prisma.commandCenterSettings.upsert({
-    where: { userId: req.user!.id },
-    update: merged,
-    create: { userId: req.user!.id, ...merged }
-  });
+  const active = await prisma.commandCenterSettings.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
+  const saved = active
+    ? await prisma.commandCenterSettings.update({
+        where: { id: active.id },
+        data: { ...merged, updatedBy: req.user!.username }
+      })
+    : await prisma.commandCenterSettings.create({
+        data: { presetKey: 'default', presetName: 'Default System Preset', isActive: true, ...merged, updatedBy: req.user!.username }
+      });
 
   return ok(res, mergeSettings(saved as Record<string, unknown>));
+});
+
+settingsRouter.get('/command-center/presets', auth, async (_req, res) => {
+  const presets = await prisma.commandCenterSettings.findMany({
+    orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
+    select: { id: true, presetKey: true, presetName: true, isActive: true, updatedBy: true, updatedAt: true, createdAt: true }
+  });
+  return ok(res, presets);
+});
+
+settingsRouter.post('/command-center/presets', auth, async (req, res) => {
+  if (!canUpdateCommandCenter(req.user!)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const parsed = presetCreateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const merged = mergeSettings(parsed.data.settings);
+  const created = await prisma.commandCenterSettings.create({
+    data: {
+      presetKey: parsed.data.presetKey,
+      presetName: parsed.data.presetName,
+      isActive: false,
+      ...merged,
+      updatedBy: req.user!.username
+    }
+  });
+  return res.status(201).json({ success: true, data: created });
+});
+
+settingsRouter.post('/command-center/presets/:id/activate', auth, async (req, res) => {
+  if (!canUpdateCommandCenter(req.user!)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const existing = await prisma.commandCenterSettings.findUnique({ where: { id: req.params.id } });
+  if (!existing) return fail(res, 404, 'Preset not found', 'NOT_FOUND');
+  await prisma.$transaction([
+    prisma.commandCenterSettings.updateMany({ where: { isActive: true }, data: { isActive: false } }),
+    prisma.commandCenterSettings.update({ where: { id: req.params.id }, data: { isActive: true, updatedBy: req.user!.username } })
+  ]);
+  return ok(res, { activatedPresetId: req.params.id });
+});
+
+settingsRouter.put('/command-center/presets/:id', auth, async (req, res) => {
+  if (!canUpdateCommandCenter(req.user!)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const parsed = presetUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const existing = await prisma.commandCenterSettings.findUnique({ where: { id: req.params.id } });
+  if (!existing) return fail(res, 404, 'Preset not found', 'NOT_FOUND');
+
+  const merged = parsed.data.settings ? mergeSettings(parsed.data.settings) : null;
+  const updated = await prisma.commandCenterSettings.update({
+    where: { id: req.params.id },
+    data: {
+      ...(parsed.data.presetKey !== undefined ? { presetKey: parsed.data.presetKey } : {}),
+      ...(parsed.data.presetName !== undefined ? { presetName: parsed.data.presetName } : {}),
+      ...(merged ?? {}),
+      updatedBy: req.user!.username
+    }
+  });
+  return ok(res, updated);
+});
+
+settingsRouter.delete('/command-center/presets/:id', auth, async (req, res) => {
+  if (!canUpdateCommandCenter(req.user!)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const existing = await prisma.commandCenterSettings.findUnique({ where: { id: req.params.id } });
+  if (!existing) return fail(res, 404, 'Preset not found', 'NOT_FOUND');
+  if (existing.isActive) return fail(res, 409, 'Active preset cannot be deleted', 'CONFLICT');
+
+  await prisma.commandCenterSettings.delete({ where: { id: req.params.id } });
+  return ok(res, { deleted: true, id: req.params.id });
 });
 
 const requirePl7 = (req: Request, res: Response) => {

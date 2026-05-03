@@ -102,8 +102,7 @@ async function main() {
         role: toRole(user.role),
         level: Number(user.level ?? 1),
         track: toTrack(user.track),
-        note: user.note,
-        settings: { create: {} }
+        note: user.note
       }
     });
     usersByUsername.set(created.username.toLowerCase(), created.id);
@@ -266,6 +265,15 @@ async function main() {
     data: {
       id: 'main',
       imageUrl: mapData.mapImage || 'https://placeholder.local/map.png'
+    }
+  });
+
+  await prisma.commandCenterSettings.create({
+    data: {
+      id: 'main',
+      presetKey: 'default',
+      presetName: 'Default System Preset',
+      isActive: true
     }
   });
 
