@@ -45,6 +45,17 @@ personnelRouter.get('/', auth, allow((u) => u.level >= 4), async (req, res) => {
   return ok(res, users.map(serializeUser));
 });
 
+personnelRouter.get('/lookup', auth, async (req, res) => {
+  const raw = String(req.query.usernames ?? '');
+  const usernames = [...new Set(raw.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean))];
+  if (!usernames.length) return ok(res, []);
+  const users = await prisma.user.findMany({
+    where: { username: { in: usernames } },
+    select: { username: true, level: true, track: true, note: true }
+  });
+  return ok(res, users);
+});
+
 personnelRouter.get('/:id', auth, async (req, res) => {
   if (req.user!.level < 4 && req.user!.id !== req.params.id) {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');

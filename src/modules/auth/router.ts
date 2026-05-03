@@ -30,6 +30,16 @@ const loginSchema = z.object({
 const refreshSchema = z.object({
   refreshToken: z.string().min(10)
 });
+const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(12).max(128)
+});
+const deleteAccountSchema = z.object({
+  password: z.string().min(1)
+});
 
 const hashRefreshToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -142,3 +152,42 @@ authRouter.post('/logout', auth, async (req, res) => {
 });
 
 authRouter.post('/validate-token', auth, async (_req, res) => ok(res, { valid: true }));
+
+authRouter.post('/forgot-password', authRateLimiter, validateBody(forgotPasswordSchema), async (req, res) => {
+  const email = String(req.body.email).toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user) {
+    console.log(`Password reset requested for ${email}`);
+  }
+  return ok(res, { accepted: true });
+});
+
+authRouter.post('/change-password', auth, validateBody(changePasswordSchema), async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
+  const valid = await bcrypt.compare(req.body.currentPassword, user.passwordHash);
+  if (!valid) return fail(res, 403, 'Current password is invalid', 'FORBIDDEN');
+  const passwordHash = await bcrypt.hash(req.body.newPassword, 12);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+  return ok(res, { changed: true });
+});
+
+authRouter.delete('/delete-account', auth, validateBody(deleteAccountSchema), async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
+  const valid = await bcrypt.compare(req.body.password, user.passwordHash);
+  if (!valid) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
+  try {
+    await prisma.$transaction([
+      prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
+      prisma.user.delete({ where: { id: user.id } })
+    ]);
+  } catch (error: any) {
+    if (error?.code === 'P2003') {
+      return fail(res, 409, 'Account deletion blocked by ownership constraints', 'CONFLICT');
+    }
+    throw error;
+  }
+  return ok(res, { deleted: true });
+});
