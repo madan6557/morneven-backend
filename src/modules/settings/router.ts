@@ -363,7 +363,13 @@ settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
   });
 
   if (env.storageDriver !== 'local') {
-    return ok(res, { url: job.artifactUrl, downloadName: job.downloadName });
+    if (!job.artifactUrl) return fail(res, 404, 'Artifact URL not found', 'NOT_FOUND');
+    const upstream = await fetch(job.artifactUrl);
+    if (!upstream.ok) return fail(res, 502, 'Failed to fetch artifact from storage', 'BAD_GATEWAY');
+    const arrayBuffer = await upstream.arrayBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-extract-${job.id}.zip`}"`);
+    return res.send(Buffer.from(arrayBuffer));
   }
 
   const fullPath = path.join(env.localStoragePath, job.artifactPath);

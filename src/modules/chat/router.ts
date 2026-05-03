@@ -118,7 +118,25 @@ chatRouter.get('/conversations', auth, async (req, res) => {
 
 chatRouter.post('/reconcile', auth, allow((user) => user.level >= 7 || (user.level >= 6 && user.track === 'executive')), async (_req, res) => {
   await reconcileAutoMemberships();
-  return ok(res, { reconciled: true });
+  const [instituteGroups, divisionGroups, teamGroups, activeMemberships, removedMemberships] = await Promise.all([
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'institute' } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'division' } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'team' } }),
+    prisma.chatConversationMember.count({
+      where: { conversation: { systemManaged: true }, status: 'active' }
+    }),
+    prisma.chatConversationMember.count({
+      where: { conversation: { systemManaged: true }, status: 'removed' }
+    })
+  ]);
+  return ok(res, {
+    instituteGroups,
+    divisionGroups,
+    teamGroups,
+    activeMemberships,
+    removedMemberships,
+    ranAt: new Date().toISOString()
+  });
 });
 
 chatRouter.get('/invites', auth, async (req, res) => {
