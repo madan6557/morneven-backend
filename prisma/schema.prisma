@@ -66,7 +66,6 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  settings      CommandCenterSettings?
   refreshTokens RefreshToken[]
   news          News[]
   galleryItems  GalleryItem[]
@@ -75,7 +74,10 @@ model User {
 }
 
 model CommandCenterSettings {
-  userId            String  @id
+  id                String  @id @default(uuid())
+  presetKey         String  @unique
+  presetName        String  @default("System Preset")
+  isActive          Boolean @default(false)
   showStats         Boolean @default(true)
   showProjects      Boolean @default(true)
   showNews          Boolean @default(true)
@@ -87,8 +89,9 @@ model CommandCenterSettings {
   welcomeMessage    String  @default("Here's your operational overview.")
   itemLimits        Json    @default("{\"projects\":5,\"news\":6,\"characters\":3,\"places\":3,\"technology\":3,\"gallery\":4}")
   manualSelections  Json    @default("{\"projects\":[],\"news\":[],\"characters\":[],\"places\":[],\"technology\":[],\"gallery\":[]}")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model RefreshToken {

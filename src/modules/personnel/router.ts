@@ -70,8 +70,7 @@ personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => 
       role: roleForLevel(level),
       level,
       track: parsed.data.track ?? Track.executive,
-      note: parsed.data.note,
-      settings: { create: {} }
+      note: parsed.data.note
     }
   });
   await ensureInstituteMembership(user.username, user.level);

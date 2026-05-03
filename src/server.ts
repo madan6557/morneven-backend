@@ -17,6 +17,8 @@ import { managementRouter } from './modules/management/router.js';
 import { notificationsRouter } from './modules/notifications/router.js';
 import { chatRouter } from './modules/chat/router.js';
 import { meRouter } from './modules/me/router.js';
+import { contentStatsRouter } from './modules/content-stats/router.js';
+import { commandCenterRouter } from './modules/command-center/router.js';
 import { attachRealtimeWebSocket } from './realtime/websocket.js';
 
 const app = express();
@@ -61,6 +63,8 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/notifications`, notificationsRouter);
   app.use(`${base}/chat`, chatRouter);
   app.use(`${base}/me`, meRouter);
+  app.use(`${base}/content-stats`, contentStatsRouter);
+  app.use(`${base}/command-center`, commandCenterRouter);
 };
 
 mountApiRoutes('/api');
