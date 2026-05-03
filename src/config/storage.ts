@@ -70,7 +70,7 @@ const buildS3Url = (objectPath: string, bucketName: string) => {
 
   if (env.s3Endpoint) {
     const endpoint = env.s3Endpoint.replace(/\/$/, '');
-    return env.s3ForcePathStyle ? `${endpoint}/${bucketName}/${objectPath}` : `${endpoint}/${objectPath}`;
+    return `${endpoint}/${bucketName}/${objectPath}`;
   }
 
   const region = env.s3Region ?? 'us-east-1';
