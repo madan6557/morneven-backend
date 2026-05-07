@@ -132,3 +132,27 @@ Endpoint yang terdampak:
 - Saat BE kirim `detail` real per kategori, FE tinggal bind ke object tersebut.
 - FE author panel sudah create/edit `skills` untuk character dan creature, sehingga perlu parity contract BE di read/write payload.
 - FE author panel juga sudah create/edit `features` untuk non-living entities, sehingga perlu parity contract BE yang setara.
+
+## Update Integrasi (2026-05-07)
+Temuan terbaru saat validasi wiring:
+
+1. **Creature stats alias fallback**
+   - FE sekarang membaca `creature.stats` sebagai primary source.
+   - Jika BE masih mengirim alias lama, FE juga fallback ke `creature.threatStats`.
+   - Rekomendasi BE: standardisasi ke `stats` untuk menghindari ambiguity.
+
+2. **Creature primary stat dari `detail`**
+   - Jika `combat/cognition/predation/senses/ferocity` belum dikirim sebagai angka utama,
+     FE dapat menghitung sementara dari rata-rata `stats.detail.<category>`.
+   - Ini bersifat transitional; BE tetap disarankan kirim nilai primary final agar konsisten lintas client.
+
+3. **Skills alias fallback**
+   - FE sekarang membaca `skills` sebagai primary source.
+   - Jika payload masih memakai alias `skillSection`, FE fallback ke field tersebut.
+   - Rekomendasi BE: standardisasi ke `skills`.
+
+4. **Feature/Skill shape normalization (transisi)**
+   - FE mendukung 2 bentuk payload selama migrasi:
+     - Bentuk lama: `name`, `description`, `accentColor`
+     - Bentuk baru: `title`, `summary`, `details`, `color`
+   - FE akan memetakan otomatis saat render, tetapi BE disarankan mengunci satu canonical schema untuk jangka panjang.
