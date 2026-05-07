@@ -35,7 +35,9 @@ export const projectStatusFromApi = (status: unknown): ProjectStatus => {
 
 type ProjectWithPatches = Prisma.ProjectGetPayload<{ include: { patches: true } }>;
 
-export const serializeProject = (project: ProjectWithPatches) => ({
+export const serializeProject = (project: ProjectWithPatches) => {
+  const meta = jsonObject(project.meta);
+  return {
   id: project.id,
   title: project.title,
   status: projectStatusToApi(project.status),
@@ -52,8 +54,10 @@ export const serializeProject = (project: ProjectWithPatches) => ({
   docs: jsonArray(project.docs),
   archived: project.archived,
   contributor: project.contributor ?? undefined,
-  meta: project.meta ?? undefined
-});
+  meta: project.meta ?? undefined,
+  features: Array.isArray(meta.features) ? meta.features : []
+  };
+};
 
 type UserPublic = Prisma.UserGetPayload<object>;
 

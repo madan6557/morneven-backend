@@ -35,3 +35,7 @@ WHERE "category" = 'creature';
 UPDATE "LoreItem"
 SET "metadata" = jsonb_set(COALESCE("metadata", '{}'::jsonb), '{features}', COALESCE("metadata"->'features', '[]'::jsonb), true)
 WHERE "category" IN ('place', 'technology', 'other');
+
+-- Project entity uses `meta.features` instead of lore metadata.
+UPDATE "Project"
+SET "meta" = jsonb_set(COALESCE("meta", '{}'::jsonb), '{features}', COALESCE("meta"->'features', '[]'::jsonb), true);

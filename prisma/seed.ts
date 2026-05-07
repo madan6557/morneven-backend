@@ -198,7 +198,10 @@ async function main() {
         docs: item.docs ?? [],
         archived: Boolean(item.archived),
         contributor: normalizeText(item.contributor) || 'author',
-        meta: item.meta ?? undefined,
+        meta: {
+          ...(item.meta ?? {}),
+          features: Array.isArray(item.features) ? item.features : []
+        },
         patches: {
           create: (item.patches ?? []).map((p: any) => ({
             version: p.version,
