@@ -141,7 +141,7 @@ curl -i http://localhost:3000/api/projects/<id> -H "Authorization: Bearer $TOKEN
 curl -i -X POST http://localhost:3000/api/projects \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Project A","status":"Planning","shortDesc":"Ringkas","fullDesc":"Deskripsi lengkap","contributor":"author"}'
+  -d '{"title":"Project A","status":"Planning","shortDesc":"Ringkas","fullDesc":"Deskripsi lengkap","contributor":"author","features":[{"id":"feat-01","title":"Relay Hub","summary":"Menyinkronkan uplink region utara"}]}'
 ```
 
 #### Lore
@@ -262,6 +262,10 @@ Sample readiness failure:
 
 Write access: L7, or L6 executive/mechanic.
 
+Project contract notes:
+- `features` didukung sebagai top-level field saat create/update project.
+- Response `GET /projects` dan `GET /projects/:id` selalu menyertakan `features` (sumber dari `meta.features`, default `[]`).
+
 ## 6.4 Lore
 Category routes:
 - `GET /lore/:category`
@@ -276,6 +280,13 @@ Category examples:
 - `technology`
 - `creatures`
 - `other`
+
+Lore contract notes:
+- Character primary stats: `combat`, `intelligence`, `charisma`, `stealth`, `perception` (legacy `endurance` masih dapat dipakai sebagai fallback transisi).
+- Creature primary stats: `combat`, `cognition`, `predation`, `senses`, `ferocity` (legacy fallback: `intelligence -> cognition`, `stealth -> predation`, `endurance -> senses`).
+- Untuk character & creature, field `skills` selalu array (`[]` jika kosong).
+- Untuk place, technology, other, field `features` selalu array (`[]` jika kosong).
+- Jika `stats.detail` tersedia, primary stat dihitung dari rata-rata detail kategori (0-100, integer).
 
 ## 6.5 Gallery
 - `GET /gallery`

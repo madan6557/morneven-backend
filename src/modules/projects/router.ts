@@ -41,7 +41,8 @@ const projectSchema = z.object({
   docs: z.array(docSchema).optional().default([]),
   archived: z.boolean().optional().default(false),
   contributor: z.string().optional(),
-  meta: z.record(z.unknown()).optional()
+  meta: z.record(z.unknown()).optional(),
+  features: z.array(z.record(z.unknown())).optional().default([])
 });
 
 const projectUpdateSchema = projectSchema.partial();
@@ -56,7 +57,13 @@ const buildProjectData = (body: z.infer<typeof projectSchema> | z.infer<typeof p
   if (rest.docs !== undefined) data.docs = rest.docs as Prisma.InputJsonArray;
   if (rest.archived !== undefined) data.archived = rest.archived;
   if (rest.contributor !== undefined) data.contributor = rest.contributor;
-  if (rest.meta !== undefined) data.meta = rest.meta as Prisma.InputJsonObject;
+  const existingMeta = (rest.meta ?? {}) as Record<string, unknown>;
+  if (rest.meta !== undefined || rest.features !== undefined) {
+    data.meta = {
+      ...existingMeta,
+      ...(rest.features !== undefined ? { features: rest.features } : {})
+    } as Prisma.InputJsonObject;
+  }
   if (status) data.status = projectStatusFromApi(status);
   return { data, patches };
 };

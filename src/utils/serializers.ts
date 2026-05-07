@@ -2,7 +2,7 @@ import { EntityType, MediaType, Prisma, ProjectStatus, Role } from '@prisma/clie
 
 export const dateOnly = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
 
-export const jsonObject = (value: Prisma.JsonValue | null | undefined): Record<string, unknown> => {
+export const jsonObject = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
 };
@@ -35,7 +35,9 @@ export const projectStatusFromApi = (status: unknown): ProjectStatus => {
 
 type ProjectWithPatches = Prisma.ProjectGetPayload<{ include: { patches: true } }>;
 
-export const serializeProject = (project: ProjectWithPatches) => ({
+export const serializeProject = (project: ProjectWithPatches) => {
+  const meta = jsonObject(project.meta);
+  return {
   id: project.id,
   title: project.title,
   status: projectStatusToApi(project.status),
@@ -52,8 +54,10 @@ export const serializeProject = (project: ProjectWithPatches) => ({
   docs: jsonArray(project.docs),
   archived: project.archived,
   contributor: project.contributor ?? undefined,
-  meta: project.meta ?? undefined
-});
+  meta: project.meta ?? undefined,
+  features: Array.isArray(meta.features) ? meta.features : []
+  };
+};
 
 type UserPublic = Prisma.UserGetPayload<object>;
 
@@ -94,6 +98,60 @@ export const serializeDoc = (doc: EntityDocRecord) => ({
 
 export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []) => {
   const metadata = jsonObject(item.metadata);
+  const toInt = (value: unknown) => {
+    const num = Number(value);
+    if (Number.isNaN(num)) return 0;
+    return Math.max(0, Math.min(100, Math.round(num)));
+  };
+  const average = (values: unknown[]) => {
+    if (!values.length) return 0;
+    return toInt(values.reduce<number>((sum, val) => sum + Number(val || 0), 0) / values.length);
+  };
+  const ensureSkills = (value: unknown) => (Array.isArray(value) ? value : []);
+  const ensureFeatures = (value: unknown) => (Array.isArray(value) ? value : []);
+
+  const normalizeCharacterStats = (raw: Record<string, unknown>) => {
+    const detail = jsonObject(raw.detail);
+    const combat = jsonObject(detail.combat);
+    const intelligence = jsonObject(detail.intelligence);
+    const charisma = jsonObject(detail.charisma);
+    const stealth = jsonObject(detail.stealth);
+    const perception = jsonObject(detail.perception);
+    return {
+      ...raw,
+      combat: Object.keys(combat).length ? average(Object.values(combat)) : toInt(raw.combat),
+      intelligence: Object.keys(intelligence).length ? average(Object.values(intelligence)) : toInt(raw.intelligence),
+      charisma: Object.keys(charisma).length ? average(Object.values(charisma)) : toInt(raw.charisma),
+      stealth: Object.keys(stealth).length ? average(Object.values(stealth)) : toInt(raw.stealth),
+      perception: Object.keys(perception).length
+        ? average(Object.values(perception))
+        : toInt(raw.perception ?? raw.endurance),
+      ...(raw.endurance !== undefined ? { endurance: toInt(raw.endurance) } : {})
+    };
+  };
+
+  const normalizeCreatureStats = (raw: Record<string, unknown>) => {
+    const detail = jsonObject(raw.detail);
+    const combat = jsonObject(detail.combat);
+    const cognition = jsonObject(detail.cognition);
+    const predation = jsonObject(detail.predation);
+    const senses = jsonObject(detail.senses);
+    const ferocity = jsonObject(detail.ferocity);
+    const legacyIntelligence = toInt(raw.intelligence);
+    const legacyStealth = toInt(raw.stealth);
+    const legacyEndurance = toInt(raw.endurance);
+    return {
+      ...raw,
+      combat: Object.keys(combat).length ? average(Object.values(combat)) : toInt(raw.combat),
+      cognition: Object.keys(cognition).length ? average(Object.values(cognition)) : toInt(raw.cognition ?? legacyIntelligence),
+      predation: Object.keys(predation).length ? average(Object.values(predation)) : toInt(raw.predation ?? legacyStealth),
+      senses: Object.keys(senses).length ? average(Object.values(senses)) : toInt(raw.senses ?? legacyEndurance),
+      ferocity: Object.keys(ferocity).length ? average(Object.values(ferocity)) : toInt(raw.ferocity),
+      ...(raw.intelligence !== undefined ? { intelligence: legacyIntelligence } : {}),
+      ...(raw.stealth !== undefined ? { stealth: legacyStealth } : {}),
+      ...(raw.endurance !== undefined ? { endurance: legacyEndurance } : {})
+    };
+  };
   const common = {
     ...metadata,
     id: item.id,
@@ -105,7 +163,27 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     meta: metadata.meta
   };
 
-  if (item.category === EntityType.other || item.category === EntityType.event) {
+  if (item.category === EntityType.creature) {
+    return {
+      ...common,
+      name: item.name,
+      classification: item.type ?? String(metadata.classification ?? ''),
+      stats: normalizeCreatureStats(jsonObject(metadata.stats)),
+      skills: ensureSkills(metadata.skills)
+    };
+  }
+
+  if (item.category === EntityType.character) {
+    return {
+      ...common,
+      name: item.name,
+      type: item.type ?? String(metadata.type ?? ''),
+      stats: normalizeCharacterStats(jsonObject(metadata.stats)),
+      skills: ensureSkills(metadata.skills)
+    };
+  }
+
+  if (item.category === EntityType.event) {
     return {
       ...common,
       title: item.name,
@@ -113,19 +191,13 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     };
   }
 
-  if (item.category === EntityType.technology) {
+  if (item.category === EntityType.place || item.category === EntityType.technology || item.category === EntityType.other) {
     return {
       ...common,
-      name: item.name,
-      category: item.type ?? String(metadata.category ?? '')
-    };
-  }
-
-  if (item.category === EntityType.creature) {
-    return {
-      ...common,
-      name: item.name,
-      classification: item.type ?? String(metadata.classification ?? '')
+      ...(item.category === EntityType.other
+        ? { title: item.name, category: item.type ?? String(metadata.category ?? '') }
+        : { name: item.name, type: item.type ?? String(metadata.type ?? ''), category: item.type ?? String(metadata.category ?? '') }),
+      features: ensureFeatures(metadata.features)
     };
   }
 
