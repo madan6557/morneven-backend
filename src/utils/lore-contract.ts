@@ -144,15 +144,19 @@ export const normalizeSkillItems = (value: unknown) =>
   asArray(value).map((entry, index) => {
     const raw = asObject(entry);
     const cooldown = text(raw.cooldown ?? raw.cd ?? raw.recovery) || text(raw.level);
+    const baseDescription = text(raw.description ?? raw.details ?? raw.summary);
+    const description =
+      raw.immune === true && !baseDescription.includes('[[attr:immune')
+        ? `${baseDescription} ${baseDescription ? '' : ''}[[attr:immune]]`.trim()
+        : baseDescription;
     return {
       id: text(raw.id) || `skill-${index + 1}`,
       name: text(raw.name ?? raw.title) || `Skill ${index + 1}`,
       category: text(raw.category) || 'general',
       cooldown,
-      description: text(raw.description ?? raw.details ?? raw.summary),
+      description,
       ...(textOrUndefined(raw.icon) ? { icon: text(raw.icon) } : {}),
-      ...(textOrUndefined(raw.color ?? raw.accentColor) ? { color: text(raw.color ?? raw.accentColor) } : {}),
-      ...(raw.immune !== undefined ? { immune: Boolean(raw.immune) } : {})
+      ...(textOrUndefined(raw.color ?? raw.accentColor) ? { color: text(raw.color ?? raw.accentColor) } : {})
     };
   });
 
