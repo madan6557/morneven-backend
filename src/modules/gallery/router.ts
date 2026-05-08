@@ -7,6 +7,7 @@ import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parseIds, parsePagination } from '../../utils/pagination.js';
 import { dateOnly, serializeGalleryItem } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
+import { cleanupUnreferencedStoragePaths, collectGalleryStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 
 export const galleryRouter = Router();
 
@@ -119,6 +120,7 @@ galleryRouter.put('/:id', auth, async (req, res) => {
 
   const parsed = galleryUpdateSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const previousPaths = collectGalleryStoragePathSet(item);
 
   const updated = await prisma.$transaction(async (tx) => {
     if (parsed.data.tags) {
@@ -144,6 +146,7 @@ galleryRouter.put('/:id', auth, async (req, res) => {
     return next;
   });
 
+  await cleanupUnreferencedStoragePaths(diffStoragePaths(previousPaths, collectGalleryStoragePathSet(updated)));
   return ok(res, serializeGalleryItem(updated));
 });
 
@@ -151,7 +154,12 @@ galleryRouter.delete('/:id', auth, async (req, res) => {
   const item = await prisma.galleryItem.findUnique({ where: { id: req.params.id } });
   if (!item) return fail(res, 404, 'Not found', 'NOT_FOUND');
   if (!(req.user!.level === 7 || item.uploadedBy === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  await prisma.galleryItem.delete({ where: { id: req.params.id } });
+  const previousPaths = collectGalleryStoragePathSet(item);
+  await prisma.$transaction(async (tx) => {
+    await tx.comment.deleteMany({ where: { entityType: EntityType.gallery, entityId: req.params.id } });
+    await tx.galleryItem.delete({ where: { id: req.params.id } });
+  });
+  await cleanupUnreferencedStoragePaths(previousPaths);
   await writeAudit(prisma, { actor: req.user!.username, action: 'gallery.delete', entity: 'GalleryItem', entityId: req.params.id });
   return ok(res, { deleted: true });
 });

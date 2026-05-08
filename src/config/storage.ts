@@ -1,6 +1,6 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Storage } from '@google-cloud/storage';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { webcrypto } from 'node:crypto';
 import path from 'path';
 import { Readable } from 'stream';
@@ -55,6 +55,12 @@ export type ReadFileFromStorageResult = {
   contentType?: string;
   contentLength?: number;
   etag?: string;
+  lastModified?: Date;
+};
+
+export type StorageObjectEntry = {
+  objectPath: string;
+  size?: number;
   lastModified?: Date;
 };
 
@@ -194,4 +200,92 @@ export const readFileWithMetadataFromStorage = async (objectPath: string): Promi
 export const readFileFromStorage = async (objectPath: string): Promise<Buffer> => {
   const file = await readFileWithMetadataFromStorage(objectPath);
   return file.buffer;
+};
+
+const walkLocalStorage = async (rootPath: string, prefix = ''): Promise<StorageObjectEntry[]> => {
+  const dirents = await readdir(rootPath, { withFileTypes: true });
+  const entries = await Promise.all(
+    dirents.map(async (dirent) => {
+      const fullPath = path.join(rootPath, dirent.name);
+      const objectPath = prefix ? `${prefix}/${dirent.name}` : dirent.name;
+      if (dirent.isDirectory()) {
+        return walkLocalStorage(fullPath, objectPath);
+      }
+      const meta = await stat(fullPath);
+      return [{ objectPath: objectPath.replace(/\\/g, '/'), size: meta.size, lastModified: meta.mtime }];
+    })
+  );
+
+  return entries.flat();
+};
+
+export const listStorageObjects = async (): Promise<StorageObjectEntry[]> => {
+  if (env.storageDriver === 'local') {
+    try {
+      return await walkLocalStorage(env.localStoragePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
+  }
+
+  if (env.storageDriver === 's3') {
+    const bucketName = getS3BucketName();
+    const entries: StorageObjectEntry[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const response = await getS3Client().send(
+        new ListObjectsV2Command({
+          Bucket: bucketName,
+          ContinuationToken: continuationToken
+        })
+      );
+
+      for (const object of response.Contents ?? []) {
+        if (!object.Key) continue;
+        entries.push({
+          objectPath: object.Key,
+          size: typeof object.Size === 'number' ? object.Size : undefined,
+          lastModified: object.LastModified
+        });
+      }
+
+      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return entries;
+  }
+
+  const bucket = getStorageBucket();
+  const [files] = await bucket.getFiles();
+  return files
+    .map((file) => ({
+      objectPath: file.name,
+      size: file.metadata.size ? Number(file.metadata.size) : undefined,
+      lastModified: file.metadata.updated ? new Date(file.metadata.updated) : undefined
+    }))
+    .filter((entry) => Boolean(entry.objectPath));
+};
+
+export const deleteFileFromStorage = async (objectPath: string): Promise<void> => {
+  if (env.storageDriver === 'local') {
+    const fullPath = path.join(env.localStoragePath, objectPath);
+    await rm(fullPath, { force: true });
+    return;
+  }
+
+  if (env.storageDriver === 's3') {
+    const bucketName = getS3BucketName();
+    await getS3Client().send(
+      new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: objectPath
+      })
+    );
+    return;
+  }
+
+  const bucket = getStorageBucket();
+  await bucket.file(objectPath).delete({ ignoreNotFound: true });
 };

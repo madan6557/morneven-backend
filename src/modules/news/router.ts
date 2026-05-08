@@ -8,6 +8,7 @@ import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parsePagination } from '../../utils/pagination.js';
 import { dateOnly } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
+import { cleanupUnreferencedStoragePaths, collectNewsStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 
 export const newsRouter = Router();
 
@@ -94,6 +95,10 @@ newsRouter.post('/', auth, allow(canWriteNews), validateBody(newsSchema), async 
 });
 
 newsRouter.put('/:id', auth, allow(canWriteNews), validateBody(newsUpdateSchema), async (req, res) => {
+  const existing = await prisma.news.findUnique({ where: { id: req.params.id }, include: { attachments: true } });
+  if (!existing) return fail(res, 404, 'News not found', 'NOT_FOUND');
+  const previousPaths = collectNewsStoragePathSet(existing);
+
   const updated = await prisma.$transaction(async (tx) => {
     if (req.body.attachments) {
       await tx.newsAttachment.deleteMany({ where: { newsId: req.params.id } });
@@ -120,11 +125,20 @@ newsRouter.put('/:id', auth, allow(canWriteNews), validateBody(newsUpdateSchema)
     await writeAudit(tx, { actor: req.user!.username, action: 'news.update', entity: 'News', entityId: item.id });
     return item;
   });
+  await cleanupUnreferencedStoragePaths(diffStoragePaths(previousPaths, collectNewsStoragePathSet(updated)));
   return ok(res, serializeNews(updated));
 });
 
 newsRouter.delete('/:id', auth, allow(canWriteNews), async (req, res) => {
-  await prisma.news.delete({ where: { id: req.params.id } });
+  const existing = await prisma.news.findUnique({ where: { id: req.params.id }, include: { attachments: true } });
+  if (!existing) return fail(res, 404, 'News not found', 'NOT_FOUND');
+  const previousPaths = collectNewsStoragePathSet(existing);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.newsAttachment.deleteMany({ where: { newsId: req.params.id } });
+    await tx.news.delete({ where: { id: req.params.id } });
+  });
+  await cleanupUnreferencedStoragePaths(previousPaths);
   await writeAudit(prisma, { actor: req.user!.username, action: 'news.delete', entity: 'News', entityId: req.params.id });
   return ok(res, { deleted: true });
 });

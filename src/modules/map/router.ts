@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { auth, allow } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
+import { cleanupUnreferencedStoragePaths, diffStoragePaths, extractStorageObjectPath } from '../../utils/storage-cleanup.js';
 
 export const mapRouter = Router();
 
@@ -48,12 +49,16 @@ mapRouter.get('/image', auth, async (_req, res) => {
   return ok(res, { url: normalizedUrl });
 });
 mapRouter.put('/image', auth, allow(canWriteMap), async (req, res) =>
-  ok(
-    res,
-    await prisma.mapImage.upsert({
+  {
+    const existing = await prisma.mapImage.findUnique({ where: { id: 'main' } });
+    const previousPath = extractStorageObjectPath(existing?.imageUrl);
+    const next = await prisma.mapImage.upsert({
       where: { id: 'main' },
       update: { imageUrl: req.body.imageUrl },
       create: { id: 'main', imageUrl: req.body.imageUrl }
-    })
-  )
+    });
+    const nextPath = extractStorageObjectPath(next.imageUrl);
+    await cleanupUnreferencedStoragePaths(diffStoragePaths(new Set(previousPath ? [previousPath] : []), new Set(nextPath ? [nextPath] : [])));
+    return ok(res, next);
+  }
 );
