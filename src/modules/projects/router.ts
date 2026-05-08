@@ -9,6 +9,7 @@ import { getSearchQuery, paginated, parseIds, parsePagination } from '../../util
 import { projectStatusFromApi, serializeDiscussionComments, serializeProject } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { normalizeProjectMeta } from '../../utils/lore-contract.js';
+import { cleanupUnreferencedStoragePaths, collectProjectStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 
 export const projectsRouter = Router();
 
@@ -147,6 +148,7 @@ projectsRouter.post('/', auth, allow(canWriteProjects), validateBody(projectSche
 projectsRouter.put('/:id', auth, allow(canWriteProjects), validateBody(projectUpdateSchema), async (req, res) => {
   const existing = await prisma.project.findUnique({ where: { id: req.params.id } });
   if (!existing) return fail(res, 404, 'Project not found', 'NOT_FOUND');
+  const previousPaths = collectProjectStoragePathSet(existing);
 
   const { data, patches } = buildProjectData(req.body, existing.meta);
   const updated = await prisma.$transaction(async (tx) => {
@@ -171,6 +173,8 @@ projectsRouter.put('/:id', auth, allow(canWriteProjects), validateBody(projectUp
     return project;
   });
 
+  await cleanupUnreferencedStoragePaths(diffStoragePaths(previousPaths, collectProjectStoragePathSet(updated)));
+
   return respondWithProjectDetail(res, updated.id);
 });
 
@@ -181,7 +185,15 @@ projectsRouter.post('/:id/archive', auth, allow((u) => u.level === 7 || (u.level
 });
 
 projectsRouter.delete('/:id', auth, allow((u) => u.level === 7), async (req, res) => {
-  await prisma.project.delete({ where: { id: req.params.id } });
+  const existing = await prisma.project.findUnique({ where: { id: req.params.id } });
+  if (!existing) return fail(res, 404, 'Project not found', 'NOT_FOUND');
+  const previousPaths = collectProjectStoragePathSet(existing);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.comment.deleteMany({ where: { entityType: EntityType.project, entityId: req.params.id } });
+    await tx.project.delete({ where: { id: req.params.id } });
+  });
+  await cleanupUnreferencedStoragePaths(previousPaths);
   await writeAudit(prisma, { actor: req.user!.username, action: 'project.delete', entity: 'Project', entityId: req.params.id });
   return ok(res, { deleted: true });
 });

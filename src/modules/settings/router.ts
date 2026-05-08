@@ -19,6 +19,7 @@ import {
 import { makeZip, ZipFile } from '../../utils/zip.js';
 import { writeAudit } from '../../utils/audit.js';
 import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from './preset-service.js';
+import { cleanupUnreferencedStoragePaths, getStorageCleanupReport, runStorageCleanup } from '../../utils/storage-cleanup.js';
 
 export const settingsRouter = Router();
 
@@ -369,6 +370,28 @@ settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
   return res.send(file);
 });
 
+settingsRouter.get('/storage-cleanup', auth, async (req, res) => {
+  if (!requirePl7(req, res)) return;
+  const report = await getStorageCleanupReport();
+  return ok(res, report);
+});
+
+settingsRouter.post('/storage-cleanup', auth, async (req, res) => {
+  if (!requirePl7(req, res)) return;
+  const report = await runStorageCleanup();
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'storage.cleanup.run',
+    entity: 'Storage',
+    metadata: {
+      orphanedObjects: report.orphanedObjects,
+      deletedObjects: report.deletedObjects,
+      deletedBytes: report.deletedBytes
+    }
+  });
+  return ok(res, report);
+});
+
 settingsRouter.delete('/extractions', auth, async (req, res) => {
   if (!requirePl7(req, res)) return;
   const parsed = clearExtractionSchema.safeParse(req.body ?? {});
@@ -377,7 +400,11 @@ settingsRouter.delete('/extractions', auth, async (req, res) => {
   const where = parsed.data.ids?.length
     ? { createdBy: req.user!.username, id: { in: parsed.data.ids } }
     : { createdBy: req.user!.username };
+  const jobs = await prisma.extractionJob.findMany({ where, select: { artifactPath: true, artifactUrl: true } });
   const result = await prisma.extractionJob.deleteMany({ where });
+  await cleanupUnreferencedStoragePaths(
+    jobs.flatMap((job) => [job.artifactPath, job.artifactUrl])
+  );
   await writeAudit(prisma, {
     actor: req.user!.username,
     action: 'extraction.delete',

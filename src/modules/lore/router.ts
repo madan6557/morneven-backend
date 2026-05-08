@@ -7,6 +7,7 @@ import { normalizeLoreMetadata } from '../../utils/lore-contract.js';
 import { getSearchQuery, paginated, parseIds, parsePagination } from '../../utils/pagination.js';
 import { fail, ok } from '../../utils/response.js';
 import { categoryToEntityType, serializeDiscussionComments, serializeLoreItem } from '../../utils/serializers.js';
+import { cleanupUnreferencedStoragePaths, collectLoreStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 
 export const loreRouter = Router();
 
@@ -155,6 +156,8 @@ loreRouter.put('/:category/:id', auth, async (req, res) => {
 
   const existing = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType } });
   if (!existing) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
+  const existingDocs = await prisma.entityDoc.findMany({ where: { entityType, entityId: req.params.id }, select: { url: true } });
+  const previousPaths = collectLoreStoragePathSet(existing, existingDocs);
   const docs = Array.isArray(req.body.docs) ? (req.body.docs as LoreDocInput[]) : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -183,6 +186,7 @@ loreRouter.put('/:category/:id', auth, async (req, res) => {
   });
 
   const detail = await loadLoreDetail(entityType, updated.id);
+  await cleanupUnreferencedStoragePaths(diffStoragePaths(previousPaths, collectLoreStoragePathSet(detail!.item, detail!.docs)));
   return ok(res, serializeLoreItem(detail!.item, detail!.docs, detail!.discussions));
 });
 
@@ -191,7 +195,17 @@ loreRouter.delete('/:category/:id', auth, async (req, res) => {
   if (!entityType) return fail(res, 400, 'Unsupported lore category', 'BAD_REQUEST');
   if (!canWriteLore(req.user!, req.params.category)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
 
-  await prisma.loreItem.delete({ where: { id: req.params.id } });
+  const existing = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType } });
+  if (!existing) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
+  const existingDocs = await prisma.entityDoc.findMany({ where: { entityType, entityId: req.params.id }, select: { url: true } });
+  const previousPaths = collectLoreStoragePathSet(existing, existingDocs);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.entityDoc.deleteMany({ where: { entityType, entityId: req.params.id } });
+    await tx.comment.deleteMany({ where: { entityType, entityId: req.params.id } });
+    await tx.loreItem.delete({ where: { id: req.params.id } });
+  });
+  await cleanupUnreferencedStoragePaths(previousPaths);
   await writeAudit(prisma, { actor: req.user!.username, action: 'lore.delete', entity: 'LoreItem', entityId: req.params.id });
   return ok(res, { deleted: true });
 });
