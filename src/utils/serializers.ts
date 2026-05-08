@@ -49,6 +49,7 @@ export const serializeProject = (project: ProjectWithPatches) => {
   title: project.title,
   status: projectStatusToApi(project.status),
   thumbnail: project.thumbnail ?? '',
+  headerImage: typeof meta.headerImage === 'string' ? meta.headerImage : undefined,
   shortDesc: project.shortDesc,
   fullDesc: project.fullDesc,
   patches: project.patches
@@ -133,6 +134,7 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     ...metadata,
     id: item.id,
     thumbnail: item.thumbnail ?? '',
+    headerImage: typeof metadata.headerImage === 'string' ? metadata.headerImage : undefined,
     shortDesc: item.shortDesc,
     fullDesc: item.fullDesc,
     docs: docs.map(serializeDoc),

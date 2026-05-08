@@ -258,7 +258,7 @@ async function main() {
         docs: item.docs ?? [],
         archived: Boolean(item.archived),
         contributor: normalizeText(item.contributor) || 'author',
-        meta: normalizeProjectMeta(item.meta, item.features) as Prisma.InputJsonValue,
+        meta: normalizeProjectMeta(item.meta, item.features, item.headerImage) as Prisma.InputJsonValue,
         patches: {
           create: (item.patches ?? []).map((p: any) => ({
             version: p.version,

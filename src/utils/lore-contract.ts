@@ -143,12 +143,18 @@ export const normalizeCreatureStats = (raw: unknown, dangerLevel?: unknown) => {
 export const normalizeSkillItems = (value: unknown) =>
   asArray(value).map((entry, index) => {
     const raw = asObject(entry);
+    const cooldown = text(raw.cooldown ?? raw.cd ?? raw.recovery) || text(raw.level);
+    const baseDescription = text(raw.description ?? raw.details ?? raw.summary);
+    const description =
+      raw.immune === true && !baseDescription.includes('[[attr:immune')
+        ? `${baseDescription} ${baseDescription ? '' : ''}[[attr:immune]]`.trim()
+        : baseDescription;
     return {
       id: text(raw.id) || `skill-${index + 1}`,
       name: text(raw.name ?? raw.title) || `Skill ${index + 1}`,
       category: text(raw.category) || 'general',
-      level: clampStat(raw.level),
-      description: text(raw.description ?? raw.details ?? raw.summary),
+      cooldown,
+      description,
       ...(textOrUndefined(raw.icon) ? { icon: text(raw.icon) } : {}),
       ...(textOrUndefined(raw.color ?? raw.accentColor) ? { color: text(raw.color ?? raw.accentColor) } : {})
     };
@@ -218,12 +224,17 @@ export const normalizeLoreMetadata = (
 export const normalizeProjectMeta = (
   meta: unknown,
   features: unknown,
+  headerImage?: unknown,
   existingMeta?: Prisma.JsonValue | null
 ) => {
   const merged = {
     ...asObject(existingMeta),
     ...asObject(meta)
   } as JsonRecord;
+
+  if (headerImage !== undefined) {
+    merged.headerImage = text(headerImage);
+  }
 
   if (meta !== undefined || features !== undefined) {
     merged.features = normalizeFeatureItems(features ?? merged.features);
