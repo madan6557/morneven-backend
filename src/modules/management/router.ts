@@ -279,7 +279,7 @@ managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
 });
 
 managementRouter.get('/teams', auth, async (req, res) => {
-  if (req.user!.level < 3 && req.user!.level < 4) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (req.user!.level < 1) return fail(res, 403, 'Personnel access required', 'FORBIDDEN');
   const where: Prisma.TeamWhereInput =
     req.user!.level >= 4 ? {} : { OR: [{ leader: req.user!.username }, { members: { array_contains: req.user!.username } }] };
   const teams = await prisma.team.findMany({ where, orderBy: { createdAt: 'desc' } });
