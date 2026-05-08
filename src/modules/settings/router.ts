@@ -131,11 +131,11 @@ settingsRouter.post('/command-center/presets/:id/activate', auth, async (req, re
   if (!canUpdateCommandCenter(req.user!)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   const existing = await prisma.commandCenterSettings.findUnique({ where: { id: req.params.id } });
   if (!existing) return fail(res, 404, 'Preset not found', 'NOT_FOUND');
-  await prisma.$transaction([
+  const [, activated] = await prisma.$transaction([
     prisma.commandCenterSettings.updateMany({ where: { isActive: true }, data: { isActive: false } }),
     prisma.commandCenterSettings.update({ where: { id: req.params.id }, data: { isActive: true, updatedBy: req.user!.username } })
   ]);
-  return ok(res, { activatedPresetId: req.params.id });
+  return ok(res, activated);
 });
 
 settingsRouter.put('/command-center/presets/:id', auth, async (req, res) => {
