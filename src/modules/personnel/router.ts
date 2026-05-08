@@ -26,7 +26,7 @@ const personnelCreateSchema = personnelPatchSchema.extend({
   password: z.string().min(12).max(128).optional()
 });
 
-personnelRouter.get('/', auth, allow((u) => u.level >= 4), async (req, res) => {
+personnelRouter.get('/', auth, async (req, res) => {
   const { track, level, q } = req.query;
   const where: Prisma.UserWhereInput = {
     ...(track ? { track: track as Track } : {}),

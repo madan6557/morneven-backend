@@ -1,8 +1,15 @@
 import { EntityType, MediaType, Prisma, ProjectStatus, Role } from '@prisma/client';
+import {
+  asObject,
+  normalizeCharacterStats,
+  normalizeCreatureStats,
+  normalizeFeatureItems,
+  normalizeSkillItems
+} from './lore-contract.js';
 
 export const dateOnly = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
 
-export const jsonObject = (value: Prisma.JsonValue | null | undefined): Record<string, unknown> => {
+export const jsonObject = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
 };
@@ -35,7 +42,9 @@ export const projectStatusFromApi = (status: unknown): ProjectStatus => {
 
 type ProjectWithPatches = Prisma.ProjectGetPayload<{ include: { patches: true } }>;
 
-export const serializeProject = (project: ProjectWithPatches) => ({
+export const serializeProject = (project: ProjectWithPatches) => {
+  const meta = jsonObject(project.meta);
+  return {
   id: project.id,
   title: project.title,
   status: projectStatusToApi(project.status),
@@ -52,8 +61,10 @@ export const serializeProject = (project: ProjectWithPatches) => ({
   docs: jsonArray(project.docs),
   archived: project.archived,
   contributor: project.contributor ?? undefined,
-  meta: project.meta ?? undefined
-});
+  meta: project.meta ?? undefined,
+  features: normalizeFeatureItems(meta.features)
+  };
+};
 
 type UserPublic = Prisma.UserGetPayload<object>;
 
@@ -85,6 +96,7 @@ export const serializeGalleryItem = (item: GalleryWithTags, comments: unknown[] 
 
 type EntityDocRecord = Prisma.EntityDocGetPayload<object>;
 type LoreRecord = Prisma.LoreItemGetPayload<object>;
+type DiscussionRecord = Prisma.CommentGetPayload<{ include: { author: true; replies: { include: { author: true } } } }>;
 
 export const serializeDoc = (doc: EntityDocRecord) => ({
   type: doc.type === MediaType.video ? 'video' : doc.type === MediaType.file ? 'file' : 'image',
@@ -92,8 +104,31 @@ export const serializeDoc = (doc: EntityDocRecord) => ({
   caption: doc.caption ?? ''
 });
 
-export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []) => {
-  const metadata = jsonObject(item.metadata);
+const extractTextMentions = (text: string) =>
+  Array.from(text.matchAll(/@([\w.-]+)/g)).map((match) => ({
+    username: match[1],
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length
+  }));
+
+export const serializeDiscussionComments = (comments: DiscussionRecord[]) =>
+  comments.map((comment) => ({
+    id: comment.id,
+    author: comment.author.username,
+    text: comment.text,
+    date: dateOnly(comment.createdAt),
+    mentions: extractTextMentions(comment.text),
+    replies: comment.replies.map((reply) => ({
+      id: reply.id,
+      author: reply.author.username,
+      text: reply.text,
+      date: dateOnly(reply.createdAt),
+      mentions: extractTextMentions(reply.text)
+    }))
+  }));
+
+export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = [], discussions?: DiscussionRecord[]) => {
+  const metadata = asObject(item.metadata);
   const common = {
     ...metadata,
     id: item.id,
@@ -101,31 +136,47 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     shortDesc: item.shortDesc,
     fullDesc: item.fullDesc,
     docs: docs.map(serializeDoc),
+    ...(discussions ? { discussions: serializeDiscussionComments(discussions) } : {}),
     contributor: metadata.contributor,
     meta: metadata.meta
   };
-
-  if (item.category === EntityType.other || item.category === EntityType.event) {
-    return {
-      ...common,
-      title: item.name,
-      category: item.type ?? String(metadata.category ?? '')
-    };
-  }
-
-  if (item.category === EntityType.technology) {
-    return {
-      ...common,
-      name: item.name,
-      category: item.type ?? String(metadata.category ?? '')
-    };
-  }
 
   if (item.category === EntityType.creature) {
     return {
       ...common,
       name: item.name,
-      classification: item.type ?? String(metadata.classification ?? '')
+      classification: item.type ?? String(metadata.classification ?? ''),
+      stats: normalizeCreatureStats(metadata.stats, metadata.dangerLevel),
+      skills: normalizeSkillItems(metadata.skills)
+    };
+  }
+
+  if (item.category === EntityType.character) {
+    return {
+      ...common,
+      name: item.name,
+      type: item.type ?? String(metadata.type ?? ''),
+      stats: normalizeCharacterStats(metadata.stats),
+      skills: normalizeSkillItems(metadata.skills)
+    };
+  }
+
+  if (item.category === EntityType.event) {
+    return {
+      ...common,
+      title: item.name,
+      category: item.type ?? String(metadata.category ?? ''),
+      features: normalizeFeatureItems(metadata.features)
+    };
+  }
+
+  if (item.category === EntityType.place || item.category === EntityType.technology || item.category === EntityType.other) {
+    return {
+      ...common,
+      ...(item.category === EntityType.other
+        ? { title: item.name, category: item.type ?? String(metadata.category ?? '') }
+        : { name: item.name, type: item.type ?? String(metadata.type ?? ''), category: item.type ?? String(metadata.category ?? '') }),
+      features: normalizeFeatureItems(metadata.features)
     };
   }
 
