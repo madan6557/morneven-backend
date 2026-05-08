@@ -1,9 +1,17 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Storage } from '@google-cloud/storage';
 import { mkdir, writeFile } from 'fs/promises';
+import { webcrypto } from 'node:crypto';
 import path from 'path';
 import { Readable } from 'stream';
 import { env } from './env.js';
+
+if (!globalThis.crypto) {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: webcrypto,
+    configurable: true
+  });
+}
 
 let storageClient: Storage | null = null;
 let s3Client: any = null;
