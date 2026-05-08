@@ -8,6 +8,7 @@ import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parseIds, parsePagination } from '../../utils/pagination.js';
 import { projectStatusFromApi, serializeProject } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
+import { normalizeProjectMeta } from '../../utils/lore-contract.js';
 
 export const projectsRouter = Router();
 
@@ -47,7 +48,10 @@ const projectSchema = z.object({
 
 const projectUpdateSchema = projectSchema.partial();
 
-const buildProjectData = (body: z.infer<typeof projectSchema> | z.infer<typeof projectUpdateSchema>) => {
+const buildProjectData = (
+  body: z.infer<typeof projectSchema> | z.infer<typeof projectUpdateSchema>,
+  existingMeta?: Prisma.JsonValue | null
+) => {
   const { patches, status, ...rest } = body;
   const data: Prisma.ProjectUpdateInput = {};
   if (rest.title !== undefined) data.title = rest.title;
@@ -57,12 +61,8 @@ const buildProjectData = (body: z.infer<typeof projectSchema> | z.infer<typeof p
   if (rest.docs !== undefined) data.docs = rest.docs as Prisma.InputJsonArray;
   if (rest.archived !== undefined) data.archived = rest.archived;
   if (rest.contributor !== undefined) data.contributor = rest.contributor;
-  const existingMeta = (rest.meta ?? {}) as Record<string, unknown>;
   if (rest.meta !== undefined || rest.features !== undefined) {
-    data.meta = {
-      ...existingMeta,
-      ...(rest.features !== undefined ? { features: rest.features } : {})
-    } as Prisma.InputJsonObject;
+    data.meta = normalizeProjectMeta(rest.meta, rest.features, existingMeta) as Prisma.InputJsonObject;
   }
   if (status) data.status = projectStatusFromApi(status);
   return { data, patches };
@@ -135,7 +135,7 @@ projectsRouter.put('/:id', auth, allow(canWriteProjects), validateBody(projectUp
   const existing = await prisma.project.findUnique({ where: { id: req.params.id } });
   if (!existing) return fail(res, 404, 'Project not found', 'NOT_FOUND');
 
-  const { data, patches } = buildProjectData(req.body);
+  const { data, patches } = buildProjectData(req.body, existing.meta);
   const updated = await prisma.$transaction(async (tx) => {
     if (patches) {
       await tx.projectPatch.deleteMany({ where: { projectId: req.params.id } });

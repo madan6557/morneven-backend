@@ -1,4 +1,11 @@
 import { EntityType, MediaType, Prisma, ProjectStatus, Role } from '@prisma/client';
+import {
+  asObject,
+  normalizeCharacterStats,
+  normalizeCreatureStats,
+  normalizeFeatureItems,
+  normalizeSkillItems
+} from './lore-contract.js';
 
 export const dateOnly = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
 
@@ -55,7 +62,7 @@ export const serializeProject = (project: ProjectWithPatches) => {
   archived: project.archived,
   contributor: project.contributor ?? undefined,
   meta: project.meta ?? undefined,
-  features: Array.isArray(meta.features) ? meta.features : []
+  features: normalizeFeatureItems(meta.features)
   };
 };
 
@@ -89,6 +96,7 @@ export const serializeGalleryItem = (item: GalleryWithTags, comments: unknown[] 
 
 type EntityDocRecord = Prisma.EntityDocGetPayload<object>;
 type LoreRecord = Prisma.LoreItemGetPayload<object>;
+type DiscussionRecord = Prisma.CommentGetPayload<{ include: { author: true; replies: { include: { author: true } } } }>;
 
 export const serializeDoc = (doc: EntityDocRecord) => ({
   type: doc.type === MediaType.video ? 'video' : doc.type === MediaType.file ? 'file' : 'image',
@@ -96,62 +104,31 @@ export const serializeDoc = (doc: EntityDocRecord) => ({
   caption: doc.caption ?? ''
 });
 
-export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []) => {
-  const metadata = jsonObject(item.metadata);
-  const toInt = (value: unknown) => {
-    const num = Number(value);
-    if (Number.isNaN(num)) return 0;
-    return Math.max(0, Math.min(100, Math.round(num)));
-  };
-  const average = (values: unknown[]) => {
-    if (!values.length) return 0;
-    return toInt(values.reduce<number>((sum, val) => sum + Number(val || 0), 0) / values.length);
-  };
-  const ensureSkills = (value: unknown) => (Array.isArray(value) ? value : []);
-  const ensureFeatures = (value: unknown) => (Array.isArray(value) ? value : []);
+const extractTextMentions = (text: string) =>
+  Array.from(text.matchAll(/@([\w.-]+)/g)).map((match) => ({
+    username: match[1],
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length
+  }));
 
-  const normalizeCharacterStats = (raw: Record<string, unknown>) => {
-    const detail = jsonObject(raw.detail);
-    const combat = jsonObject(detail.combat);
-    const intelligence = jsonObject(detail.intelligence);
-    const charisma = jsonObject(detail.charisma);
-    const stealth = jsonObject(detail.stealth);
-    const perception = jsonObject(detail.perception);
-    return {
-      ...raw,
-      combat: Object.keys(combat).length ? average(Object.values(combat)) : toInt(raw.combat),
-      intelligence: Object.keys(intelligence).length ? average(Object.values(intelligence)) : toInt(raw.intelligence),
-      charisma: Object.keys(charisma).length ? average(Object.values(charisma)) : toInt(raw.charisma),
-      stealth: Object.keys(stealth).length ? average(Object.values(stealth)) : toInt(raw.stealth),
-      perception: Object.keys(perception).length
-        ? average(Object.values(perception))
-        : toInt(raw.perception ?? raw.endurance),
-      ...(raw.endurance !== undefined ? { endurance: toInt(raw.endurance) } : {})
-    };
-  };
+export const serializeDiscussionComments = (comments: DiscussionRecord[]) =>
+  comments.map((comment) => ({
+    id: comment.id,
+    author: comment.author.username,
+    text: comment.text,
+    date: dateOnly(comment.createdAt),
+    mentions: extractTextMentions(comment.text),
+    replies: comment.replies.map((reply) => ({
+      id: reply.id,
+      author: reply.author.username,
+      text: reply.text,
+      date: dateOnly(reply.createdAt),
+      mentions: extractTextMentions(reply.text)
+    }))
+  }));
 
-  const normalizeCreatureStats = (raw: Record<string, unknown>) => {
-    const detail = jsonObject(raw.detail);
-    const combat = jsonObject(detail.combat);
-    const cognition = jsonObject(detail.cognition);
-    const predation = jsonObject(detail.predation);
-    const senses = jsonObject(detail.senses);
-    const ferocity = jsonObject(detail.ferocity);
-    const legacyIntelligence = toInt(raw.intelligence);
-    const legacyStealth = toInt(raw.stealth);
-    const legacyEndurance = toInt(raw.endurance);
-    return {
-      ...raw,
-      combat: Object.keys(combat).length ? average(Object.values(combat)) : toInt(raw.combat),
-      cognition: Object.keys(cognition).length ? average(Object.values(cognition)) : toInt(raw.cognition ?? legacyIntelligence),
-      predation: Object.keys(predation).length ? average(Object.values(predation)) : toInt(raw.predation ?? legacyStealth),
-      senses: Object.keys(senses).length ? average(Object.values(senses)) : toInt(raw.senses ?? legacyEndurance),
-      ferocity: Object.keys(ferocity).length ? average(Object.values(ferocity)) : toInt(raw.ferocity),
-      ...(raw.intelligence !== undefined ? { intelligence: legacyIntelligence } : {}),
-      ...(raw.stealth !== undefined ? { stealth: legacyStealth } : {}),
-      ...(raw.endurance !== undefined ? { endurance: legacyEndurance } : {})
-    };
-  };
+export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = [], discussions?: DiscussionRecord[]) => {
+  const metadata = asObject(item.metadata);
   const common = {
     ...metadata,
     id: item.id,
@@ -159,6 +136,7 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     shortDesc: item.shortDesc,
     fullDesc: item.fullDesc,
     docs: docs.map(serializeDoc),
+    ...(discussions ? { discussions: serializeDiscussionComments(discussions) } : {}),
     contributor: metadata.contributor,
     meta: metadata.meta
   };
@@ -168,8 +146,8 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
       ...common,
       name: item.name,
       classification: item.type ?? String(metadata.classification ?? ''),
-      stats: normalizeCreatureStats(jsonObject(metadata.stats)),
-      skills: ensureSkills(metadata.skills)
+      stats: normalizeCreatureStats(metadata.stats, metadata.dangerLevel),
+      skills: normalizeSkillItems(metadata.skills)
     };
   }
 
@@ -178,8 +156,8 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
       ...common,
       name: item.name,
       type: item.type ?? String(metadata.type ?? ''),
-      stats: normalizeCharacterStats(jsonObject(metadata.stats)),
-      skills: ensureSkills(metadata.skills)
+      stats: normalizeCharacterStats(metadata.stats),
+      skills: normalizeSkillItems(metadata.skills)
     };
   }
 
@@ -187,7 +165,8 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     return {
       ...common,
       title: item.name,
-      category: item.type ?? String(metadata.category ?? '')
+      category: item.type ?? String(metadata.category ?? ''),
+      features: normalizeFeatureItems(metadata.features)
     };
   }
 
@@ -197,7 +176,7 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
       ...(item.category === EntityType.other
         ? { title: item.name, category: item.type ?? String(metadata.category ?? '') }
         : { name: item.name, type: item.type ?? String(metadata.type ?? ''), category: item.type ?? String(metadata.category ?? '') }),
-      features: ensureFeatures(metadata.features)
+      features: normalizeFeatureItems(metadata.features)
     };
   }
 

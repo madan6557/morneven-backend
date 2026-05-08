@@ -1,7 +1,8 @@
-import { PrismaClient, Role, Track, ProjectStatus, EntityType, MediaType, MapStatus } from '@prisma/client';
+import { Prisma, PrismaClient, Role, Track, ProjectStatus, EntityType, MediaType, MapStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { normalizeLoreMetadata, normalizeProjectMeta } from '../src/utils/lore-contract.js';
 
 const prisma = new PrismaClient();
 const seedDir = path.resolve(process.cwd(), 'fe-seed');
@@ -52,62 +53,41 @@ const toMapStatus = (value: string): MapStatus => {
   if (value === 'mission') return MapStatus.mission;
   return MapStatus.safe;
 };
-const toIntStat = (value: unknown) => {
-  const num = Number(value);
-  if (Number.isNaN(num)) return 0;
-  return Math.max(0, Math.min(100, Math.round(num)));
-};
 
-const normalizeLoreMetadata = (category: string, item: Record<string, any>) => {
-  const metadata = {
-    id: item.id,
-    ...item,
-    docs: undefined,
-    shortDesc: undefined,
-    fullDesc: undefined,
-    name: undefined,
-    title: undefined,
-    type: undefined,
-    category: undefined,
-    thumbnail: undefined
-  } as Record<string, any>;
+async function seedDiscussionThread(
+  entityType: EntityType,
+  entityId: string,
+  comments: any[],
+  usersByUsername: Map<string, string>,
+  fallbackAuthorId: string
+) {
+  for (const comment of comments ?? []) {
+    const commentAuthor = usersByUsername.get(normalizeUsername(comment.author)) ?? fallbackAuthorId;
+    const createdComment = await prisma.comment.create({
+      data: {
+        id: comment.id,
+        entityType,
+        entityId,
+        authorId: commentAuthor,
+        text: comment.text,
+        createdAt: comment.date ? new Date(comment.date) : new Date()
+      }
+    });
 
-  if (category === 'characters') {
-    const rawStats = typeof item.stats === 'object' && item.stats ? item.stats : {};
-    metadata.stats = {
-      ...rawStats,
-      combat: toIntStat(rawStats.combat),
-      intelligence: toIntStat(rawStats.intelligence),
-      charisma: toIntStat(rawStats.charisma),
-      stealth: toIntStat(rawStats.stealth),
-      perception: toIntStat(rawStats.perception ?? rawStats.endurance),
-      ...(rawStats.endurance !== undefined ? { endurance: toIntStat(rawStats.endurance) } : {})
-    };
-    metadata.skills = Array.isArray(item.skills) ? item.skills : [];
+    for (const reply of comment.replies ?? []) {
+      const replyAuthor = usersByUsername.get(normalizeUsername(reply.author)) ?? fallbackAuthorId;
+      await prisma.reply.create({
+        data: {
+          id: reply.id,
+          commentId: createdComment.id,
+          authorId: replyAuthor,
+          text: reply.text,
+          createdAt: reply.date ? new Date(reply.date) : new Date()
+        }
+      });
+    }
   }
-
-  if (category === 'creatures') {
-    const rawStats = typeof item.stats === 'object' && item.stats ? item.stats : {};
-    metadata.stats = {
-      ...rawStats,
-      combat: toIntStat(rawStats.combat),
-      cognition: toIntStat(rawStats.cognition ?? rawStats.intelligence),
-      predation: toIntStat(rawStats.predation ?? rawStats.stealth),
-      senses: toIntStat(rawStats.senses ?? rawStats.endurance),
-      ferocity: toIntStat(rawStats.ferocity),
-      ...(rawStats.intelligence !== undefined ? { intelligence: toIntStat(rawStats.intelligence) } : {}),
-      ...(rawStats.stealth !== undefined ? { stealth: toIntStat(rawStats.stealth) } : {}),
-      ...(rawStats.endurance !== undefined ? { endurance: toIntStat(rawStats.endurance) } : {})
-    };
-    metadata.skills = Array.isArray(item.skills) ? item.skills : [];
-  }
-
-  if (category === 'places' || category === 'technology' || category === 'other') {
-    metadata.features = Array.isArray(item.features) ? item.features : [];
-  }
-
-  return metadata;
-};
+}
 
 async function loadJson<T>(filename: string): Promise<T> {
   const fullPath = path.join(seedDir, filename);
@@ -198,10 +178,7 @@ async function main() {
         docs: item.docs ?? [],
         archived: Boolean(item.archived),
         contributor: normalizeText(item.contributor) || 'author',
-        meta: {
-          ...(item.meta ?? {}),
-          features: Array.isArray(item.features) ? item.features : []
-        },
+        meta: normalizeProjectMeta(item.meta, item.features) as Prisma.InputJsonValue,
         patches: {
           create: (item.patches ?? []).map((p: any) => ({
             version: p.version,
@@ -250,32 +227,7 @@ async function main() {
       }
     });
 
-    for (const comment of item.comments ?? []) {
-      const commentAuthor = usersByUsername.get(normalizeUsername(comment.author)) ?? fallbackAuthorId;
-      const createdComment = await prisma.comment.create({
-        data: {
-          id: comment.id,
-          entityType: EntityType.gallery,
-          entityId: createdGallery.id,
-          authorId: commentAuthor,
-          text: comment.text,
-          createdAt: comment.date ? new Date(comment.date) : new Date()
-        }
-      });
-
-      for (const reply of comment.replies ?? []) {
-        const replyAuthor = usersByUsername.get(normalizeUsername(reply.author)) ?? fallbackAuthorId;
-        await prisma.reply.create({
-          data: {
-            id: reply.id,
-            commentId: createdComment.id,
-            authorId: replyAuthor,
-            text: reply.text,
-            createdAt: reply.date ? new Date(reply.date) : new Date()
-          }
-        });
-      }
-    }
+    await seedDiscussionThread(EntityType.gallery, createdGallery.id, item.comments ?? [], usersByUsername, fallbackAuthorId);
   }
 
   const loreGroups = [
@@ -298,7 +250,7 @@ async function main() {
           thumbnail: item.thumbnail || null,
           shortDesc: item.shortDesc,
           fullDesc: item.fullDesc,
-          metadata: normalizeLoreMetadata(group.category, item)
+          metadata: normalizeLoreMetadata(toEntityType(group.category), item) as Prisma.InputJsonValue
         }
       });
 
@@ -313,6 +265,14 @@ async function main() {
           }
         });
       }
+
+      await seedDiscussionThread(
+        toEntityType(group.category),
+        createdLore.id,
+        item.discussions ?? [],
+        usersByUsername,
+        fallbackAuthorId
+      );
     }
   }
 
