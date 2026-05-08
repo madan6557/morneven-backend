@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
+import { EntityType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { auth, allow, canWriteProjects } from '../../middleware/auth.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parseIds, parsePagination } from '../../utils/pagination.js';
-import { projectStatusFromApi, serializeProject } from '../../utils/serializers.js';
+import { projectStatusFromApi, serializeDiscussionComments, serializeProject } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { normalizeProjectMeta } from '../../utils/lore-contract.js';
 
@@ -36,6 +36,7 @@ const projectSchema = z.object({
     z.literal('Canceled')
   ]),
   thumbnail: z.string().optional().default(''),
+  headerImage: z.string().optional(),
   shortDesc: z.string().min(1).max(500),
   fullDesc: z.string().min(1),
   patches: z.array(patchSchema).optional().default([]),
@@ -61,11 +62,25 @@ const buildProjectData = (
   if (rest.docs !== undefined) data.docs = rest.docs as Prisma.InputJsonArray;
   if (rest.archived !== undefined) data.archived = rest.archived;
   if (rest.contributor !== undefined) data.contributor = rest.contributor;
-  if (rest.meta !== undefined || rest.features !== undefined) {
-    data.meta = normalizeProjectMeta(rest.meta, rest.features, existingMeta) as Prisma.InputJsonObject;
+  if (rest.meta !== undefined || rest.features !== undefined || rest.headerImage !== undefined) {
+    data.meta = normalizeProjectMeta(rest.meta, rest.features, rest.headerImage, existingMeta) as Prisma.InputJsonObject;
   }
   if (status) data.status = projectStatusFromApi(status);
   return { data, patches };
+};
+
+const loadProjectDiscussionComments = async (projectId: string) =>
+  prisma.comment.findMany({
+    where: { entityType: EntityType.project, entityId: projectId },
+    include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'asc' } } },
+    orderBy: { createdAt: 'asc' }
+  });
+
+const respondWithProjectDetail = async (res: Parameters<typeof ok>[0], id: string) => {
+  const project = await prisma.project.findUnique({ where: { id }, include: { patches: true } });
+  if (!project) return fail(res, 404, 'Project not found', 'NOT_FOUND');
+  const discussions = await loadProjectDiscussionComments(id);
+  return ok(res, { ...serializeProject(project), discussions: serializeDiscussionComments(discussions) });
 };
 
 projectsRouter.get('/', auth, async (req, res) => {
@@ -106,9 +121,7 @@ projectsRouter.get('/', auth, async (req, res) => {
 });
 
 projectsRouter.get('/:id', auth, async (req, res) => {
-  const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { patches: true } });
-  if (!project) return fail(res, 404, 'Project not found', 'NOT_FOUND');
-  return ok(res, serializeProject(project));
+  return respondWithProjectDetail(res, req.params.id);
 });
 
 projectsRouter.post('/', auth, allow(canWriteProjects), validateBody(projectSchema), async (req, res) => {
@@ -158,7 +171,7 @@ projectsRouter.put('/:id', auth, allow(canWriteProjects), validateBody(projectUp
     return project;
   });
 
-  return ok(res, serializeProject(updated));
+  return respondWithProjectDetail(res, updated.id);
 });
 
 projectsRouter.post('/:id/archive', auth, allow((u) => u.level === 7 || (u.level === 6 && u.track === 'executive')), async (req, res) => {
@@ -171,4 +184,99 @@ projectsRouter.delete('/:id', auth, allow((u) => u.level === 7), async (req, res
   await prisma.project.delete({ where: { id: req.params.id } });
   await writeAudit(prisma, { actor: req.user!.username, action: 'project.delete', entity: 'Project', entityId: req.params.id });
   return ok(res, { deleted: true });
+});
+
+projectsRouter.post('/:id/comments', auth, async (req, res) => {
+  const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+  if (!project) return fail(res, 404, 'Project not found', 'NOT_FOUND');
+  if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
+
+  await prisma.comment.create({
+    data: {
+      entityType: EntityType.project,
+      entityId: req.params.id,
+      authorId: req.user!.id,
+      text: String(req.body.text).trim()
+    }
+  });
+
+  return respondWithProjectDetail(res, req.params.id);
+});
+
+projectsRouter.post('/:id/comments/:commentId/replies', auth, async (req, res) => {
+  if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
+  const comment = await prisma.comment.findFirst({
+    where: { id: req.params.commentId, entityType: EntityType.project, entityId: req.params.id }
+  });
+  if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
+
+  await prisma.reply.create({
+    data: { commentId: req.params.commentId, authorId: req.user!.id, text: String(req.body.text).trim() }
+  });
+
+  return respondWithProjectDetail(res, req.params.id);
+});
+
+projectsRouter.put('/:id/comments/:commentId', auth, async (req, res) => {
+  const comment = await prisma.comment.findFirst({
+    where: { id: req.params.commentId, entityType: EntityType.project, entityId: req.params.id }
+  });
+  if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
+  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || comment.authorId === req.user!.id)) {
+    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  }
+  if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
+
+  await prisma.comment.update({ where: { id: comment.id }, data: { text: String(req.body.text).trim() } });
+  return respondWithProjectDetail(res, req.params.id);
+});
+
+projectsRouter.delete('/:id/comments/:commentId', auth, async (req, res) => {
+  const comment = await prisma.comment.findFirst({
+    where: { id: req.params.commentId, entityType: EntityType.project, entityId: req.params.id }
+  });
+  if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
+  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || comment.authorId === req.user!.id)) {
+    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  }
+
+  await prisma.comment.delete({ where: { id: comment.id } });
+  return respondWithProjectDetail(res, req.params.id);
+});
+
+projectsRouter.put('/:id/comments/:commentId/replies/:replyId', auth, async (req, res) => {
+  const reply = await prisma.reply.findUnique({ where: { id: req.params.replyId }, include: { comment: true } });
+  if (
+    !reply ||
+    reply.comment.entityType !== EntityType.project ||
+    reply.comment.entityId !== req.params.id ||
+    reply.commentId !== req.params.commentId
+  ) {
+    return fail(res, 404, 'Reply not found', 'NOT_FOUND');
+  }
+  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || reply.authorId === req.user!.id)) {
+    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  }
+  if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
+
+  await prisma.reply.update({ where: { id: reply.id }, data: { text: String(req.body.text).trim() } });
+  return respondWithProjectDetail(res, req.params.id);
+});
+
+projectsRouter.delete('/:id/comments/:commentId/replies/:replyId', auth, async (req, res) => {
+  const reply = await prisma.reply.findUnique({ where: { id: req.params.replyId }, include: { comment: true } });
+  if (
+    !reply ||
+    reply.comment.entityType !== EntityType.project ||
+    reply.comment.entityId !== req.params.id ||
+    reply.commentId !== req.params.commentId
+  ) {
+    return fail(res, 404, 'Reply not found', 'NOT_FOUND');
+  }
+  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || reply.authorId === req.user!.id)) {
+    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  }
+
+  await prisma.reply.delete({ where: { id: reply.id } });
+  return respondWithProjectDetail(res, req.params.id);
 });
