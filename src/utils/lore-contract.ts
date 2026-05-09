@@ -47,6 +47,25 @@ const textOrUndefined = (value: unknown) => {
   return normalized ? normalized : undefined;
 };
 
+const normalizeSkillRestriction = (raw: unknown, fallback?: unknown) => {
+  const source = asObject(raw);
+  const sourceKey = text(source.key);
+  const sourceValue = text(source.value);
+  if (sourceKey || sourceValue) {
+    return {
+      key: sourceKey || 'Restriction',
+      value: sourceValue
+    };
+  }
+
+  const legacyValue = text(fallback);
+  if (!legacyValue) return undefined;
+  return {
+    key: 'Cooldown',
+    value: legacyValue
+  };
+};
+
 const stringArray = (value: unknown) => asArray(value).map((item) => text(item)).filter(Boolean);
 
 const normalizeMetricGroup = <TKey extends string>(
@@ -143,7 +162,8 @@ export const normalizeCreatureStats = (raw: unknown, dangerLevel?: unknown) => {
 export const normalizeSkillItems = (value: unknown) =>
   asArray(value).map((entry, index) => {
     const raw = asObject(entry);
-    const cooldown = text(raw.cooldown ?? raw.cd ?? raw.recovery) || text(raw.level);
+    const legacyRestriction = text(raw.cooldown ?? raw.cd ?? raw.recovery) || text(raw.level);
+    const restriction = normalizeSkillRestriction(raw.restriction, legacyRestriction);
     const baseDescription = text(raw.description ?? raw.details ?? raw.summary);
     const description =
       raw.immune === true && !baseDescription.includes('[[attr:immune')
@@ -153,7 +173,7 @@ export const normalizeSkillItems = (value: unknown) =>
       id: text(raw.id) || `skill-${index + 1}`,
       name: text(raw.name ?? raw.title) || `Skill ${index + 1}`,
       category: text(raw.category) || 'general',
-      cooldown,
+      ...(restriction ? { restriction } : {}),
       description,
       ...(textOrUndefined(raw.icon) ? { icon: text(raw.icon) } : {}),
       ...(textOrUndefined(raw.color ?? raw.accentColor) ? { color: text(raw.color ?? raw.accentColor) } : {})
