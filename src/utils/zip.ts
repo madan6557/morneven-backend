@@ -27,7 +27,7 @@ const le = (value: number, bytes: number) => {
 
 export type ZipFile = {
   name: string;
-  content: string;
+  content: string | Buffer;
 };
 
 export const makeZip = (files: ZipFile[]) => {
@@ -37,7 +37,7 @@ export const makeZip = (files: ZipFile[]) => {
 
   for (const file of files) {
     const name = Buffer.from(file.name, 'utf8');
-    const content = Buffer.from(file.content, 'utf8');
+    const content = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content, 'utf8');
     const crc = crc32(content);
 
     const local = Buffer.concat([

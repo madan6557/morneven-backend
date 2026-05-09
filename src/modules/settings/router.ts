@@ -2,13 +2,14 @@ import { Request, Response, Router } from 'express';
 import bcrypt from 'bcryptjs';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { EntityType, Role, Track } from '@prisma/client';
+import { EntityType, MediaType, Prisma, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
 import { saveFileToStorage } from '../../config/storage.js';
 import { readFileFromStorage } from '../../config/storage.js';
+import { readFileWithMetadataFromStorage } from '../../config/storage.js';
 import { fail, ok } from '../../utils/response.js';
 import {
   serializeGalleryItem,
@@ -19,7 +20,12 @@ import {
 import { makeZip, ZipFile } from '../../utils/zip.js';
 import { writeAudit } from '../../utils/audit.js';
 import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from './preset-service.js';
-import { cleanupUnreferencedStoragePaths, getStorageCleanupReport, runStorageCleanup } from '../../utils/storage-cleanup.js';
+import {
+  cleanupUnreferencedStoragePaths,
+  extractStorageObjectPath,
+  getStorageCleanupReport,
+  runStorageCleanup
+} from '../../utils/storage-cleanup.js';
 
 export const settingsRouter = Router();
 
@@ -178,69 +184,241 @@ const requirePl7 = (req: Request, res: Response) => {
   return true;
 };
 
-const buildExtractionFiles = async (mode: 'db' | 'images' | 'all'): Promise<ZipFile[]> => {
+type ExportSnapshot = {
+  characters: ReturnType<typeof serializeLoreItem>[];
+  creatures: ReturnType<typeof serializeLoreItem>[];
+  places: ReturnType<typeof serializeLoreItem>[];
+  projects: ReturnType<typeof serializeProject>[];
+  technology: ReturnType<typeof serializeLoreItem>[];
+  events: ReturnType<typeof serializeLoreItem>[];
+  others: ReturnType<typeof serializeLoreItem>[];
+  gallery: ReturnType<typeof serializeGalleryItem>[];
+  news: Array<{
+    id: string;
+    text: string;
+    date: string;
+    hasDetail: boolean;
+    thumbnail?: string;
+    body?: string;
+    attachments: Array<{ type: 'image' | 'video' | 'link'; url: string; caption?: string }>;
+  }>;
+  personnel: ReturnType<typeof serializeUser>[];
+  map: {
+    mapImage: string;
+    markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
+  };
+};
+
+type EmbeddedAsset = {
+  objectPath: string;
+  archivePath: string;
+  size?: number;
+  contentType?: string;
+};
+
+type ExtractionBuildResult = {
+  files: ZipFile[];
+  mediaSummary: {
+    embeddedCount: number;
+    failedCount: number;
+  };
+};
+
+const serializeNewsForExtraction = (item: Prisma.NewsGetPayload<{ include: { attachments: true } }>): ExportSnapshot['news'][number] => ({
+  id: item.id,
+  text: item.text,
+  date: item.publishDate.toISOString().slice(0, 10),
+  hasDetail: item.hasDetail,
+  thumbnail: item.thumbnail ?? undefined,
+  body: item.body ?? undefined,
+  attachments: item.attachments.map((attachment) => ({
+    type: attachment.type === MediaType.link ? 'link' : attachment.type === MediaType.video ? 'video' : 'image',
+    url: attachment.url,
+    caption: attachment.caption ?? undefined
+  }))
+});
+
+const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
+  const [projects, gallery, news, personnel, mapMarkers, mapImage, lore, docs] = await Promise.all([
+    prisma.project.findMany({ include: { patches: true } }),
+    prisma.galleryItem.findMany({ include: { tags: true, uploader: true } }),
+    prisma.news.findMany({ include: { attachments: true } }),
+    prisma.user.findMany(),
+    prisma.mapMarker.findMany(),
+    prisma.mapImage.findUnique({ where: { id: 'main' } }),
+    prisma.loreItem.findMany(),
+    prisma.entityDoc.findMany()
+  ]);
+
+  const docsByEntity = new Map<string, typeof docs>();
+  for (const doc of docs) {
+    const key = `${doc.entityType}:${doc.entityId}`;
+    docsByEntity.set(key, [...(docsByEntity.get(key) ?? []), doc]);
+  }
+
+  const loreByType = (category: EntityType) =>
+    lore
+      .filter((item) => item.category === category)
+      .map((item) => serializeLoreItem(item, docsByEntity.get(`${item.category}:${item.id}`) ?? []));
+
+  return {
+    characters: loreByType(EntityType.character),
+    creatures: loreByType(EntityType.creature),
+    places: loreByType(EntityType.place),
+    projects: projects.map(serializeProject),
+    technology: loreByType(EntityType.technology),
+    events: loreByType(EntityType.event),
+    others: loreByType(EntityType.other),
+    gallery: gallery.map((item) => serializeGalleryItem(item)),
+    news: news.map(serializeNewsForExtraction),
+    personnel: personnel.map(serializeUser),
+    map: {
+      mapImage: mapImage?.imageUrl ?? '',
+      markers: mapMarkers
+    }
+  };
+};
+
+const collectStoragePathsFromValue = (value: unknown, target = new Set<string>()) => {
+  if (typeof value === 'string') {
+    const objectPath = extractStorageObjectPath(value);
+    if (objectPath) target.add(objectPath);
+    return target;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) collectStoragePathsFromValue(entry, target);
+    return target;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const entry of Object.values(value)) collectStoragePathsFromValue(entry, target);
+  }
+
+  return target;
+};
+
+const rewriteExportMediaPaths = <T>(value: T, embeddedAssets: Map<string, EmbeddedAsset>): T => {
+  if (typeof value === 'string') {
+    const objectPath = extractStorageObjectPath(value);
+    if (!objectPath) return value;
+    return (embeddedAssets.get(objectPath)?.archivePath ?? value) as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => rewriteExportMediaPaths(entry, embeddedAssets)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, rewriteExportMediaPaths(entry, embeddedAssets)])
+    ) as T;
+  }
+
+  return value;
+};
+
+const galleryImageByTag = (gallery: ExportSnapshot['gallery'], tag: string) =>
+  gallery.filter((item) => item.type === 'image' && item.tags.includes(tag));
+
+const buildImageManifests = (snapshot: ExportSnapshot): Array<{ name: string; value: unknown }> => [
+  { name: 'images/map/images.json', value: [{ title: 'map', src: snapshot.map.mapImage }] },
+  { name: 'images/character/images.json', value: galleryImageByTag(snapshot.gallery, 'character') },
+  { name: 'images/creature/images.json', value: galleryImageByTag(snapshot.gallery, 'creature') },
+  { name: 'images/technology/images.json', value: galleryImageByTag(snapshot.gallery, 'technology') },
+  { name: 'images/environment/images.json', value: galleryImageByTag(snapshot.gallery, 'environment') },
+  {
+    name: 'images/other/images.json',
+    value: snapshot.gallery.filter(
+      (item) => item.type === 'image' && !['character', 'creature', 'technology', 'environment'].some((tag) => item.tags.includes(tag))
+    )
+  }
+];
+
+const buildExtractionFiles = async (
+  mode: 'db' | 'images' | 'all',
+  onProgress?: (percent: number, stage: string, message: string) => Promise<void>
+): Promise<ExtractionBuildResult> => {
   const files: ZipFile[] = [];
+  const snapshot = await collectExtractionSnapshot();
+  const rawStoragePaths = Array.from(collectStoragePathsFromValue(snapshot)).sort((left, right) => left.localeCompare(right));
+  const embeddedAssets = new Map<string, EmbeddedAsset>();
+  const failedAssets: Array<{ objectPath: string; error: string }> = [];
+
+  if (mode === 'images' || mode === 'all') {
+    const totalAssets = rawStoragePaths.length;
+    for (let index = 0; index < rawStoragePaths.length; index += 1) {
+      const objectPath = rawStoragePaths[index];
+      const progressBase = totalAssets === 0 ? 40 : 10 + Math.round(((index + 1) / totalAssets) * 50);
+      await onProgress?.(progressBase, 'collecting-media', `Embedding media ${index + 1} of ${totalAssets}`);
+      try {
+        const stored = await readFileWithMetadataFromStorage(objectPath);
+        const archivePath = `media/${objectPath}`;
+        embeddedAssets.set(objectPath, {
+          objectPath,
+          archivePath,
+          size: stored.contentLength,
+          contentType: stored.contentType
+        });
+        files.push({ name: archivePath, content: stored.buffer });
+      } catch (error) {
+        failedAssets.push({
+          objectPath,
+          error: error instanceof Error ? error.message : 'Unknown storage read failure'
+        });
+      }
+    }
+  }
+
+  const exportedSnapshot =
+    mode === 'images' || mode === 'all'
+      ? rewriteExportMediaPaths(snapshot, embeddedAssets)
+      : snapshot;
 
   if (mode === 'db' || mode === 'all') {
-    const [projects, gallery, news, personnel, mapMarkers, mapImage, lore, docs] = await Promise.all([
-      prisma.project.findMany({ include: { patches: true } }),
-      prisma.galleryItem.findMany({ include: { tags: true, uploader: true } }),
-      prisma.news.findMany({ include: { attachments: true } }),
-      prisma.user.findMany(),
-      prisma.mapMarker.findMany(),
-      prisma.mapImage.findUnique({ where: { id: 'main' } }),
-      prisma.loreItem.findMany(),
-      prisma.entityDoc.findMany()
-    ]);
-
-    const docsByEntity = new Map<string, typeof docs>();
-    for (const doc of docs) {
-      const key = `${doc.entityType}:${doc.entityId}`;
-      docsByEntity.set(key, [...(docsByEntity.get(key) ?? []), doc]);
-    }
-
-    const loreByType = (category: EntityType) =>
-      lore
-        .filter((item) => item.category === category)
-        .map((item) => serializeLoreItem(item, docsByEntity.get(`${item.category}:${item.id}`) ?? []));
-
-    files.push({ name: 'db/characters.json', content: JSON.stringify(loreByType(EntityType.character), null, 2) });
-    files.push({ name: 'db/creatures.json', content: JSON.stringify(loreByType(EntityType.creature), null, 2) });
-    files.push({ name: 'db/places.json', content: JSON.stringify(loreByType(EntityType.place), null, 2) });
-    files.push({ name: 'db/projects.json', content: JSON.stringify(projects.map(serializeProject), null, 2) });
-    files.push({ name: 'db/technology.json', content: JSON.stringify(loreByType(EntityType.technology), null, 2) });
-    files.push({ name: 'db/events.json', content: JSON.stringify(loreByType(EntityType.event), null, 2) });
-    files.push({ name: 'db/others.json', content: JSON.stringify(loreByType(EntityType.other), null, 2) });
-    files.push({ name: 'db/gallery.json', content: JSON.stringify(gallery.map((item) => serializeGalleryItem(item)), null, 2) });
-    files.push({ name: 'db/news.json', content: JSON.stringify(news, null, 2) });
-    files.push({ name: 'db/personnel.json', content: JSON.stringify(personnel.map(serializeUser), null, 2) });
-    files.push({ name: 'db/map.json', content: JSON.stringify({ mapImage, markers: mapMarkers }, null, 2) });
+    files.push({ name: 'db/characters.json', content: JSON.stringify(exportedSnapshot.characters, null, 2) });
+    files.push({ name: 'db/creatures.json', content: JSON.stringify(exportedSnapshot.creatures, null, 2) });
+    files.push({ name: 'db/places.json', content: JSON.stringify(exportedSnapshot.places, null, 2) });
+    files.push({ name: 'db/projects.json', content: JSON.stringify(exportedSnapshot.projects, null, 2) });
+    files.push({ name: 'db/technology.json', content: JSON.stringify(exportedSnapshot.technology, null, 2) });
+    files.push({ name: 'db/events.json', content: JSON.stringify(exportedSnapshot.events, null, 2) });
+    files.push({ name: 'db/others.json', content: JSON.stringify(exportedSnapshot.others, null, 2) });
+    files.push({ name: 'db/gallery.json', content: JSON.stringify(exportedSnapshot.gallery, null, 2) });
+    files.push({ name: 'db/news.json', content: JSON.stringify(exportedSnapshot.news, null, 2) });
+    files.push({ name: 'db/personnel.json', content: JSON.stringify(exportedSnapshot.personnel, null, 2) });
+    files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
   }
 
   if (mode === 'images' || mode === 'all') {
-    const [gallery, mapImage] = await Promise.all([
-      prisma.galleryItem.findMany({ include: { tags: true, uploader: true } }),
-      prisma.mapImage.findUnique({ where: { id: 'main' } })
-    ]);
-    const imageItems = gallery.filter((item) => item.type === 'image').map((item) => serializeGalleryItem(item));
-    const byTag = (tag: string) => imageItems.filter((item) => item.tags.includes(tag));
+    for (const manifest of buildImageManifests(exportedSnapshot)) {
+      files.push({ name: manifest.name, content: JSON.stringify(manifest.value, null, 2) });
+    }
 
-    files.push({ name: 'images/map/images.json', content: JSON.stringify([{ title: 'map', src: mapImage?.imageUrl ?? '' }], null, 2) });
-    files.push({ name: 'images/character/images.json', content: JSON.stringify(byTag('character'), null, 2) });
-    files.push({ name: 'images/creature/images.json', content: JSON.stringify(byTag('creature'), null, 2) });
-    files.push({ name: 'images/technology/images.json', content: JSON.stringify(byTag('technology'), null, 2) });
-    files.push({ name: 'images/environment/images.json', content: JSON.stringify(byTag('environment'), null, 2) });
     files.push({
-      name: 'images/other/images.json',
+      name: 'media/assets.json',
       content: JSON.stringify(
-        imageItems.filter((item) => !['character', 'creature', 'technology', 'environment'].some((tag) => item.tags.includes(tag))),
+        {
+          embeddedAssets: Array.from(embeddedAssets.values()).map((asset) => ({
+            objectPath: asset.objectPath,
+            archivePath: asset.archivePath,
+            size: asset.size,
+            contentType: asset.contentType
+          })),
+          failedAssets
+        },
         null,
         2
       )
     });
   }
 
-  return files;
+  return {
+    files,
+    mediaSummary: {
+      embeddedCount: embeddedAssets.size,
+      failedCount: failedAssets.length
+    }
+  };
 };
 
 const extractionProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
@@ -255,22 +433,20 @@ const serializeExtractionJob = (job: Awaited<ReturnType<typeof prisma.extraction
 
 const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', actor: string, downloadName: string) => {
   try {
-    await prisma.extractionJob.update({
-      where: { id: jobId },
-      data: { progress: extractionProgress(10, 'collecting', 'Collecting export data') }
-    });
-    const files = await buildExtractionFiles(mode);
+    const updateProgress = async (percent: number, stage: string, message: string) => {
+      await prisma.extractionJob.update({
+        where: { id: jobId },
+        data: { progress: extractionProgress(percent, stage, message) }
+      });
+    };
 
-    await prisma.extractionJob.update({
-      where: { id: jobId },
-      data: { progress: extractionProgress(45, 'compressing', 'Compressing export archive') }
-    });
+    await updateProgress(10, 'collecting', 'Collecting export data');
+    const { files, mediaSummary } = await buildExtractionFiles(mode, updateProgress);
+
+    await updateProgress(70, 'compressing', 'Compressing export archive');
     const zip = makeZip(files);
 
-    await prisma.extractionJob.update({
-      where: { id: jobId },
-      data: { progress: extractionProgress(75, 'uploading', 'Uploading export artifact') }
-    });
+    await updateProgress(85, 'uploading', 'Uploading export artifact');
     const objectPath = `exports/${jobId}/${downloadName}`;
     const stored = await saveFileToStorage({ objectPath, buffer: zip, contentType: 'application/zip' });
 
@@ -289,7 +465,12 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
       action: 'extraction.start',
       entity: 'ExtractionJob',
       entityId: completed.id,
-      metadata: { mode }
+      metadata: {
+        mode,
+        fileCount: files.length,
+        embeddedMedia: mediaSummary.embeddedCount,
+        failedMedia: mediaSummary.failedCount
+      }
     });
   } catch (error) {
     await prisma.extractionJob.update({
