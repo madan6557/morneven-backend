@@ -183,11 +183,14 @@ export const normalizeSkillItems = (value: unknown) =>
 export const normalizeFeatureItems = (value: unknown) =>
   asArray(value).map((entry, index) => {
     const raw = asObject(entry);
+    const legacyRestriction = text(raw.cooldown ?? raw.cd ?? raw.recovery) || text(raw.level);
+    const restriction = normalizeSkillRestriction(raw.restriction, legacyRestriction);
     return {
       id: text(raw.id) || `feature-${index + 1}`,
       title: text(raw.title ?? raw.name) || `Feature ${index + 1}`,
       summary: text(raw.summary ?? raw.tagline ?? raw.description),
       ...(textOrUndefined(raw.details) ? { details: text(raw.details) } : {}),
+      ...(restriction ? { restriction } : {}),
       ...(textOrUndefined(raw.icon) ? { icon: text(raw.icon) } : {}),
       ...(textOrUndefined(raw.color ?? raw.accentColor) ? { color: text(raw.color ?? raw.accentColor) } : {}),
       ...(stringArray(raw.tags).length ? { tags: stringArray(raw.tags) } : {})
