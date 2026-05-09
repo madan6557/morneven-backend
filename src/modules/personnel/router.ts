@@ -8,6 +8,7 @@ import { fail, ok } from '../../utils/response.js';
 import { roleForLevel, serializeUser } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { ensureInstituteMembership, reconcileAutoMemberships, syncDivisionMembership } from '../chat/service.js';
+import { heartbeatPresence } from '../presence/service.js';
 
 export const personnelRouter = Router();
 
@@ -55,10 +56,15 @@ personnelRouter.get('/lookup', auth, async (req, res) => {
         username: { equals: username, mode: 'insensitive' }
       }))
     },
-    select: { id: true, username: true, role: true, level: true, track: true, note: true }
+    select: { id: true, username: true, email: true, role: true, level: true, track: true, note: true, updatedAt: true }
   });
   const deduped = Array.from(new Map(users.map((user) => [user.username.toLowerCase(), user])).values());
-  return ok(res, deduped);
+  return ok(res, deduped.map(serializeUser));
+});
+
+personnelRouter.post('/presence/heartbeat', auth, async (req, res) => {
+  heartbeatPresence(req.user!.username);
+  return ok(res, { online: true, lastSeenAt: new Date().toISOString() });
 });
 
 personnelRouter.get('/:id', auth, async (req, res) => {
