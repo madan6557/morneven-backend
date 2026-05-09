@@ -22,6 +22,10 @@ const messageSchema = z.object({
   replyTo: z.record(z.unknown()).optional()
 });
 
+const messageUpdateSchema = z.object({
+  text: z.string().optional().default('')
+});
+
 const dmSchema = z.object({
   username: z.string().optional(),
   target: z.string().optional(),
@@ -275,6 +279,40 @@ chatRouter.post('/messages', auth, async (req, res) => {
   );
   await Promise.all(recipients.filter((username) => username !== req.user!.username).map((username) => emitNavigationBadgesUpdated(username)));
   return res.status(201).json({ success: true, data: normalizeMessageAttachments(message) });
+});
+
+chatRouter.put('/messages/:id', auth, async (req, res) => {
+  const parsed = messageUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const message = await prisma.chatMessage.findUnique({ where: { id: req.params.id } });
+  if (!message) return fail(res, 404, 'Message not found', 'NOT_FOUND');
+  const conversation = await getConversation(message.conversationId);
+  if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
+  if (message.author !== req.user!.username && !canManage(conversation, req.user!.username)) {
+    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  }
+
+  const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+  if (!parsed.data.text.trim() && attachments.length === 0) {
+    return fail(res, 422, 'Text or attachment is required', 'VALIDATION_ERROR');
+  }
+
+  const updated = await prisma.chatMessage.update({
+    where: { id: message.id },
+    data: { text: parsed.data.text }
+  });
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'chat.message.update',
+    entity: 'ChatMessage',
+    entityId: updated.id,
+    metadata: { conversationId: updated.conversationId }
+  });
+  const normalized = normalizeMessageAttachments(updated) as unknown as Record<string, unknown>;
+  const recipients = activeUsernames(conversation);
+  emitToUsers(recipients, 'chat.message.updated', normalized);
+  return ok(res, normalized);
 });
 
 chatRouter.delete('/messages/:id', auth, async (req, res) => {

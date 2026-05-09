@@ -6,6 +6,7 @@ import {
   normalizeFeatureItems,
   normalizeSkillItems
 } from './lore-contract.js';
+import { getPresenceSnapshot } from '../modules/presence/service.js';
 
 export const dateOnly = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
 
@@ -67,9 +68,18 @@ export const serializeProject = (project: ProjectWithPatches) => {
   };
 };
 
-type UserPublic = Prisma.UserGetPayload<object>;
+type SerializableUser = {
+  id: string;
+  username: string;
+  email: string;
+  role: Role;
+  level: number;
+  track: Prisma.UserGetPayload<object>['track'];
+  note: string | null;
+  updatedAt: Date | string;
+};
 
-export const serializeUser = (user: UserPublic) => ({
+export const serializeUser = (user: SerializableUser) => ({
   id: user.id,
   username: user.username,
   email: user.email,
@@ -77,7 +87,8 @@ export const serializeUser = (user: UserPublic) => ({
   level: user.level,
   track: user.track,
   note: user.note ?? '',
-  updatedAt: dateOnly(user.updatedAt)
+  updatedAt: dateOnly(user.updatedAt),
+  ...getPresenceSnapshot(user.username)
 });
 
 type GalleryWithTags = Prisma.GalleryItemGetPayload<{ include: { tags: true; uploader: true } }>;
