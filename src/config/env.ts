@@ -27,7 +27,8 @@ const schema = z.object({
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_PUBLIC_BASE_URL: z.string().url().optional(),
-  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false)
+  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
+  MIGRATION_KEY: z.string().min(16).optional()
 });
 
 
@@ -71,5 +72,6 @@ export const env = {
   s3AccessKeyId: parsed.data.S3_ACCESS_KEY_ID,
   s3SecretAccessKey: parsed.data.S3_SECRET_ACCESS_KEY,
   s3PublicBaseUrl: parsed.data.S3_PUBLIC_BASE_URL,
-  s3ForcePathStyle: parsed.data.S3_FORCE_PATH_STYLE
+  s3ForcePathStyle: parsed.data.S3_FORCE_PATH_STYLE,
+  migrationKey: parsed.data.MIGRATION_KEY
 };
