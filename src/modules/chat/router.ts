@@ -63,6 +63,8 @@ const conversationInclude = {
   members: true
 } satisfies Prisma.ChatConversationInclude;
 
+const CHAT_MENTION_RE = /@([\w.-]+)/g;
+
 type ConversationWithMembers = Prisma.ChatConversationGetPayload<{ include: typeof conversationInclude }>;
 
 const serializeConversation = (conversation: ConversationWithMembers) => ({
@@ -112,6 +114,45 @@ const notifyConversationMembers = async (conversationId: string, sender: string,
 
 const activeUsernames = (conversation: ConversationWithMembers) =>
   conversation.members.filter((member) => member.status === 'active').map((member) => member.username);
+
+const extractMentionedUsernames = (text: string) =>
+  Array.from(text.matchAll(CHAT_MENTION_RE))
+    .map((match) => match[1]?.trim().toLowerCase())
+    .filter((username): username is string => Boolean(username));
+
+const notifyMentionedMembers = async (
+  conversation: ConversationWithMembers,
+  sender: string,
+  text: string
+) => {
+  const mentioned = extractMentionedUsernames(text);
+  if (!mentioned.length) return;
+
+  const activeMembers = conversation.members.filter((member) => member.status === 'active');
+  const usernamesByLower = new Map(activeMembers.map((member) => [member.username.toLowerCase(), member.username]));
+  const recipients = [...new Set(mentioned)]
+    .map((username) => usernamesByLower.get(username))
+    .filter((username): username is string => Boolean(username) && username !== sender);
+
+  if (!recipients.length) return;
+
+  const title = conversation.kind === 'dm'
+    ? `${sender} mentioned you in chat`
+    : `${sender} mentioned you in ${conversation.name}`;
+
+  await Promise.all(
+    recipients.map((recipient) =>
+      createNotification({
+        kind: 'mention',
+        title,
+        body: text.length > 160 ? `${text.slice(0, 157)}...` : text,
+        recipient,
+        sender,
+        link: '/chat'
+      })
+    )
+  );
+};
 
 const normalizeAttachmentUrl = (value: string) => {
   if (!value) return value;
@@ -269,7 +310,7 @@ chatRouter.post('/messages', auth, async (req, res) => {
       replyTo: parsed.data.replyTo as Prisma.InputJsonObject | undefined
     }
   });
-  await notifyConversationMembers(conversation.id, req.user!.username, 'New chat message');
+  await notifyMentionedMembers(conversation, req.user!.username, parsed.data.text);
   const recipients = activeUsernames(conversation);
   emitToUsers(recipients, 'chat.message.created', normalizeMessageAttachments(message) as unknown as Record<string, unknown>);
   emitToUsers(
