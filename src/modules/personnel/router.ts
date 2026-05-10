@@ -12,13 +12,15 @@ import { heartbeatPresence } from '../presence/service.js';
 
 export const personnelRouter = Router();
 
+const ROLE_ADMIN = 'admin' as Role;
+
 const personnelPatchSchema = z.object({
   username: z.string().min(3).max(30).optional(),
   email: z.string().email().optional(),
   level: z.coerce.number().int().min(0).max(7).optional(),
   track: z.nativeEnum(Track).optional(),
   note: z.string().optional(),
-  role: z.enum(['author', 'personel', 'guest']).optional()
+  role: z.enum(['author', 'admin', 'personel', 'guest']).optional()
 });
 
 const personnelCreateSchema = personnelPatchSchema.extend({
@@ -29,9 +31,9 @@ const personnelCreateSchema = personnelPatchSchema.extend({
 
 const isPl7AuthorTarget = (user: { level: number; role: Role }) => user.level >= 7 && user.role === Role.author;
 
-const resolvePersonnelRole = (level: number, requestedRole?: Role | 'author' | 'personel' | 'guest') => {
+const resolvePersonnelRole = (level: number, requestedRole?: Role | 'author' | 'admin' | 'personel' | 'guest') => {
   if (level <= 0) return Role.guest;
-  if (level >= 7) return requestedRole === 'author' ? Role.author : Role.personel;
+  if (level >= 7) return requestedRole === 'author' ? Role.author : ROLE_ADMIN;
   return Role.personel;
 };
 
@@ -263,7 +265,7 @@ personnelRouter.delete('/:id', auth, allow((u) => u.level >= 7), async (req, res
   if (!target) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
   if (target.id === req.user!.id) return fail(res, 403, 'You cannot delete your own account', 'FORBIDDEN');
   if (isPl7AuthorTarget(target)) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
-  if (req.user!.role !== Role.author && target.level >= 7 && target.role !== Role.personel) {
+  if (req.user!.role !== Role.author && target.level >= 7 && target.role !== ROLE_ADMIN) {
     return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
   }
   await prisma.user.delete({ where: { id: req.params.id } });

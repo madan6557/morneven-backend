@@ -8,6 +8,8 @@ import {
 } from './lore-contract.js';
 import { getPresenceSnapshot } from '../modules/presence/service.js';
 
+const ROLE_ADMIN = 'admin' as Role;
+
 export const dateOnly = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
 
 export const jsonObject = (value: unknown): Record<string, unknown> => {
@@ -21,9 +23,16 @@ export const jsonArray = <T>(value: Prisma.JsonValue | null | undefined): T[] =>
 };
 
 export const roleForLevel = (level: number): Role => {
-  if (level >= 7) return Role.author;
+  if (level >= 7) return ROLE_ADMIN;
   if (level <= 0) return Role.guest;
   return Role.personel;
+};
+
+export const normalizeUserRole = (role: Role, level: number): Role => {
+  if (role === Role.author) return Role.author;
+  if (level >= 7) return ROLE_ADMIN;
+  if (level <= 0) return Role.guest;
+  return role === Role.guest ? Role.guest : Role.personel;
 };
 
 export const projectStatusToApi = (status: ProjectStatus) => {
@@ -83,7 +92,7 @@ export const serializeUser = (user: SerializableUser) => ({
   id: user.id,
   username: user.username,
   email: user.email,
-  role: user.role,
+  role: normalizeUserRole(user.role, user.level),
   level: user.level,
   track: user.track,
   note: user.note ?? '',

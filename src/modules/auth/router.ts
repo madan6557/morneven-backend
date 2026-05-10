@@ -10,7 +10,7 @@ import { auth } from '../../middleware/auth.js';
 import { authRateLimiter } from '../../middleware/security.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
-import { serializeUser } from '../../utils/serializers.js';
+import { normalizeUserRole, serializeUser } from '../../utils/serializers.js';
 import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
 import { createNotification } from '../notifications/service.js';
 
@@ -99,7 +99,7 @@ authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
+      role: normalizeUserRole(user.role, user.level),
       level: user.level,
       track: user.track,
       note: user.note
