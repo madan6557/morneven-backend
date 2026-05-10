@@ -5,6 +5,9 @@ import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { fail } from '../utils/response.js';
 import { AuthUser } from '../types/auth.js';
+import { normalizeUserRole } from '../utils/serializers.js';
+
+const ROLE_ADMIN = 'admin' as Role;
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   const header = req.headers.authorization;
@@ -34,7 +37,13 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
 
     if (!user) return fail(res, 401, 'Invalid token', 'UNAUTHORIZED');
 
-    req.user = { id: user.id, username: user.username, role: user.role, level: user.level, track: user.track };
+    req.user = {
+      id: user.id,
+      username: user.username,
+      role: normalizeUserRole(user.role, user.level),
+      level: user.level,
+      track: user.track
+    };
     return next();
   } catch {
     return fail(res, 401, 'Invalid token', 'UNAUTHORIZED');
@@ -48,7 +57,7 @@ export const allow = (rule: (u: AuthUser) => boolean) => (req: Request, res: Res
 };
 
 export const isPl7Author = (u: AuthUser) => u.level >= 7 && u.role === Role.author;
-export const isPl7Admin = (u: AuthUser) => u.level >= 7 && u.role === Role.personel;
+export const isPl7Admin = (u: AuthUser) => u.level >= 7 && u.role === ROLE_ADMIN;
 export const hasPl7MaintenanceAccess = (u: AuthUser) => isPl7Author(u) || isPl7Admin(u);
 export const canRunExtractionJobs = (u: AuthUser) => isPl7Author(u);
 
