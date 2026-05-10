@@ -129,15 +129,31 @@ personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => 
 personnelRouter.put('/:id', auth, async (req, res) => {
   const target = await prisma.user.findUnique({ where: { id: req.params.id } });
   if (!target) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
-  if (req.user!.id === target.id) return fail(res, 403, 'You cannot edit your own account', 'FORBIDDEN');
   if (req.user!.level < 5) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  if (req.user!.level === 5 && req.user!.track !== target.track) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  if (isPl7AuthorTarget(target) && req.user!.level < 7) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
-  if (isPl7AuthorTarget(target) && req.user!.role !== Role.author) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
 
   const parsed = personnelPatchSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   const patchKeys = Object.keys(parsed.data);
+  const isSelfEdit = req.user!.id === target.id;
+
+  if (isSelfEdit) {
+    if (req.user!.level < 6) {
+      return fail(res, 403, 'You cannot edit your own account', 'FORBIDDEN');
+    }
+    if (patchKeys.some((key) => key !== 'note')) {
+      return fail(res, 403, 'You can only edit your own note', 'FORBIDDEN');
+    }
+    const updated = await prisma.user.update({
+      where: { id: target.id },
+      data: { note: parsed.data.note ?? target.note }
+    });
+    await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.self-update-note', entity: 'User', entityId: updated.id });
+    return ok(res, serializeUser(updated));
+  }
+
+  if (req.user!.level === 5 && req.user!.track !== target.track) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (isPl7AuthorTarget(target) && req.user!.level < 7) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
+  if (isPl7AuthorTarget(target) && req.user!.role !== Role.author) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
 
   if (req.user!.level === 5) {
     if (patchKeys.some((key) => key !== 'note')) {
