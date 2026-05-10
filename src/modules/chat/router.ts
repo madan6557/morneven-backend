@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { auth, allow } from '../../middleware/auth.js';
+import { auth, allow, hasPl7MaintenanceAccess } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { paginated, parsePagination } from '../../utils/pagination.js';
@@ -158,7 +158,7 @@ chatRouter.get('/conversations', auth, async (req, res) => {
   return ok(res, conversations.map(serializeConversation));
 });
 
-chatRouter.post('/reconcile', auth, allow((user) => user.level >= 7 || (user.level >= 6 && user.track === 'executive')), async (_req, res) => {
+chatRouter.post('/reconcile', auth, allow(hasPl7MaintenanceAccess), async (_req, res) => {
   await reconcileAutoMemberships();
   const [instituteGroups, divisionGroups, teamGroups, activeMemberships, removedMemberships] = await Promise.all([
     prisma.chatConversation.count({ where: { systemManaged: true, kind: 'institute' } }),
@@ -188,7 +188,7 @@ chatRouter.post('/reconcile', auth, allow((user) => user.level >= 7 || (user.lev
   return ok(res, report);
 });
 
-chatRouter.get('/reconcile/status', auth, allow((user) => user.level >= 7 || (user.level >= 6 && user.track === 'executive')), async (_req, res) => {
+chatRouter.get('/reconcile/status', auth, allow(hasPl7MaintenanceAccess), async (_req, res) => {
   const latest = await prisma.auditLog.findFirst({
     where: { action: 'chat.reconcile' },
     orderBy: { createdAt: 'desc' }

@@ -1,10 +1,11 @@
 import { Request, Response, Router } from 'express';
+import { raw } from 'express';
 import bcrypt from 'bcryptjs';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { EntityType, MediaType, Prisma, Role, Track } from '@prisma/client';
 import { z } from 'zod';
-import { auth } from '../../middleware/auth.js';
+import { auth, hasPl7MaintenanceAccess, isPl7Author } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
 import { saveFileToStorage } from '../../config/storage.js';
@@ -22,6 +23,7 @@ import { writeAudit } from '../../utils/audit.js';
 import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from './preset-service.js';
 import {
   cleanupUnreferencedStoragePaths,
+  collectReferencedStoragePaths,
   extractStorageObjectPath,
   getStorageCleanupReport,
   runStorageCleanup
@@ -61,6 +63,26 @@ const extractionSchema = z.object({
   confirmText: z.literal('CONFIRM'),
   password: z.string().min(1)
 });
+
+const migrationSchema = z
+  .object({
+    newBaseUrl: z.string().url().optional().or(z.literal('')),
+    migrationUrl: z.string().url().optional().or(z.literal('')),
+    confirmText: z.literal('MIGRATION'),
+    password: z.string().min(1),
+    secretKey: z.string().min(16)
+  })
+  .superRefine((value, ctx) => {
+    const hasBaseUrl = Boolean(value.newBaseUrl);
+    const hasMigrationUrl = Boolean(value.migrationUrl);
+    if (hasBaseUrl === hasMigrationUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Provide exactly one migration target',
+        path: ['migrationUrl']
+      });
+    }
+  });
 
 const clearExtractionSchema = z.object({
   ids: z.array(z.string()).optional()
@@ -177,8 +199,16 @@ settingsRouter.delete('/command-center/presets/:id', auth, async (req, res) => {
 });
 
 const requirePl7 = (req: Request, res: Response) => {
-  if (!req.user || req.user.level < 7) {
+  if (!req.user || !hasPl7MaintenanceAccess(req.user)) {
     fail(res, 403, 'PL7 access required', 'FORBIDDEN');
+    return false;
+  }
+  return true;
+};
+
+const requirePl7Author = (req: Request, res: Response) => {
+  if (!req.user || !isPl7Author(req.user)) {
+    fail(res, 403, 'PL7 author access required', 'FORBIDDEN');
     return false;
   }
   return true;
@@ -484,8 +514,524 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
   }
 };
 
+type MigrationDataset = {
+  users: Awaited<ReturnType<typeof prisma.user.findMany>>;
+  commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
+  refreshTokens: Awaited<ReturnType<typeof prisma.refreshToken.findMany>>;
+  projects: Awaited<ReturnType<typeof prisma.project.findMany>>;
+  projectPatches: Awaited<ReturnType<typeof prisma.projectPatch.findMany>>;
+  news: Awaited<ReturnType<typeof prisma.news.findMany>>;
+  newsAttachments: Awaited<ReturnType<typeof prisma.newsAttachment.findMany>>;
+  loreItems: Awaited<ReturnType<typeof prisma.loreItem.findMany>>;
+  entityDocs: Awaited<ReturnType<typeof prisma.entityDoc.findMany>>;
+  galleryItems: Awaited<ReturnType<typeof prisma.galleryItem.findMany>>;
+  galleryTags: Awaited<ReturnType<typeof prisma.galleryTag.findMany>>;
+  mapImages: Awaited<ReturnType<typeof prisma.mapImage.findMany>>;
+  mapMarkers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
+  comments: Awaited<ReturnType<typeof prisma.comment.findMany>>;
+  replies: Awaited<ReturnType<typeof prisma.reply.findMany>>;
+  mentions: Awaited<ReturnType<typeof prisma.mention.findMany>>;
+  managementRequests: Awaited<ReturnType<typeof prisma.managementRequest.findMany>>;
+  teams: Awaited<ReturnType<typeof prisma.team.findMany>>;
+  quotaRecords: Awaited<ReturnType<typeof prisma.quotaRecord.findMany>>;
+  notifications: Awaited<ReturnType<typeof prisma.notification.findMany>>;
+  notificationReads: Awaited<ReturnType<typeof prisma.notificationRead.findMany>>;
+  chatConversations: Awaited<ReturnType<typeof prisma.chatConversation.findMany>>;
+  chatConversationMembers: Awaited<ReturnType<typeof prisma.chatConversationMember.findMany>>;
+  chatMessages: Awaited<ReturnType<typeof prisma.chatMessage.findMany>>;
+  chatReadStates: Awaited<ReturnType<typeof prisma.chatReadState.findMany>>;
+  extractionJobs: Awaited<ReturnType<typeof prisma.extractionJob.findMany>>;
+  auditLogs: Awaited<ReturnType<typeof prisma.auditLog.findMany>>;
+};
+
+type MigrationPayload = {
+  version: 1;
+  exportedAt: string;
+  source: {
+    assetEndpoint: string;
+  };
+  dataset: MigrationDataset;
+  assets: Array<{ objectPath: string }>;
+  summary: {
+    tables: Record<string, number>;
+    assetCount: number;
+  };
+};
+
+type MigrationVerification = {
+  tables: Record<string, number>;
+  assetCount: number;
+  uploadedAssetCount: number;
+  failedAssets: Array<{ objectPath: string; error: string }>;
+};
+
+const migrationProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
+
+const requireMigrationKey = (key?: string | null) => {
+  if (!env.migrationKey) throw new Error('MIGRATION_KEY is not configured on this backend');
+  if (!key || key !== env.migrationKey) throw new Error('Invalid migration key');
+};
+
+const parseMigrationPayload = (buffer: Buffer): MigrationPayload => {
+  const parsed = JSON.parse(buffer.toString('utf8')) as MigrationPayload;
+  if (!parsed || parsed.version !== 1 || !parsed.dataset || !parsed.source?.assetEndpoint) {
+    throw new Error('Invalid migration payload');
+  }
+  return parsed;
+};
+
+const summarizeMigrationDataset = (dataset: MigrationDataset, assetCount: number) => ({
+  tables: Object.fromEntries(
+    Object.entries(dataset).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0])
+  ),
+  assetCount
+});
+
+const collectMigrationDataset = async (): Promise<MigrationDataset> => {
+  const [
+    users,
+    commandCenterSettings,
+    refreshTokens,
+    projects,
+    projectPatches,
+    news,
+    newsAttachments,
+    loreItems,
+    entityDocs,
+    galleryItems,
+    galleryTags,
+    mapImages,
+    mapMarkers,
+    comments,
+    replies,
+    mentions,
+    managementRequests,
+    teams,
+    quotaRecords,
+    notifications,
+    notificationReads,
+    chatConversations,
+    chatConversationMembers,
+    chatMessages,
+    chatReadStates,
+    extractionJobs,
+    auditLogs
+  ] = await Promise.all([
+    prisma.user.findMany(),
+    prisma.commandCenterSettings.findMany(),
+    prisma.refreshToken.findMany(),
+    prisma.project.findMany(),
+    prisma.projectPatch.findMany(),
+    prisma.news.findMany(),
+    prisma.newsAttachment.findMany(),
+    prisma.loreItem.findMany(),
+    prisma.entityDoc.findMany(),
+    prisma.galleryItem.findMany(),
+    prisma.galleryTag.findMany(),
+    prisma.mapImage.findMany(),
+    prisma.mapMarker.findMany(),
+    prisma.comment.findMany(),
+    prisma.reply.findMany(),
+    prisma.mention.findMany(),
+    prisma.managementRequest.findMany(),
+    prisma.team.findMany(),
+    prisma.quotaRecord.findMany(),
+    prisma.notification.findMany(),
+    prisma.notificationRead.findMany(),
+    prisma.chatConversation.findMany(),
+    prisma.chatConversationMember.findMany(),
+    prisma.chatMessage.findMany(),
+    prisma.chatReadState.findMany(),
+    prisma.extractionJob.findMany(),
+    prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } })
+  ]);
+
+  return {
+    users,
+    commandCenterSettings,
+    refreshTokens,
+    projects,
+    projectPatches,
+    news,
+    newsAttachments,
+    loreItems,
+    entityDocs,
+    galleryItems,
+    galleryTags,
+    mapImages,
+    mapMarkers,
+    comments,
+    replies,
+    mentions,
+    managementRequests,
+    teams,
+    quotaRecords,
+    notifications,
+    notificationReads,
+    chatConversations,
+    chatConversationMembers,
+    chatMessages,
+    chatReadStates,
+    extractionJobs,
+    auditLogs
+  };
+};
+
+const collectMigrationPayload = async (assetEndpoint: string): Promise<MigrationPayload> => {
+  const dataset = await collectMigrationDataset();
+  const assets = Array.from(await collectReferencedStoragePaths())
+    .sort((left, right) => left.localeCompare(right))
+    .map((objectPath) => ({ objectPath }));
+
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    source: { assetEndpoint },
+    dataset,
+    assets,
+    summary: summarizeMigrationDataset(dataset, assets.length)
+  };
+};
+
+const countCurrentMigrationState = async () => {
+  const [
+    users,
+    commandCenterSettings,
+    refreshTokens,
+    projects,
+    projectPatches,
+    news,
+    newsAttachments,
+    loreItems,
+    entityDocs,
+    galleryItems,
+    galleryTags,
+    mapImages,
+    mapMarkers,
+    comments,
+    replies,
+    mentions,
+    managementRequests,
+    teams,
+    quotaRecords,
+    notifications,
+    notificationReads,
+    chatConversations,
+    chatConversationMembers,
+    chatMessages,
+    chatReadStates,
+    extractionJobs,
+    auditLogs,
+    assets
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.commandCenterSettings.count(),
+    prisma.refreshToken.count(),
+    prisma.project.count(),
+    prisma.projectPatch.count(),
+    prisma.news.count(),
+    prisma.newsAttachment.count(),
+    prisma.loreItem.count(),
+    prisma.entityDoc.count(),
+    prisma.galleryItem.count(),
+    prisma.galleryTag.count(),
+    prisma.mapImage.count(),
+    prisma.mapMarker.count(),
+    prisma.comment.count(),
+    prisma.reply.count(),
+    prisma.mention.count(),
+    prisma.managementRequest.count(),
+    prisma.team.count(),
+    prisma.quotaRecord.count(),
+    prisma.notification.count(),
+    prisma.notificationRead.count(),
+    prisma.chatConversation.count(),
+    prisma.chatConversationMember.count(),
+    prisma.chatMessage.count(),
+    prisma.chatReadState.count(),
+    prisma.extractionJob.count(),
+    prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }),
+    collectReferencedStoragePaths()
+  ]);
+
+  return {
+    tables: {
+      users,
+      commandCenterSettings,
+      refreshTokens,
+      projects,
+      projectPatches,
+      news,
+      newsAttachments,
+      loreItems,
+      entityDocs,
+      galleryItems,
+      galleryTags,
+      mapImages,
+      mapMarkers,
+      comments,
+      replies,
+      mentions,
+      managementRequests,
+      teams,
+      quotaRecords,
+      notifications,
+      notificationReads,
+      chatConversations,
+      chatConversationMembers,
+      chatMessages,
+      chatReadStates,
+      extractionJobs,
+      auditLogs
+    },
+    assetCount: assets.size
+  };
+};
+
+const importMigrationDataset = async (dataset: MigrationDataset) => {
+  await prisma.$transaction(async (tx) => {
+    await tx.notificationRead.deleteMany();
+    await tx.mention.deleteMany();
+    await tx.reply.deleteMany();
+    await tx.comment.deleteMany();
+    await tx.galleryTag.deleteMany();
+    await tx.newsAttachment.deleteMany();
+    await tx.projectPatch.deleteMany();
+    await tx.chatReadState.deleteMany();
+    await tx.chatMessage.deleteMany();
+    await tx.chatConversationMember.deleteMany();
+    await tx.chatConversation.deleteMany();
+    await tx.refreshToken.deleteMany();
+    await tx.extractionJob.deleteMany();
+    await tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } });
+    await tx.managementRequest.deleteMany();
+    await tx.team.deleteMany();
+    await tx.quotaRecord.deleteMany();
+    await tx.notification.deleteMany();
+    await tx.mapMarker.deleteMany();
+    await tx.mapImage.deleteMany();
+    await tx.galleryItem.deleteMany();
+    await tx.entityDoc.deleteMany();
+    await tx.loreItem.deleteMany();
+    await tx.news.deleteMany();
+    await tx.project.deleteMany();
+    await tx.commandCenterSettings.deleteMany();
+    await tx.user.deleteMany();
+
+    if (dataset.users.length) await tx.user.createMany({ data: dataset.users as any });
+    if (dataset.commandCenterSettings.length) await tx.commandCenterSettings.createMany({ data: dataset.commandCenterSettings as any });
+    if (dataset.refreshTokens.length) await tx.refreshToken.createMany({ data: dataset.refreshTokens as any });
+    if (dataset.projects.length) await tx.project.createMany({ data: dataset.projects as any });
+    if (dataset.projectPatches.length) await tx.projectPatch.createMany({ data: dataset.projectPatches as any });
+    if (dataset.news.length) await tx.news.createMany({ data: dataset.news as any });
+    if (dataset.newsAttachments.length) await tx.newsAttachment.createMany({ data: dataset.newsAttachments as any });
+    if (dataset.loreItems.length) await tx.loreItem.createMany({ data: dataset.loreItems as any });
+    if (dataset.entityDocs.length) await tx.entityDoc.createMany({ data: dataset.entityDocs as any });
+    if (dataset.galleryItems.length) await tx.galleryItem.createMany({ data: dataset.galleryItems as any });
+    if (dataset.galleryTags.length) await tx.galleryTag.createMany({ data: dataset.galleryTags as any });
+    if (dataset.mapImages.length) await tx.mapImage.createMany({ data: dataset.mapImages as any });
+    if (dataset.mapMarkers.length) await tx.mapMarker.createMany({ data: dataset.mapMarkers as any });
+    if (dataset.comments.length) await tx.comment.createMany({ data: dataset.comments as any });
+    if (dataset.replies.length) await tx.reply.createMany({ data: dataset.replies as any });
+    if (dataset.mentions.length) await tx.mention.createMany({ data: dataset.mentions as any });
+    if (dataset.managementRequests.length) await tx.managementRequest.createMany({ data: dataset.managementRequests as any });
+    if (dataset.teams.length) await tx.team.createMany({ data: dataset.teams as any });
+    if (dataset.quotaRecords.length) await tx.quotaRecord.createMany({ data: dataset.quotaRecords as any });
+    if (dataset.notifications.length) await tx.notification.createMany({ data: dataset.notifications as any });
+    if (dataset.notificationReads.length) await tx.notificationRead.createMany({ data: dataset.notificationReads as any });
+    if (dataset.chatConversations.length) await tx.chatConversation.createMany({ data: dataset.chatConversations as any });
+    if (dataset.chatConversationMembers.length) await tx.chatConversationMember.createMany({ data: dataset.chatConversationMembers as any });
+    if (dataset.chatMessages.length) await tx.chatMessage.createMany({ data: dataset.chatMessages as any });
+    if (dataset.chatReadStates.length) await tx.chatReadState.createMany({ data: dataset.chatReadStates as any });
+    if (dataset.extractionJobs.length) await tx.extractionJob.createMany({ data: dataset.extractionJobs as any });
+    if (dataset.auditLogs.length) await tx.auditLog.createMany({ data: dataset.auditLogs as any });
+  });
+};
+
+const pullMigrationAssets = async (payload: MigrationPayload, migrationKey: string): Promise<MigrationVerification> => {
+  let uploadedAssetCount = 0;
+  const failedAssets: Array<{ objectPath: string; error: string }> = [];
+
+  for (const asset of payload.assets) {
+    try {
+      const url = `${payload.source.assetEndpoint}?path=${encodeURIComponent(asset.objectPath)}`;
+      const response = await fetch(url, {
+        headers: {
+          'x-migration-key': migrationKey
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Source asset responded with ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      await saveFileToStorage({
+        objectPath: asset.objectPath,
+        buffer: Buffer.from(arrayBuffer),
+        contentType
+      });
+      uploadedAssetCount += 1;
+    } catch (error) {
+      failedAssets.push({
+        objectPath: asset.objectPath,
+        error: error instanceof Error ? error.message : 'Unknown asset transfer failure'
+      });
+    }
+  }
+
+  const counts = await countCurrentMigrationState();
+  return {
+    tables: counts.tables,
+    assetCount: counts.assetCount,
+    uploadedAssetCount,
+    failedAssets
+  };
+};
+
+const serializeMigrationJob = (log: Awaited<ReturnType<typeof prisma.auditLog.findFirst>>) => {
+  if (!log) return log;
+  const metadata = (log.metadata ?? {}) as Record<string, unknown>;
+  return {
+    id: log.id,
+    status: String(metadata.status ?? 'processing'),
+    targetUrl: String(metadata.targetUrl ?? ''),
+    createdAt: log.createdAt.toISOString(),
+    completedAt: typeof metadata.completedAt === 'string' ? metadata.completedAt : undefined,
+    downloadName: typeof metadata.downloadName === 'string' ? metadata.downloadName : undefined,
+    artifactPath: typeof metadata.artifactPath === 'string' ? metadata.artifactPath : undefined,
+    progress: metadata.progress ?? migrationProgress(0, 'queued', 'Queued'),
+    error: typeof metadata.error === 'string' ? metadata.error : undefined,
+    summary: metadata.summary ?? undefined,
+    verification: metadata.verification ?? undefined
+  };
+};
+
+const runMigrationJob = async (
+  jobId: string,
+  actor: string,
+  targetUrl: string,
+  sourceAssetEndpoint: string,
+  migrationKey: string,
+  downloadName: string
+) => {
+  const updateMetadata = async (patch: Record<string, unknown>) => {
+    const current = await prisma.auditLog.findUnique({ where: { id: jobId } });
+    const currentMetadata = (current?.metadata ?? {}) as Record<string, unknown>;
+    await prisma.auditLog.update({
+      where: { id: jobId },
+      data: {
+        metadata: {
+          ...currentMetadata,
+          ...patch
+        } as Prisma.InputJsonValue
+      }
+    });
+  };
+
+  try {
+    await updateMetadata({ progress: migrationProgress(10, 'collecting', 'Collecting migration payload') });
+    const payload = await collectMigrationPayload(sourceAssetEndpoint);
+    await updateMetadata({
+      summary: payload.summary,
+      progress: migrationProgress(35, 'sending', 'Sending payload to target backend')
+    });
+
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/octet-stream',
+        'x-migration-key': migrationKey
+      },
+      body: Buffer.from(JSON.stringify(payload), 'utf8')
+    });
+
+    if (!response.ok) {
+      throw new Error(`Target backend rejected migration with status ${response.status}`);
+    }
+
+    await updateMetadata({ progress: migrationProgress(80, 'verifying', 'Comparing target verification results') });
+    const responsePayload = (await response.json()) as { success?: boolean; data?: MigrationVerification; message?: string };
+    if (!responsePayload.success || !responsePayload.data) {
+      throw new Error(responsePayload.message || 'Target backend returned an invalid migration response');
+    }
+
+    const verification = responsePayload.data;
+    const comparison = {
+      tablesMatch: Object.entries(payload.summary.tables).every(
+        ([key, value]) => Number(verification.tables[key] ?? 0) === value
+      ),
+      assetsMatch: verification.assetCount === payload.summary.assetCount,
+      uploadedAssetsMatch: verification.uploadedAssetCount === payload.summary.assetCount
+    };
+
+    const report = {
+      exportedAt: payload.exportedAt,
+      actor,
+      targetUrl,
+      payloadSummary: payload.summary,
+      verification,
+      comparison
+    };
+
+    const stored = await saveFileToStorage({
+      objectPath: `exports/migrations/${jobId}/${downloadName}`,
+      buffer: Buffer.from(JSON.stringify(report, null, 2), 'utf8'),
+      contentType: 'application/json'
+    });
+
+    await updateMetadata({
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      artifactPath: stored.objectPath,
+      artifactUrl: stored.url,
+      downloadName,
+      verification,
+      comparison,
+      progress: migrationProgress(100, 'completed', 'Migration verification report ready')
+    });
+  } catch (error) {
+    await updateMetadata({
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Migration failed',
+      progress: migrationProgress(100, 'failed', 'Migration failed')
+    });
+  }
+};
+
+const buildDefaultMigrationReceiveUrl = (baseUrl: string) => {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  return /\/api$/i.test(trimmed) ? `${trimmed}/settings/migration/receive` : `${trimmed}/api/settings/migration/receive`;
+};
+
+settingsRouter.get('/migration/assets', async (req, res) => {
+  try {
+    requireMigrationKey(req.header('x-migration-key'));
+    const objectPath = extractStorageObjectPath(String(req.query.path ?? ''));
+    if (!objectPath) return fail(res, 422, 'Invalid object path', 'VALIDATION_ERROR');
+    const stored = await readFileWithMetadataFromStorage(objectPath);
+    res.setHeader('Content-Type', stored.contentType ?? 'application/octet-stream');
+    return res.send(stored.buffer);
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Forbidden', 'FORBIDDEN');
+  }
+});
+
+settingsRouter.post('/migration/receive', raw({ type: 'application/octet-stream', limit: '250mb' }), async (req, res) => {
+  try {
+    const migrationKey = req.header('x-migration-key');
+    requireMigrationKey(migrationKey);
+    if (!Buffer.isBuffer(req.body)) return fail(res, 422, 'Migration payload is required', 'VALIDATION_ERROR');
+    const payload = parseMigrationPayload(req.body);
+    await importMigrationDataset(payload.dataset);
+    const verification = await pullMigrationAssets(payload, migrationKey!);
+    return ok(res, verification);
+  } catch (error) {
+    return fail(res, 400, error instanceof Error ? error.message : 'Migration receive failed', 'MIGRATION_ERROR');
+  }
+});
+
 settingsRouter.get('/extractions', auth, async (req, res) => {
-  if (!requirePl7(req, res)) return;
+  if (!requirePl7Author(req, res)) return;
   const jobs = await prisma.extractionJob.findMany({
     where: { createdBy: req.user!.username, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'desc' }
@@ -494,7 +1040,7 @@ settingsRouter.get('/extractions', auth, async (req, res) => {
 });
 
 settingsRouter.post('/extractions', auth, async (req, res) => {
-  if (!requirePl7(req, res)) return;
+  if (!requirePl7Author(req, res)) return;
 
   const parsed = extractionSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
@@ -527,14 +1073,14 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
 });
 
 settingsRouter.get('/extractions/:id', auth, async (req, res) => {
-  if (!requirePl7(req, res)) return;
+  if (!requirePl7Author(req, res)) return;
   const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
   if (!job) return fail(res, 404, 'Extraction job not found', 'NOT_FOUND');
   return ok(res, serializeExtractionJob(job));
 });
 
 settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
-  if (!requirePl7(req, res)) return;
+  if (!requirePl7Author(req, res)) return;
   const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
   if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
 
@@ -548,6 +1094,87 @@ settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
   const file = await readFileFromStorage(job.artifactPath);
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-extract-${job.id}.zip`}"`);
+  return res.send(file);
+});
+
+settingsRouter.get('/migrations', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const jobs = await prisma.auditLog.findMany({
+    where: {
+      actor: req.user!.username,
+      action: 'migration.job'
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  return ok(res, jobs.map(serializeMigrationJob));
+});
+
+settingsRouter.post('/migrations', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const parsed = migrationSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!env.migrationKey) return fail(res, 503, 'Migration key is not configured', 'MIGRATION_UNAVAILABLE');
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
+  const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
+  if (parsed.data.secretKey !== env.migrationKey) return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
+
+  const targetUrl = parsed.data.migrationUrl || buildDefaultMigrationReceiveUrl(parsed.data.newBaseUrl || '');
+  const createdAt = new Date();
+  const downloadName = `morneven-migration-report-${createdAt.toISOString().slice(0, 10)}.json`;
+  const job = await prisma.auditLog.create({
+    data: {
+      actor: req.user!.username,
+      action: 'migration.job',
+      entity: 'MigrationJob',
+      metadata: {
+        status: 'processing',
+        targetUrl,
+        downloadName,
+        progress: migrationProgress(0, 'queued', 'Queued')
+      }
+    }
+  });
+
+  const sourceAssetEndpoint = `${req.protocol}://${req.get('host')}/api/settings/migration/assets`;
+  setImmediate(() => {
+    void runMigrationJob(job.id, req.user!.username, targetUrl, sourceAssetEndpoint, parsed.data.secretKey, downloadName);
+  });
+
+  return res.status(202).json({ success: true, data: serializeMigrationJob(job) });
+});
+
+settingsRouter.get('/migrations/:id', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const job = await prisma.auditLog.findFirst({
+    where: {
+      id: req.params.id,
+      actor: req.user!.username,
+      action: 'migration.job'
+    }
+  });
+  if (!job) return fail(res, 404, 'Migration job not found', 'NOT_FOUND');
+  return ok(res, serializeMigrationJob(job));
+});
+
+settingsRouter.get('/migrations/:id/download', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const job = await prisma.auditLog.findFirst({
+    where: {
+      id: req.params.id,
+      actor: req.user!.username,
+      action: 'migration.job'
+    }
+  });
+  if (!job) return fail(res, 404, 'Migration job not found', 'NOT_FOUND');
+  const metadata = (job.metadata ?? {}) as Record<string, unknown>;
+  if (typeof metadata.artifactPath !== 'string') return fail(res, 404, 'Migration report not found', 'NOT_FOUND');
+
+  const file = await readFileFromStorage(metadata.artifactPath);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="${String(metadata.downloadName ?? `morneven-migration-report-${job.id}.json`)}"`);
   return res.send(file);
 });
 
@@ -574,7 +1201,7 @@ settingsRouter.post('/storage-cleanup', auth, async (req, res) => {
 });
 
 settingsRouter.delete('/extractions', auth, async (req, res) => {
-  if (!requirePl7(req, res)) return;
+  if (!requirePl7Author(req, res)) return;
   const parsed = clearExtractionSchema.safeParse(req.body ?? {});
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 

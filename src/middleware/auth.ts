@@ -47,6 +47,11 @@ export const allow = (rule: (u: AuthUser) => boolean) => (req: Request, res: Res
   return next();
 };
 
+export const isPl7Author = (u: AuthUser) => u.level >= 7 && u.role === Role.author;
+export const isPl7Admin = (u: AuthUser) => u.level >= 7 && u.role === Role.personel;
+export const hasPl7MaintenanceAccess = (u: AuthUser) => isPl7Author(u) || isPl7Admin(u);
+export const canRunExtractionJobs = (u: AuthUser) => isPl7Author(u);
+
 export const canWriteNews = (u: AuthUser) => u.level === 7 || (u.level === 6 && u.track === Track.executive);
 export const canWriteProjects = (u: AuthUser) =>
   u.level === 7 || (u.level === 6 && (u.track === Track.mechanic || u.track === Track.executive));
