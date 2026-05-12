@@ -26,6 +26,15 @@ Dokumen ini merangkum migration penting agar tim FE, QA, dan DevOps tidak perlu 
      - `updatedAt`
    - Preset default disiapkan agar sistem tetap punya konfigurasi aktif.
 
+5. `20260512110000_user_moderation_and_status`
+   - Menambahkan status akun user:
+     - `active`
+     - `suspended`
+     - `banned`
+     - `deleted`
+   - Menambahkan kolom disiplin user untuk auto-demote dan auto-ban berbasis laporan terkonfirmasi.
+   - Menambahkan tabel `PersonnelReport` untuk pelaporan user dan alur review moderasi.
+
 ## Catatan operasional
 
 - Banyak folder migration itu normal, karena migration adalah histori perubahan schema.
@@ -33,4 +42,3 @@ Dokumen ini merangkum migration penting agar tim FE, QA, dan DevOps tidak perlu 
 - Deployment production harus menjalankan:
   - `prisma migrate deploy`
 - Prisma akan mengeksekusi migration yang **belum pernah diterapkan** pada DB target, sesuai urutan histori di tabel `_prisma_migrations`.
-

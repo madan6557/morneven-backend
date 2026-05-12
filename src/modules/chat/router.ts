@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
+import { AccountStatus, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { auth, allow, hasPl7MaintenanceAccess } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
@@ -377,13 +377,17 @@ chatRouter.post('/dm', auth, async (req, res) => {
   const target = parsed.data.username ?? parsed.data.target ?? parsed.data.targetUsername;
   if (!target) return fail(res, 422, 'Target username is required', 'VALIDATION_ERROR');
   if (target === req.user!.username) return fail(res, 422, 'Cannot create DM with yourself', 'VALIDATION_ERROR');
+  const targetUser = await prisma.user.findFirst({
+    where: { username: { equals: target, mode: 'insensitive' }, accountStatus: AccountStatus.active, level: { gte: 1 } }
+  });
+  if (!targetUser) return fail(res, 404, 'Target personnel is not available for chat', 'NOT_FOUND');
 
   const existing = await prisma.chatConversation.findFirst({
     where: {
       kind: 'dm',
       AND: [
         { members: { some: { username: req.user!.username, status: 'active' } } },
-        { members: { some: { username: target, status: 'active' } } }
+        { members: { some: { username: targetUser.username, status: 'active' } } }
       ]
     },
     include: conversationInclude
@@ -393,18 +397,18 @@ chatRouter.post('/dm', auth, async (req, res) => {
   const created = await prisma.chatConversation.create({
     data: {
       kind: 'dm',
-      name: `DM ${req.user!.username} & ${target}`,
+      name: `DM ${req.user!.username} & ${targetUser.username}`,
       createdBy: req.user!.username,
       members: {
         create: [
           { username: req.user!.username, role: 'owner', status: 'active' },
-          { username: target, role: 'owner', status: 'active' }
+          { username: targetUser.username, role: 'owner', status: 'active' }
         ]
       }
     },
     include: conversationInclude
   });
-  emitToUsers([req.user!.username, target], 'chat.conversation.created', serializeConversation(created));
+  emitToUsers([req.user!.username, targetUser.username], 'chat.conversation.created', serializeConversation(created));
   return res.status(201).json({ success: true, data: serializeConversation(created) });
 });
 
@@ -413,6 +417,18 @@ chatRouter.post('/groups', auth, async (req, res) => {
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
   const invitees = [...new Set(parsed.data.invitees.filter((username) => username !== req.user!.username))];
+  const inviteeUsers = await prisma.user.findMany({
+    where: {
+      OR: invitees.map((username) => ({ username: { equals: username, mode: 'insensitive' } })),
+      accountStatus: AccountStatus.active,
+      level: { gte: 1 }
+    },
+    select: { username: true }
+  });
+  if (inviteeUsers.length !== invitees.length) {
+    return fail(res, 422, 'All invitees must be active personnel', 'VALIDATION_ERROR');
+  }
+  const normalizedInvitees = inviteeUsers.map((user) => user.username);
   const created = await prisma.chatConversation.create({
     data: {
       kind: 'group',
@@ -421,7 +437,7 @@ chatRouter.post('/groups', auth, async (req, res) => {
       members: {
         create: [
           { username: req.user!.username, role: 'owner', status: 'active' },
-          ...invitees.map((username) => ({ username, role: 'member', status: 'invited', invitedBy: req.user!.username }))
+          ...normalizedInvitees.map((username) => ({ username, role: 'member', status: 'invited', invitedBy: req.user!.username }))
         ]
       },
       messages: {
@@ -430,8 +446,8 @@ chatRouter.post('/groups', auth, async (req, res) => {
     },
     include: conversationInclude
   });
-  await Promise.all(invitees.map((recipient) => createNotification({ kind: 'request', title: 'Chat invite', recipient, sender: req.user!.username, link: '/chat' })));
-  emitToUsers([req.user!.username, ...invitees], 'chat.conversation.created', serializeConversation(created));
+  await Promise.all(normalizedInvitees.map((recipient) => createNotification({ kind: 'request', title: 'Chat invite', recipient, sender: req.user!.username, link: '/chat' })));
+  emitToUsers([req.user!.username, ...normalizedInvitees], 'chat.conversation.created', serializeConversation(created));
   return res.status(201).json({ success: true, data: serializeConversation(created) });
 });
 
@@ -442,7 +458,20 @@ chatRouter.post('/conversations/:id/invites', auth, async (req, res) => {
   if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
   if (conversation.systemManaged || !canManage(conversation, req.user!.username)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
 
-  for (const username of parsed.data.usernames) {
+  const inviteUsers = await prisma.user.findMany({
+    where: {
+      OR: parsed.data.usernames.map((username) => ({ username: { equals: username, mode: 'insensitive' } })),
+      accountStatus: AccountStatus.active,
+      level: { gte: 1 }
+    },
+    select: { username: true }
+  });
+  const normalizedUsernames = inviteUsers.map((user) => user.username);
+  if (normalizedUsernames.length !== parsed.data.usernames.length) {
+    return fail(res, 422, 'All invitees must be active personnel', 'VALIDATION_ERROR');
+  }
+
+  for (const username of normalizedUsernames) {
     if (username === req.user!.username) continue;
     await prisma.chatConversationMember.upsert({
       where: { conversationId_username: { conversationId: conversation.id, username } },
@@ -452,7 +481,7 @@ chatRouter.post('/conversations/:id/invites', auth, async (req, res) => {
     await createNotification({ kind: 'request', title: 'Chat invite', recipient: username, sender: req.user!.username, link: '/chat' });
   }
   const updated = (await getConversation(conversation.id))!;
-  emitToUsers([req.user!.username, ...parsed.data.usernames], 'chat.invite.created', serializeConversation(updated));
+  emitToUsers([req.user!.username, ...normalizedUsernames], 'chat.invite.created', serializeConversation(updated));
   return ok(res, serializeConversation(updated));
 });
 

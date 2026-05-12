@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
-import { Role, Track } from '@prisma/client';
+import { AccountStatus, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
@@ -13,6 +13,8 @@ import { fail, ok } from '../../utils/response.js';
 import { normalizeUserRole, serializeUser } from '../../utils/serializers.js';
 import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
 import { createNotification } from '../notifications/service.js';
+import { updateAccountStatus } from '../personnel/service.js';
+import { writeAudit } from '../../utils/audit.js';
 
 export const authRouter = Router();
 
@@ -40,6 +42,13 @@ const changePasswordSchema = z.object({
 const deleteAccountSchema = z.object({
   password: z.string().min(1)
 });
+
+const inactiveAccountFailure = (status: AccountStatus) => {
+  if (status === AccountStatus.banned) return ['Account is banned', 'ACCOUNT_BANNED'] as const;
+  if (status === AccountStatus.suspended) return ['Account is suspended', 'ACCOUNT_SUSPENDED'] as const;
+  if (status === AccountStatus.deleted) return ['Account has been deleted', 'ACCOUNT_DELETED'] as const;
+  return ['Account is not active', 'ACCOUNT_INACTIVE'] as const;
+};
 
 const hashRefreshToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -85,6 +94,10 @@ authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req
   const { email, password } = req.body;
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
+  if (user.accountStatus !== AccountStatus.active) {
+    const [message, errorCode] = inactiveAccountFailure(user.accountStatus);
+    return fail(res, 403, message, errorCode);
+  }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
@@ -96,13 +109,8 @@ authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req
     token,
     refreshToken,
     user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: normalizeUserRole(user.role, user.level),
-      level: user.level,
-      track: user.track,
-      note: user.note
+      ...serializeUser(user),
+      role: normalizeUserRole(user.role, user.level)
     }
   });
 });
@@ -122,6 +130,11 @@ authRouter.post('/refresh', authRateLimiter, validateBody(refreshSchema), async 
     await prisma.refreshToken.delete({ where: { token: hashed } });
     const dbUser = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!dbUser) return fail(res, 401, 'Invalid refresh token', 'UNAUTHORIZED');
+    if (dbUser.accountStatus !== AccountStatus.active) {
+      await prisma.refreshToken.deleteMany({ where: { userId: dbUser.id } });
+      const [message, errorCode] = inactiveAccountFailure(dbUser.accountStatus);
+      return fail(res, 403, message, errorCode);
+    }
     const rotated = await issueTokens(dbUser);
 
     return ok(res, { token: rotated.token, refreshToken: rotated.refreshToken });
@@ -143,7 +156,7 @@ authRouter.post('/guest', async (_req, res) => {
   return ok(res, {
     token,
     refreshToken: null,
-    user: { id: 'guest', username: 'guest', email: null, role: Role.guest, level: 0, track: Track.executive }
+    user: { id: 'guest', username: 'guest', email: null, role: Role.guest, status: AccountStatus.active, level: 0, track: Track.executive }
   });
 });
 authRouter.post('/logout', auth, async (req, res) => {
@@ -178,16 +191,19 @@ authRouter.delete('/delete-account', auth, validateBody(deleteAccountSchema), as
   if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
   const valid = await bcrypt.compare(req.body.password, user.passwordHash);
   if (!valid) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
-  try {
-    await prisma.$transaction([
-      prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
-      prisma.user.delete({ where: { id: user.id } })
-    ]);
-  } catch (error: any) {
-    if (error?.code === 'P2003') {
-      return fail(res, 409, 'Account deletion blocked by ownership constraints', 'CONFLICT');
-    }
-    throw error;
-  }
-  return ok(res, { deleted: true });
+  const archived = await prisma.$transaction(async (tx) => {
+    const updated = await updateAccountStatus(tx as any, {
+      ...user,
+      disciplineStrikeCount: user.disciplineStrikeCount,
+      disciplineTier: user.disciplineTier
+    }, AccountStatus.deleted, 'Self-deleted account');
+    await writeAudit(tx, {
+      actor: user.username,
+      action: 'auth.delete-account',
+      entity: 'User',
+      entityId: user.id
+    });
+    return updated;
+  });
+  return ok(res, { deleted: true, user: serializeUser(archived) });
 });

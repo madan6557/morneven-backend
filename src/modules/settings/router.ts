@@ -28,6 +28,7 @@ import {
   getStorageCleanupReport,
   runStorageCleanup
 } from '../../utils/storage-cleanup.js';
+import { emitToUser } from '../../realtime/events.js';
 
 export const settingsRouter = Router();
 
@@ -464,10 +465,11 @@ const serializeExtractionJob = (job: Awaited<ReturnType<typeof prisma.extraction
 const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', actor: string, downloadName: string) => {
   try {
     const updateProgress = async (percent: number, stage: string, message: string) => {
-      await prisma.extractionJob.update({
+      const updated = await prisma.extractionJob.update({
         where: { id: jobId },
         data: { progress: extractionProgress(percent, stage, message) }
       });
+      emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(updated) as Record<string, unknown> });
     };
 
     await updateProgress(10, 'collecting', 'Collecting export data');
@@ -490,6 +492,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
         progress: extractionProgress(100, 'completed', 'Export ready')
       }
     });
+    emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(completed) as Record<string, unknown> });
     await writeAudit(prisma, {
       actor,
       action: 'extraction.start',
@@ -503,7 +506,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
       }
     });
   } catch (error) {
-    await prisma.extractionJob.update({
+    const failed = await prisma.extractionJob.update({
       where: { id: jobId },
       data: {
         status: 'failed',
@@ -511,6 +514,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
         progress: extractionProgress(100, 'failed', 'Export failed')
       }
     });
+    emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(failed) as Record<string, unknown> });
   }
 };
 
@@ -542,6 +546,7 @@ type MigrationDataset = {
   chatReadStates: Awaited<ReturnType<typeof prisma.chatReadState.findMany>>;
   extractionJobs: Awaited<ReturnType<typeof prisma.extractionJob.findMany>>;
   auditLogs: Awaited<ReturnType<typeof prisma.auditLog.findMany>>;
+  personnelReports: Awaited<ReturnType<typeof prisma.personnelReport.findMany>>;
 };
 
 type MigrationPayload = {
@@ -615,7 +620,8 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     chatMessages,
     chatReadStates,
     extractionJobs,
-    auditLogs
+    auditLogs,
+    personnelReports
   ] = await Promise.all([
     prisma.user.findMany(),
     prisma.commandCenterSettings.findMany(),
@@ -643,7 +649,8 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     prisma.chatMessage.findMany(),
     prisma.chatReadState.findMany(),
     prisma.extractionJob.findMany(),
-    prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } })
+    prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } }),
+    prisma.personnelReport.findMany()
   ]);
 
   return {
@@ -673,7 +680,8 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     chatMessages,
     chatReadStates,
     extractionJobs,
-    auditLogs
+    auditLogs,
+    personnelReports
   };
 };
 
@@ -722,6 +730,7 @@ const countCurrentMigrationState = async () => {
     chatReadStates,
     extractionJobs,
     auditLogs,
+    personnelReports,
     assets
   ] = await Promise.all([
     prisma.user.count(),
@@ -751,6 +760,7 @@ const countCurrentMigrationState = async () => {
     prisma.chatReadState.count(),
     prisma.extractionJob.count(),
     prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }),
+    prisma.personnelReport.count(),
     collectReferencedStoragePaths()
   ]);
 
@@ -782,7 +792,8 @@ const countCurrentMigrationState = async () => {
       chatMessages,
       chatReadStates,
       extractionJobs,
-      auditLogs
+      auditLogs,
+      personnelReports
     },
     assetCount: assets.size
   };
@@ -804,6 +815,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     await tx.refreshToken.deleteMany();
     await tx.extractionJob.deleteMany();
     await tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } });
+    await tx.personnelReport.deleteMany();
     await tx.managementRequest.deleteMany();
     await tx.team.deleteMany();
     await tx.quotaRecord.deleteMany();
@@ -845,6 +857,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     if (dataset.chatReadStates.length) await tx.chatReadState.createMany({ data: dataset.chatReadStates as any });
     if (dataset.extractionJobs.length) await tx.extractionJob.createMany({ data: dataset.extractionJobs as any });
     if (dataset.auditLogs.length) await tx.auditLog.createMany({ data: dataset.auditLogs as any });
+    if (dataset.personnelReports.length) await tx.personnelReport.createMany({ data: dataset.personnelReports as any });
   });
 };
 
@@ -917,7 +930,7 @@ const runMigrationJob = async (
   const updateMetadata = async (patch: Record<string, unknown>) => {
     const current = await prisma.auditLog.findUnique({ where: { id: jobId } });
     const currentMetadata = (current?.metadata ?? {}) as Record<string, unknown>;
-    await prisma.auditLog.update({
+    const updated = await prisma.auditLog.update({
       where: { id: jobId },
       data: {
         metadata: {
@@ -926,6 +939,7 @@ const runMigrationJob = async (
         } as Prisma.InputJsonValue
       }
     });
+    emitToUser(actor, 'settings.migration.updated', { job: serializeMigrationJob(updated) as Record<string, unknown> });
   };
 
   try {
@@ -1069,6 +1083,7 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
     void runExtractionJob(job.id, parsed.data.mode, req.user!.username, downloadName);
   });
 
+  emitToUser(req.user!.username, 'settings.extraction.updated', { job: serializeExtractionJob(job) as Record<string, unknown> });
   return res.status(202).json({ success: true, data: serializeExtractionJob(job) });
 });
 
@@ -1143,6 +1158,7 @@ settingsRouter.post('/migrations', auth, async (req, res) => {
     void runMigrationJob(job.id, req.user!.username, targetUrl, sourceAssetEndpoint, parsed.data.secretKey, downloadName);
   });
 
+  emitToUser(req.user!.username, 'settings.migration.updated', { job: serializeMigrationJob(job) as Record<string, unknown> });
   return res.status(202).json({ success: true, data: serializeMigrationJob(job) });
 });
 
@@ -1219,5 +1235,6 @@ settingsRouter.delete('/extractions', auth, async (req, res) => {
     entity: 'ExtractionJob',
     metadata: { count: result.count }
   });
+  emitToUser(req.user!.username, 'settings.extractions.updated', { deleted: result.count });
   return ok(res, { deleted: result.count });
 });

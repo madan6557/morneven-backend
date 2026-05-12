@@ -1,4 +1,4 @@
-import { EntityType, MediaType, Prisma, ProjectStatus, Role } from '@prisma/client';
+import { AccountStatus, EntityType, MediaType, Prisma, ProjectStatus, Role } from '@prisma/client';
 import {
   asObject,
   normalizeCharacterStats,
@@ -82,9 +82,11 @@ type SerializableUser = {
   username: string;
   email: string;
   role: Role;
+  accountStatus: AccountStatus;
   level: number;
   track: Prisma.UserGetPayload<object>['track'];
   note: string | null;
+  statusReason?: string | null;
   updatedAt: Date | string;
 };
 
@@ -93,9 +95,11 @@ export const serializeUser = (user: SerializableUser) => ({
   username: user.username,
   email: user.email,
   role: normalizeUserRole(user.role, user.level),
+  status: user.accountStatus,
   level: user.level,
   track: user.track,
   note: user.note ?? '',
+  statusReason: user.statusReason ?? undefined,
   updatedAt: dateOnly(user.updatedAt),
   ...getPresenceSnapshot(user.username)
 });
@@ -111,7 +115,9 @@ export const serializeGalleryItem = (item: GalleryWithTags, comments: unknown[] 
   caption: item.caption,
   tags: item.tags.map((tag) => tag.tag),
   date: dateOnly(item.uploadDate),
-  uploadedBy: item.uploader?.username ?? item.uploadedBy,
+  uploadedBy:
+    item.uploader?.accountStatus === AccountStatus.deleted ? 'Deleted User' : item.uploader?.username ?? item.uploadedBy,
+  uploadedByStatus: item.uploader?.accountStatus ?? undefined,
   comments
 });
 
@@ -135,13 +141,15 @@ const extractTextMentions = (text: string) =>
 export const serializeDiscussionComments = (comments: DiscussionRecord[]) =>
   comments.map((comment) => ({
     id: comment.id,
-    author: comment.author.username,
+    author: comment.author.accountStatus === AccountStatus.deleted ? 'Deleted User' : comment.author.username,
+    authorStatus: comment.author.accountStatus,
     text: comment.text,
     date: dateOnly(comment.createdAt),
     mentions: extractTextMentions(comment.text),
     replies: comment.replies.map((reply) => ({
       id: reply.id,
-      author: reply.author.username,
+      author: reply.author.accountStatus === AccountStatus.deleted ? 'Deleted User' : reply.author.username,
+      authorStatus: reply.author.accountStatus,
       text: reply.text,
       date: dateOnly(reply.createdAt),
       mentions: extractTextMentions(reply.text)

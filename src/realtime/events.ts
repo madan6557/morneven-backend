@@ -6,6 +6,7 @@ export type RealtimePayload = Record<string, unknown>;
 type RealtimeClient = {
   user: AuthUser;
   send: (event: string, payload: RealtimePayload) => void;
+  close?: () => void;
 };
 
 const clientsByUsername = new Map<string, Set<RealtimeClient>>();
@@ -29,6 +30,27 @@ export const emitToUser = (username: string, event: string, payload: RealtimePay
 
 export const emitToUsers = (usernames: Iterable<string>, event: string, payload: RealtimePayload) => {
   for (const username of usernames) emitToUser(username, event, payload);
+};
+
+export const invalidateRealtimeSessions = (username: string, payload: RealtimePayload) => {
+  for (const client of [...(clientsByUsername.get(username) ?? [])]) {
+    client.send('auth.session.invalidated', payload);
+    client.close?.();
+  }
+};
+
+export const emitToMatchingClients = (
+  predicate: (user: AuthUser) => boolean,
+  event: string,
+  payload: RealtimePayload
+) => {
+  for (const clients of clientsByUsername.values()) {
+    for (const client of clients) {
+      if (predicate(client.user)) {
+        client.send(event, payload);
+      }
+    }
+  }
 };
 
 export const emitNavigationBadgesUpdated = async (user: AuthUser | string) => {

@@ -1,6 +1,6 @@
-import { Prisma } from '@prisma/client';
+import { AccountStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
-import { emitNavigationBadgesUpdated, emitNavigationBadgesUpdatedForUsers } from '../../realtime/events.js';
+import { emitNavigationBadgesUpdated, emitNavigationBadgesUpdatedForUsers, emitToMatchingClients, emitToUser } from '../../realtime/events.js';
 
 type NotificationDb = {
   notification: {
@@ -30,10 +30,15 @@ export const createNotification = (
     }
   }).then(async (notification: any) => {
     if (input.recipient === '*') {
-      const users = await prisma.user.findMany({ where: { level: { gte: 1 } }, select: { username: true } });
+      const users = await prisma.user.findMany({
+        where: { level: { gte: 1 }, accountStatus: AccountStatus.active },
+        select: { username: true }
+      });
       await emitNavigationBadgesUpdatedForUsers(users.map((user) => user.username));
+      emitToMatchingClients(() => true, 'notification.created', { notification });
     } else {
       await emitNavigationBadgesUpdated(input.recipient);
+      emitToUser(input.recipient, 'notification.created', { notification });
     }
     return notification;
   });

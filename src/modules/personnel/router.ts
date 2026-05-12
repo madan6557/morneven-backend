@@ -1,14 +1,26 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { Prisma, Role, Track } from '@prisma/client';
+import { AccountStatus, Prisma, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { auth, allow } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { serializeUser } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
-import { ensureInstituteMembership, reconcileAutoMemberships, syncDivisionMembership } from '../chat/service.js';
+import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
 import { heartbeatPresence } from '../presence/service.js';
+import {
+  PERSONNEL_REPORT_CATEGORIES,
+  PERSONNEL_REPORT_STATUSES,
+  REPORT_AUTO_BAN_THRESHOLD,
+  REPORT_AUTO_DEMOTE_THRESHOLD,
+  applyConfirmedReportDiscipline,
+  canModerateAccount,
+  updateAccountStatus
+} from './service.js';
+import { emitToMatchingClients, emitToUsers } from '../../realtime/events.js';
+import { createNotification } from '../notifications/service.js';
+import { roleForLevel } from '../../utils/serializers.js';
 
 export const personnelRouter = Router();
 
@@ -29,6 +41,25 @@ const personnelCreateSchema = personnelPatchSchema.extend({
   password: z.string().min(12).max(128).optional()
 });
 
+const personnelStatusSchema = z.object({
+  status: z.enum(['active', 'suspended', 'banned']),
+  reason: z.string().trim().min(3).max(300)
+});
+
+const personnelReportCreateSchema = z.object({
+  target: z.string().trim().min(1).max(120),
+  category: z.enum(PERSONNEL_REPORT_CATEGORIES),
+  details: z.string().trim().min(10).max(2000)
+});
+
+const personnelReportManualActions = ['none', 'suspend', 'demote', 'ban'] as const;
+
+const personnelReportResolveSchema = z.object({
+  status: z.enum(['confirmed', 'dismissed']),
+  resolutionNote: z.string().trim().max(1000).optional(),
+  action: z.enum(personnelReportManualActions).optional().default('none')
+});
+
 const isPl7AuthorTarget = (user: { level: number; role: Role }) => user.level >= 7 && user.role === Role.author;
 
 const resolvePersonnelRole = (level: number, requestedRole?: Role | 'author' | 'admin' | 'personel' | 'guest') => {
@@ -42,17 +73,80 @@ const highestManageableLevel = (actor: NonNullable<Express.Request['user']>) => 
   return actor.level >= 7 ? 7 : actor.level;
 };
 
+const serializePersonnelReport = (
+  report: Prisma.PersonnelReportGetPayload<{
+    include: {
+      reporter: true;
+      target: true;
+      resolvedBy: true;
+    };
+  }>
+) => ({
+  id: report.id,
+  category: report.category,
+  details: report.details,
+  status: report.status,
+  resolutionAction: report.resolutionAction ?? undefined,
+  resolutionNote: report.resolutionNote ?? undefined,
+  createdAt: report.createdAt.toISOString(),
+  updatedAt: report.updatedAt.toISOString(),
+  resolvedAt: report.resolvedAt?.toISOString(),
+  reporter: serializeUser(report.reporter),
+  target: serializeUser(report.target),
+  resolvedBy: report.resolvedBy ? serializeUser(report.resolvedBy) : undefined
+});
+
+const emitPersonnelUpdated = (user: ReturnType<typeof serializeUser>) => {
+  emitToMatchingClients((viewer) => viewer.level >= 4 && viewer.username !== user.username, 'personnel.updated', { user });
+  emitToUsers([user.username], 'personnel.updated', { user });
+};
+
+const emitReportChanged = (event: 'personnel.report.created' | 'personnel.report.updated', report: ReturnType<typeof serializePersonnelReport>) => {
+  emitToMatchingClients(
+    (viewer) =>
+      (viewer.id !== report.reporter.id && viewer.id !== report.target.id)
+      && canModerateAccount(viewer, report.target),
+    event,
+    { report }
+  );
+  emitToUsers([report.reporter.username, report.target.username], event, { report });
+};
+
+const resolvePersonnelTarget = async (rawTarget: string) => {
+  const target = rawTarget.trim();
+  return prisma.user.findFirst({
+    where: {
+      OR: [
+        { id: target },
+        { username: { equals: target, mode: 'insensitive' } },
+        { email: { equals: target.toLowerCase() } }
+      ]
+    }
+  });
+};
+
+const syncPersonnelMemberships = async (
+  db: Prisma.TransactionClient | Prisma.DefaultPrismaClient,
+  user: { username: string; level: number; track: Track; accountStatus: AccountStatus }
+) => {
+  const effectiveLevel = user.accountStatus === AccountStatus.active ? user.level : 0;
+  await ensureInstituteMembership(user.username, effectiveLevel, db as any, { emit: true });
+  await syncDivisionMembership(user.username, user.track, effectiveLevel, db as any, { emit: true });
+};
+
 personnelRouter.get('/', auth, async (req, res) => {
   if (req.user!.level < 4) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  const { track, level, q } = req.query;
+  const { track, level, q, status } = req.query;
   const where: Prisma.UserWhereInput = {
     ...(track ? { track: track as Track } : {}),
     ...(level ? { level: Number(level) } : {}),
+    ...(status ? { accountStatus: status as AccountStatus } : {}),
     ...(q
       ? {
           OR: [
             { username: { contains: String(q), mode: 'insensitive' } },
-            { email: { contains: String(q), mode: 'insensitive' } }
+            { email: { contains: String(q), mode: 'insensitive' } },
+            { note: { contains: String(q), mode: 'insensitive' } }
           ]
         }
       : {})
@@ -72,15 +166,244 @@ personnelRouter.get('/lookup', auth, async (req, res) => {
         username: { equals: username, mode: 'insensitive' }
       }))
     },
-    select: { id: true, username: true, email: true, role: true, level: true, track: true, note: true, updatedAt: true }
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      accountStatus: true,
+      level: true,
+      track: true,
+      note: true,
+      statusReason: true,
+      updatedAt: true
+    }
   });
   const deduped = Array.from(new Map(users.map((user) => [user.username.toLowerCase(), user])).values());
   return ok(res, deduped.map(serializeUser));
 });
 
 personnelRouter.post('/presence/heartbeat', auth, async (req, res) => {
-  heartbeatPresence(req.user!.username);
+  const snapshot = heartbeatPresence(req.user!.username);
+  if (snapshot.changed) {
+    emitToMatchingClients((viewer) => viewer.level >= 4, 'presence.updated', { username: req.user!.username, ...snapshot });
+  }
   return ok(res, { online: true, lastSeenAt: new Date().toISOString() });
+});
+
+personnelRouter.get('/reports/mine', auth, async (req, res) => {
+  const reports = await prisma.personnelReport.findMany({
+    where: { reporterId: req.user!.id },
+    include: {
+      reporter: true,
+      target: true,
+      resolvedBy: true
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  return ok(res, reports.map(serializePersonnelReport));
+});
+
+personnelRouter.get('/reports', auth, allow((u) => u.level >= 6), async (req, res) => {
+  const where: Prisma.PersonnelReportWhereInput = {
+    ...(req.query.status ? { status: String(req.query.status) } : {}),
+    ...(req.query.category ? { category: String(req.query.category) } : {}),
+    ...(req.query.target
+      ? {
+          target: {
+            username: { contains: String(req.query.target), mode: 'insensitive' }
+          }
+        }
+      : {})
+  };
+  const reports = await prisma.personnelReport.findMany({
+    where,
+    include: {
+      reporter: true,
+      target: true,
+      resolvedBy: true
+    },
+    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }]
+  });
+  return ok(
+    res,
+    reports
+      .filter((report) => canModerateAccount(req.user!, report.target))
+      .map(serializePersonnelReport)
+  );
+});
+
+personnelRouter.post('/reports', auth, async (req, res) => {
+  if (req.user!.level < 1) return fail(res, 403, 'Personnel access required', 'FORBIDDEN');
+  const parsed = personnelReportCreateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const target = await resolvePersonnelTarget(parsed.data.target);
+  if (!target) return fail(res, 404, 'Target personnel not found', 'NOT_FOUND');
+  if (target.id === req.user!.id) return fail(res, 422, 'You cannot report yourself', 'VALIDATION_ERROR');
+  if (target.role === Role.author) return fail(res, 403, 'Author accounts are outside personnel moderation scope', 'FORBIDDEN');
+  if (target.accountStatus === AccountStatus.deleted) return fail(res, 422, 'Deleted accounts cannot be reported', 'VALIDATION_ERROR');
+
+  const created = await prisma.personnelReport.create({
+    data: {
+      reporterId: req.user!.id,
+      targetUserId: target.id,
+      category: parsed.data.category,
+      details: parsed.data.details,
+      status: PERSONNEL_REPORT_STATUSES[0]
+    },
+    include: {
+      reporter: true,
+      target: true,
+      resolvedBy: true
+    }
+  });
+
+  const moderators = await prisma.user.findMany({
+    where: { level: { gte: 6 }, accountStatus: AccountStatus.active },
+    select: { id: true, username: true, level: true, role: true }
+  });
+  await Promise.all(
+    moderators
+      .filter((moderator) => moderator.username !== req.user!.username && canModerateAccount(moderator, target))
+      .map((moderator) =>
+        createNotification({
+          kind: 'warning',
+          title: 'Personnel report filed',
+          body: `${req.user!.username} reported ${target.username} for ${parsed.data.category}.`,
+          recipient: moderator.username,
+          sender: req.user!.username,
+          link: '/settings'
+        })
+      )
+  );
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'personnel.report.create',
+    entity: 'PersonnelReport',
+    entityId: created.id,
+    metadata: { category: created.category, target: target.username }
+  });
+
+  const serialized = serializePersonnelReport(created);
+  emitReportChanged('personnel.report.created', serialized);
+  return res.status(201).json({ success: true, data: serialized });
+});
+
+personnelRouter.post('/reports/:id/resolve', auth, allow((u) => u.level >= 6), async (req, res) => {
+  const parsed = personnelReportResolveSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const report = await prisma.personnelReport.findUnique({
+    where: { id: req.params.id },
+    include: { reporter: true, target: true, resolvedBy: true }
+  });
+  if (!report) return fail(res, 404, 'Report not found', 'NOT_FOUND');
+  if (report.status !== 'open') return fail(res, 409, 'Report already resolved', 'CONFLICT');
+  if (!canModerateAccount(req.user!, report.target)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+
+  const resolved = await prisma.$transaction(async (tx) => {
+    let target = report.target;
+    let resolvedAction = parsed.data.action;
+    let resolutionNote = parsed.data.resolutionNote;
+
+    if (parsed.data.status === 'confirmed') {
+      if (parsed.data.action === 'ban') {
+        const banned = await updateAccountStatus(tx as any, {
+          ...target,
+          disciplineStrikeCount: target.disciplineStrikeCount,
+          disciplineTier: target.disciplineTier
+        }, AccountStatus.banned, resolutionNote ?? 'Manually banned after confirmed report');
+        target = await tx.user.update({
+          where: { id: banned.id },
+          data: {
+            disciplineStrikeCount: { increment: 1 },
+            disciplineTier: Math.max(target.disciplineTier, 2)
+          }
+        });
+      } else if (parsed.data.action === 'suspend') {
+        const suspended = await updateAccountStatus(tx as any, {
+          ...target,
+          disciplineStrikeCount: target.disciplineStrikeCount,
+          disciplineTier: target.disciplineTier
+        }, AccountStatus.suspended, resolutionNote ?? 'Suspended after confirmed report');
+        target = await tx.user.update({
+          where: { id: suspended.id },
+          data: {
+            disciplineStrikeCount: { increment: 1 }
+          }
+        });
+      } else if (parsed.data.action === 'demote') {
+        const nextLevel = Math.max(1, target.level - 1);
+        target = await tx.user.update({
+          where: { id: target.id },
+          data: {
+            level: nextLevel,
+            role: roleForLevel(nextLevel),
+            disciplineStrikeCount: { increment: 1 },
+            disciplineTier: Math.max(target.disciplineTier, 1),
+            statusReason: resolutionNote ?? 'Demoted after confirmed report',
+            statusChangedAt: new Date()
+          }
+        });
+        await syncPersonnelMemberships(tx, target);
+      } else {
+        const automatic = await applyConfirmedReportDiscipline(tx as any, {
+          ...target,
+          disciplineStrikeCount: target.disciplineStrikeCount,
+          disciplineTier: target.disciplineTier
+        }, resolutionNote ?? 'Automatic moderation threshold reached');
+        target = automatic.updated;
+        resolvedAction = automatic.action as typeof parsed.data.action;
+        if (automatic.action === 'auto-demote') {
+          resolutionNote = resolutionNote ?? `Auto-demoted after ${REPORT_AUTO_DEMOTE_THRESHOLD} confirmed reports.`;
+        }
+        if (automatic.action === 'auto-ban') {
+          resolutionNote = resolutionNote ?? `Auto-banned after ${REPORT_AUTO_BAN_THRESHOLD} confirmed reports.`;
+        }
+      }
+    }
+
+    const updated = await tx.personnelReport.update({
+      where: { id: report.id },
+      data: {
+        status: parsed.data.status,
+        resolutionAction: resolvedAction,
+        resolutionNote,
+        resolvedById: req.user!.id,
+        resolvedAt: new Date()
+      },
+      include: {
+        reporter: true,
+        target: true,
+        resolvedBy: true
+      }
+    });
+
+    await writeAudit(tx, {
+      actor: req.user!.username,
+      action: 'personnel.report.resolve',
+      entity: 'PersonnelReport',
+      entityId: report.id,
+      metadata: { status: parsed.data.status, action: resolvedAction, target: report.target.username }
+    });
+
+    await createNotification({
+      kind: 'warning',
+      title: parsed.data.status === 'confirmed' ? 'Personnel report confirmed' : 'Personnel report dismissed',
+      body: resolutionNote,
+      recipient: report.reporter.username,
+      sender: req.user!.username,
+      link: '/settings'
+    }, tx as any);
+
+    return updated;
+  });
+
+  const serialized = serializePersonnelReport(resolved);
+  emitPersonnelUpdated(serializeUser(resolved.target));
+  emitReportChanged('personnel.report.updated', serialized);
+  return ok(res, serialized);
 });
 
 personnelRouter.get('/:id', auth, async (req, res) => {
@@ -125,7 +448,39 @@ personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => 
   await ensureInstituteMembership(user.username, user.level);
   await syncDivisionMembership(user.username, user.track, user.level);
   await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.create', entity: 'User', entityId: user.id });
-  return res.status(201).json({ success: true, data: serializeUser(user) });
+  const serialized = serializeUser(user);
+  emitPersonnelUpdated(serialized);
+  return res.status(201).json({ success: true, data: serialized });
+});
+
+personnelRouter.post('/:id/status', auth, allow((u) => u.level >= 6), async (req, res) => {
+  const parsed = personnelStatusSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!target) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
+  if (!canModerateAccount(req.user!, target)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (target.accountStatus === AccountStatus.deleted) return fail(res, 409, 'Deleted accounts cannot be moderated', 'CONFLICT');
+
+  const updated = await prisma.$transaction(async (tx) =>
+    updateAccountStatus(tx as any, {
+      ...target,
+      disciplineStrikeCount: target.disciplineStrikeCount,
+      disciplineTier: target.disciplineTier
+    }, parsed.data.status as AccountStatus, parsed.data.reason)
+  );
+
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'personnel.status.update',
+    entity: 'User',
+    entityId: updated.id,
+    metadata: { status: updated.accountStatus }
+  });
+
+  const serialized = serializeUser(updated);
+  emitPersonnelUpdated(serialized);
+  return ok(res, serialized);
 });
 
 personnelRouter.put('/:id', auth, async (req, res) => {
@@ -137,6 +492,10 @@ personnelRouter.put('/:id', auth, async (req, res) => {
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   const patchKeys = Object.keys(parsed.data);
   const isSelfEdit = req.user!.id === target.id;
+
+  if (parsed.data.username !== undefined && parsed.data.username !== target.username) {
+    return fail(res, 409, 'Username changes are disabled to preserve historical references', 'CONFLICT');
+  }
 
   if (isSelfEdit) {
     if (req.user!.level < 6) {
@@ -150,7 +509,9 @@ personnelRouter.put('/:id', auth, async (req, res) => {
       data: { note: parsed.data.note ?? target.note }
     });
     await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.self-update-note', entity: 'User', entityId: updated.id });
-    return ok(res, serializeUser(updated));
+    const serialized = serializeUser(updated);
+    emitPersonnelUpdated(serialized);
+    return ok(res, serialized);
   }
 
   if (req.user!.level === 5 && req.user!.track !== target.track) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
@@ -166,7 +527,9 @@ personnelRouter.put('/:id', auth, async (req, res) => {
       data: { note: parsed.data.note ?? target.note }
     });
     await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.update-note', entity: 'User', entityId: updated.id });
-    return ok(res, serializeUser(updated));
+    const serialized = serializeUser(updated);
+    emitPersonnelUpdated(serialized);
+    return ok(res, serialized);
   }
 
   const level = parsed.data.level ?? target.level;
@@ -185,7 +548,6 @@ personnelRouter.put('/:id', auth, async (req, res) => {
   const updated = await prisma.user.update({
     where: { id: target.id },
     data: {
-      ...(parsed.data.username !== undefined ? { username: parsed.data.username } : {}),
       ...(parsed.data.email !== undefined ? { email: parsed.data.email } : {}),
       ...(parsed.data.track !== undefined ? { track: parsed.data.track } : {}),
       ...(parsed.data.note !== undefined ? { note: parsed.data.note } : {}),
@@ -193,10 +555,11 @@ personnelRouter.put('/:id', auth, async (req, res) => {
       ...(parsed.data.level !== undefined || parsed.data.role !== undefined ? { role } : {})
     }
   });
-  await ensureInstituteMembership(updated.username, updated.level);
-  await syncDivisionMembership(updated.username, updated.track, updated.level);
+  await syncPersonnelMemberships(prisma, updated);
   await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.update', entity: 'User', entityId: updated.id });
-  return ok(res, serializeUser(updated));
+  const serialized = serializeUser(updated);
+  emitPersonnelUpdated(serialized);
+  return ok(res, serialized);
 });
 
 personnelRouter.patch('/bulk', auth, allow((u) => u.level >= 6), async (req, res) => {
@@ -233,8 +596,7 @@ personnelRouter.patch('/bulk', auth, allow((u) => u.level >= 6), async (req, res
             ...(item.note !== undefined ? { note: item.note } : {})
           }
         });
-        await ensureInstituteMembership(user.username, user.level, tx as any);
-        await syncDivisionMembership(user.username, user.track, user.level, tx as any);
+        await syncPersonnelMemberships(tx, user);
         results.push(user);
         if (nextLevel !== undefined) {
           await writeAudit(tx, {
@@ -257,19 +619,25 @@ personnelRouter.patch('/bulk', auth, allow((u) => u.level >= 6), async (req, res
     );
   }
 
-  return ok(res, updated.map(serializeUser));
+  const serialized = updated.map(serializeUser);
+  for (const user of serialized) emitPersonnelUpdated(user);
+  return ok(res, serialized);
 });
 
 personnelRouter.delete('/:id', auth, allow((u) => u.level >= 7), async (req, res) => {
   const target = await prisma.user.findUnique({ where: { id: req.params.id } });
   if (!target) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
-  if (target.id === req.user!.id) return fail(res, 403, 'You cannot delete your own account', 'FORBIDDEN');
-  if (isPl7AuthorTarget(target)) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
-  if (req.user!.role !== Role.author && target.level >= 7 && target.role !== ROLE_ADMIN) {
-    return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
-  }
-  await prisma.user.delete({ where: { id: req.params.id } });
-  await reconcileAutoMemberships();
+  if (!canModerateAccount(req.user!, target)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+
+  const archived = await prisma.$transaction(async (tx) =>
+    updateAccountStatus(tx as any, {
+      ...target,
+      disciplineStrikeCount: target.disciplineStrikeCount,
+      disciplineTier: target.disciplineTier
+    }, AccountStatus.deleted, 'Deleted by personnel management')
+  );
   await writeAudit(prisma, { actor: req.user!.username, action: 'personnel.delete', entity: 'User', entityId: req.params.id });
-  return ok(res, { deleted: true });
+  const serialized = serializeUser(archived);
+  emitPersonnelUpdated(serialized);
+  return ok(res, { deleted: true, user: serialized });
 });

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { MediaType, Prisma, Track } from '@prisma/client';
+import { AccountStatus, MediaType, Prisma, Track } from '@prisma/client';
 import { z } from 'zod';
 import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
@@ -10,7 +10,7 @@ import { writeAudit } from '../../utils/audit.js';
 import { createNotification } from '../notifications/service.js';
 import { ensureInstituteMembership, syncDivisionMembership, syncTeamGroup } from '../chat/service.js';
 import { getManagementPendingCount } from '../me/badges.js';
-import { emitNavigationBadgesUpdated, emitNavigationBadgesUpdatedForUsers } from '../../realtime/events.js';
+import { emitNavigationBadgesUpdated, emitNavigationBadgesUpdatedForUsers, emitToMatchingClients } from '../../realtime/events.js';
 
 export const managementRouter = Router();
 
@@ -141,8 +141,12 @@ managementRouter.post('/requests', auth, async (req, res) => {
     }
   });
   await writeAudit(prisma, { actor: req.user!.username, action: 'mgmt.request.create', entity: 'ManagementRequest', entityId: created.id });
-  const reviewers = await prisma.user.findMany({ where: { level: { gte: 4 } }, select: { username: true } });
+  const reviewers = await prisma.user.findMany({
+    where: { level: { gte: 4 }, accountStatus: AccountStatus.active },
+    select: { username: true }
+  });
   await emitNavigationBadgesUpdatedForUsers(reviewers.map((user) => user.username));
+  emitToMatchingClients((viewer) => viewer.level >= 1, 'management.updated', { entity: 'request', id: created.id, action: 'created' });
   return res.status(201).json({ success: true, data: created });
 });
 
@@ -275,6 +279,7 @@ managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
 
   await emitNavigationBadgesUpdated(req.user!);
   await emitNavigationBadgesUpdated(request.requester);
+  emitToMatchingClients((viewer) => viewer.level >= 1, 'management.updated', { entity: 'request', id: request.id, action: 'updated' });
   return ok(res, decided);
 });
 
@@ -293,7 +298,12 @@ managementRouter.post('/teams', auth, async (req, res) => {
 
   const members = [...new Set(parsed.data.members.filter((member) => member !== req.user!.username))];
   const sameTrackMembers = await prisma.user.findMany({
-    where: { username: { in: members }, track: req.user!.track, level: { gte: 1 } }
+    where: {
+      username: { in: members },
+      track: req.user!.track,
+      level: { gte: 1 },
+      accountStatus: AccountStatus.active
+    }
   });
   if (sameTrackMembers.length !== members.length) {
     return fail(res, 422, 'All team members must be active personnel in the same track', 'VALIDATION_ERROR');
@@ -311,6 +321,7 @@ managementRouter.post('/teams', auth, async (req, res) => {
   await syncTeamGroup(team.id, team.name, [team.leader, ...members]);
   await writeAudit(prisma, { actor: req.user!.username, action: 'mgmt.team.create', entity: 'Team', entityId: team.id });
   await emitNavigationBadgesUpdated(req.user!);
+  emitToMatchingClients((viewer) => viewer.level >= 1, 'management.updated', { entity: 'team', id: team.id, action: 'created' });
   return res.status(201).json({ success: true, data: team });
 });
 

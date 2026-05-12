@@ -1,4 +1,4 @@
-import { Track } from '@prisma/client';
+import { AccountStatus, Track } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { emitToUsers } from '../../realtime/events.js';
 
@@ -202,16 +202,63 @@ export const syncTeamGroup = async (
   return result.conversation;
 };
 
+export const revokeConversationAccessForUser = async (
+  username: string,
+  db: ChatDb = prisma,
+  options: SyncOptions = {}
+) => {
+  const memberships = await db.chatConversationMember.findMany({
+    where: {
+      username,
+      status: { in: ['active', 'invited'] },
+      conversation: { systemManaged: false }
+    },
+    select: { conversationId: true }
+  });
+  if (!memberships.length) return;
+
+  await db.chatConversationMember.updateMany({
+    where: {
+      username,
+      status: { in: ['active', 'invited'] },
+      conversation: { systemManaged: false }
+    },
+    data: { status: 'removed' }
+  });
+
+  if (options.emit === false) return;
+
+  for (const conversationId of [...new Set(memberships.map((membership: { conversationId: string }) => membership.conversationId))]) {
+    const conversation = await db.chatConversation.findUnique({
+      where: { id: conversationId },
+      include: { members: true }
+    });
+    if (!conversation) continue;
+    const recipients = [
+      ...new Set([
+        ...conversation.members.filter((member: any) => member.status === 'active').map((member: any) => member.username),
+        username
+      ])
+    ];
+    if (recipients.length) {
+      emitToUsers(recipients, 'chat.conversation.updated', { conversationId, invalidated: true });
+    }
+  }
+};
+
 export const reconcileAutoMemberships = async (db: ChatDb = prisma, options: SyncOptions = {}) => {
-  const users = await db.user.findMany({ select: { username: true, track: true, level: true } });
-  const activeUsernames = users.filter((user: { level: number }) => user.level >= 1).map((user: { username: string }) => user.username);
+  const users = await db.user.findMany({ select: { username: true, track: true, level: true, accountStatus: true } });
+  const activeUsernames = users
+    .filter((user: { level: number; accountStatus: AccountStatus }) => user.level >= 1 && user.accountStatus === AccountStatus.active)
+    .map((user: { username: string }) => user.username);
   const activeUserSet = new Set(activeUsernames);
 
   await ensureInstituteConversation(db, { emit: options.emit });
 
   for (const user of users) {
-    await ensureInstituteMembership(user.username, user.level, db, { emit: options.emit });
-    await syncDivisionMembership(user.username, user.track, user.level, db, { emit: options.emit });
+    const effectiveLevel = user.accountStatus === AccountStatus.active ? user.level : 0;
+    await ensureInstituteMembership(user.username, effectiveLevel, db, { emit: options.emit });
+    await syncDivisionMembership(user.username, user.track, effectiveLevel, db, { emit: options.emit });
   }
 
   const removedInstituteMembers = await db.chatConversationMember.findMany({

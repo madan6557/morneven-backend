@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { Role, Track } from '@prisma/client';
+import { AccountStatus, Role, Track } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { fail } from '../utils/response.js';
@@ -8,6 +8,13 @@ import { AuthUser } from '../types/auth.js';
 import { normalizeUserRole } from '../utils/serializers.js';
 
 const ROLE_ADMIN = 'admin' as Role;
+
+const accountStatusFailure = (res: Response, status: AccountStatus) => {
+  if (status === AccountStatus.banned) return fail(res, 403, 'Account is banned', 'ACCOUNT_BANNED');
+  if (status === AccountStatus.suspended) return fail(res, 403, 'Account is suspended', 'ACCOUNT_SUSPENDED');
+  if (status === AccountStatus.deleted) return fail(res, 403, 'Account has been deleted', 'ACCOUNT_DELETED');
+  return fail(res, 403, 'Account is not active', 'ACCOUNT_INACTIVE');
+};
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   const header = req.headers.authorization;
@@ -27,6 +34,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
         id: 'guest',
         username: payload.username ?? 'guest',
         role: Role.guest,
+        accountStatus: AccountStatus.active,
         level: 0,
         track: payload.track ?? Track.executive
       };
@@ -36,11 +44,15 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
 
     if (!user) return fail(res, 401, 'Invalid token', 'UNAUTHORIZED');
+    if (user.accountStatus !== AccountStatus.active) {
+      return accountStatusFailure(res, user.accountStatus);
+    }
 
     req.user = {
       id: user.id,
       username: user.username,
       role: normalizeUserRole(user.role, user.level),
+      accountStatus: user.accountStatus,
       level: user.level,
       track: user.track
     };

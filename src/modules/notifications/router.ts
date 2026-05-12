@@ -4,7 +4,8 @@ import { auth, allow } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { getNotificationUnreadCount } from '../me/badges.js';
-import { emitNavigationBadgesUpdated } from '../../realtime/events.js';
+import { emitNavigationBadgesUpdated, emitToUser } from '../../realtime/events.js';
+import { createNotification } from './service.js';
 
 export const notificationsRouter = Router();
 
@@ -42,14 +43,12 @@ notificationsRouter.post('/', auth, allow((u) => u.level === 7), async (req, res
   const parsed = notificationSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
-  const created = await prisma.notification.create({
-    data: {
-      ...parsed.data,
-      sender: parsed.data.sender ?? req.user!.username
-    }
+  const created = await createNotification({
+    ...parsed.data,
+    sender: parsed.data.sender ?? req.user!.username
   });
-  if (created.recipient !== '*') {
-    await emitNavigationBadgesUpdated(created.recipient);
+  if (created.recipient === '*') {
+    emitToUser(req.user!.username, 'notifications.updated', {});
   }
   return res.status(201).json({ success: true, data: created });
 });
@@ -68,6 +67,7 @@ notificationsRouter.post('/:id/read', auth, async (req, res) => {
         })
       : await prisma.notification.update({ where: { id: notification.id }, data: { read: true } });
   await emitNavigationBadgesUpdated(req.user!);
+  emitToUser(req.user!.username, 'notifications.updated', {});
   return ok(res, updated);
 });
 
@@ -90,6 +90,7 @@ notificationsRouter.post('/read-all', auth, async (req, res) => {
     return [directResult, broadcastRows] as const;
   });
   await emitNavigationBadgesUpdated(req.user!);
+  emitToUser(req.user!.username, 'notifications.updated', {});
   return ok(res, { updated: direct.count + broadcasts.length });
 });
 
@@ -111,6 +112,7 @@ notificationsRouter.delete('/', auth, async (req, res) => {
     return [directResult, broadcastRows] as const;
   });
   await emitNavigationBadgesUpdated(req.user!);
+  emitToUser(req.user!.username, 'notifications.updated', {});
   return ok(res, { deleted: direct.count + broadcasts.length });
 });
 
@@ -127,10 +129,12 @@ notificationsRouter.delete('/:id', auth, async (req, res) => {
       create: { notificationId: notification.id, username: req.user!.username }
     });
     await emitNavigationBadgesUpdated(req.user!);
+    emitToUser(req.user!.username, 'notifications.updated', {});
     return ok(res, { deleted: 1 });
   }
 
   await prisma.notification.delete({ where: { id: notification.id } });
   await emitNavigationBadgesUpdated(req.user!);
+  emitToUser(req.user!.username, 'notifications.updated', {});
   return ok(res, { deleted: 1 });
 });

@@ -3,11 +3,13 @@ import { Socket } from 'node:net';
 import { createHash } from 'node:crypto';
 import { URL } from 'node:url';
 import jwt from 'jsonwebtoken';
-import { Role, Track } from '@prisma/client';
+import { AccountStatus, Role, Track } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { AuthUser } from '../types/auth.js';
-import { emitToUsers, registerRealtimeClient } from './events.js';
+import { emitToMatchingClients, emitToUsers, registerRealtimeClient } from './events.js';
+import { markPresenceOffline, markPresenceOnline } from '../modules/presence/service.js';
+import { normalizeUserRole } from '../utils/serializers.js';
 
 const acceptKey = (key: string) =>
   createHash('sha1')
@@ -69,12 +71,20 @@ const authenticate = async (req: IncomingMessage): Promise<AuthUser | null> => {
     };
 
     if (payload.sub === 'guest' && payload.role === Role.guest) {
-      return { id: 'guest', username: 'guest', role: Role.guest, level: 0, track: Track.executive };
+      return { id: 'guest', username: 'guest', role: Role.guest, accountStatus: AccountStatus.active, level: 0, track: Track.executive };
     }
 
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) return null;
-    return { id: user.id, username: user.username, role: user.role, level: user.level, track: user.track };
+    if (user.accountStatus !== AccountStatus.active) return null;
+    return {
+      id: user.id,
+      username: user.username,
+      role: normalizeUserRole(user.role, user.level),
+      accountStatus: user.accountStatus,
+      level: user.level,
+      track: user.track
+    };
   } catch {
     return null;
   }
@@ -110,7 +120,7 @@ export const attachRealtimeWebSocket = (server: Server) => {
   server.on('upgrade', async (req, rawSocket) => {
     const socket = rawSocket as Socket;
     const pathname = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`).pathname;
-    if (pathname !== '/ws/chat') {
+    if (pathname !== '/ws/chat' && pathname !== '/ws') {
       socket.destroy();
       return;
     }
@@ -140,8 +150,18 @@ export const attachRealtimeWebSocket = (server: Server) => {
 
     const unregister = registerRealtimeClient({
       user,
-      send: (event, payload) => writeFrame(socket, { event, payload })
+      send: (event, payload) => writeFrame(socket, { event, payload }),
+      close: () => socket.end()
     });
+
+    const onlineSnapshot = markPresenceOnline(user.username);
+    if (onlineSnapshot.changed) {
+      emitToMatchingClients(
+        (viewer) => viewer.level >= 4,
+        'presence.updated',
+        { username: user.username, ...onlineSnapshot }
+      );
+    }
 
     writeFrame(socket, { event: 'socket.ready', payload: { username: user.username } });
 
@@ -154,7 +174,18 @@ export const attachRealtimeWebSocket = (server: Server) => {
       if (!text) return;
       void handleClientEvent(user, text).catch(() => undefined);
     });
-    socket.on('close', unregister);
-    socket.on('error', unregister);
+    const teardown = () => {
+      unregister();
+      const offlineSnapshot = markPresenceOffline(user.username);
+      if (offlineSnapshot.changed) {
+        emitToMatchingClients(
+          (viewer) => viewer.level >= 4,
+          'presence.updated',
+          { username: user.username, ...offlineSnapshot }
+        );
+      }
+    };
+    socket.on('close', teardown);
+    socket.on('error', teardown);
   });
 };
