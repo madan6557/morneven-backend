@@ -25,6 +25,7 @@ import { roleForLevel } from '../../utils/serializers.js';
 export const personnelRouter = Router();
 
 const ROLE_ADMIN = 'admin' as Role;
+const ROLE_SECURITY = 'security' as Role;
 
 const personnelPatchSchema = z.object({
   username: z.string().min(3).max(30).optional(),
@@ -32,7 +33,7 @@ const personnelPatchSchema = z.object({
   level: z.coerce.number().int().min(0).max(7).optional(),
   track: z.nativeEnum(Track).optional(),
   note: z.string().optional(),
-  role: z.enum(['author', 'admin', 'personel', 'guest']).optional()
+  role: z.enum(['author', 'admin', 'security', 'personel', 'guest']).optional()
 });
 
 const personnelCreateSchema = personnelPatchSchema.extend({
@@ -60,10 +61,11 @@ const personnelReportResolveSchema = z.object({
   action: z.enum(personnelReportManualActions).optional().default('none')
 });
 
-const isPl7AuthorTarget = (user: { level: number; role: Role }) => user.level >= 7 && user.role === Role.author;
+const isPl7ProtectedTarget = (user: { level: number; role: Role }) => user.level >= 7 && (user.role === Role.author || user.role === ROLE_SECURITY);
 
-const resolvePersonnelRole = (level: number, requestedRole?: Role | 'author' | 'admin' | 'personel' | 'guest') => {
+const resolvePersonnelRole = (level: number, requestedRole?: Role | 'author' | 'admin' | 'security' | 'personel' | 'guest') => {
   if (level <= 0) return Role.guest;
+  if (requestedRole === 'security') return ROLE_SECURITY;
   if (level >= 7) return requestedRole === 'author' ? Role.author : ROLE_ADMIN;
   return Role.personel;
 };
@@ -241,7 +243,9 @@ personnelRouter.post('/reports', auth, async (req, res) => {
   const target = await resolvePersonnelTarget(parsed.data.target);
   if (!target) return fail(res, 404, 'Target personnel not found', 'NOT_FOUND');
   if (target.id === req.user!.id) return fail(res, 422, 'You cannot report yourself', 'VALIDATION_ERROR');
-  if (target.role === Role.author) return fail(res, 403, 'Author accounts are outside personnel moderation scope', 'FORBIDDEN');
+  if (target.role === Role.author || target.role === ROLE_SECURITY) {
+    return fail(res, 403, 'Privileged accounts are outside personnel moderation scope', 'FORBIDDEN');
+  }
   if (target.accountStatus === AccountStatus.deleted) return fail(res, 422, 'Deleted accounts cannot be reported', 'VALIDATION_ERROR');
 
   const created = await prisma.personnelReport.create({
@@ -433,6 +437,12 @@ personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => 
   if (level >= 7 && req.user!.role !== Role.author && nextRole === Role.author) {
     return fail(res, 403, 'Only PL7 authors can create PL7 author accounts', 'FORBIDDEN');
   }
+  if (nextRole === ROLE_SECURITY && req.user!.level < 7) {
+    return fail(res, 403, 'Only PL7 can create security accounts', 'FORBIDDEN');
+  }
+  if (nextRole === ROLE_SECURITY && level < 7) {
+    return fail(res, 422, 'Security role requires PL7 clearance', 'VALIDATION_ERROR');
+  }
 
   const user = await prisma.user.create({
     data: {
@@ -515,8 +525,10 @@ personnelRouter.put('/:id', auth, async (req, res) => {
   }
 
   if (req.user!.level === 5 && req.user!.track !== target.track) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  if (isPl7AuthorTarget(target) && req.user!.level < 7) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
-  if (isPl7AuthorTarget(target) && req.user!.role !== Role.author) return fail(res, 403, 'PL7 author accounts are protected', 'FORBIDDEN');
+  if (isPl7ProtectedTarget(target) && req.user!.level < 7) return fail(res, 403, 'PL7 privileged accounts are protected', 'FORBIDDEN');
+  if (isPl7ProtectedTarget(target) && req.user!.role !== Role.author && req.user!.role !== ROLE_SECURITY) {
+    return fail(res, 403, 'PL7 privileged accounts are protected', 'FORBIDDEN');
+  }
 
   if (req.user!.level === 5) {
     if (patchKeys.some((key) => key !== 'note')) {
@@ -543,6 +555,12 @@ personnelRouter.put('/:id', auth, async (req, res) => {
   }
   if (req.user!.level >= 7 && req.user!.role !== Role.author && role === Role.author) {
     return fail(res, 403, 'Only PL7 authors can assign author role', 'FORBIDDEN');
+  }
+  if (role === ROLE_SECURITY && req.user!.level < 7) {
+    return fail(res, 403, 'Only PL7 can assign security role', 'FORBIDDEN');
+  }
+  if (role === ROLE_SECURITY && level < 7) {
+    return fail(res, 422, 'Security role requires PL7 clearance', 'VALIDATION_ERROR');
   }
 
   const updated = await prisma.user.update({
@@ -578,8 +596,8 @@ personnelRouter.patch('/bulk', auth, allow((u) => u.level >= 6), async (req, res
         if (target.id === req.user!.id) {
           throw new Error('You cannot edit your own account');
         }
-        if (isPl7AuthorTarget(target)) {
-          throw new Error('PL7 author accounts are protected');
+        if (isPl7ProtectedTarget(target)) {
+          throw new Error('PL7 privileged accounts are protected');
         }
         if (req.user!.level === 6 && target.level >= 7) {
           throw new Error('PL7 users are protected');

@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   author
   admin
+  security
   personel
   guest
 }
@@ -80,6 +81,7 @@ model User {
   updatedAt     DateTime @updatedAt
 
   refreshTokens RefreshToken[]
+  securitySessions SecuritySession[]
   news          News[]
   galleryItems  GalleryItem[]
   comments      Comment[]
@@ -116,9 +118,30 @@ model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
+  sessionId String?
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   SecuritySession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+}
+
+model SecuritySession {
+  id            String   @id @default(uuid())
+  userId        String
+  ipHash        String?
+  userAgentHash String?
+  riskScore     Int      @default(0)
+  revokedAt     DateTime?
+  revokeReason  String?
+  createdAt     DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([userId, revokedAt])
+  @@index([lastSeenAt])
 }
 
 model Project {
@@ -389,6 +412,71 @@ model AuditLog {
   entityId  String?
   metadata  Json?
   createdAt DateTime @default(now())
+}
+
+model SecurityEvent {
+  id            String   @id @default(uuid())
+  requestId     String?
+  actorId       String?
+  actorUsername String?
+  sessionId     String?
+  ipHash        String?
+  userAgentHash String?
+  action        String
+  resource      String?
+  resourceId    String?
+  severity      String
+  riskScore     Int      @default(0)
+  decision      String
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([severity, createdAt])
+  @@index([action, createdAt])
+  @@index([actorUsername, createdAt])
+}
+
+model SecurityBlock {
+  id           String   @id @default(uuid())
+  subjectType  String
+  subjectHash  String
+  reason       String
+  severity     String
+  expiresAt    DateTime
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  revokedAt    DateTime?
+  revokeReason String?
+
+  @@index([subjectType, subjectHash, expiresAt])
+  @@index([revokedAt, expiresAt])
+}
+
+model SecurityPolicy {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String
+  enabled     Boolean  @default(true)
+  config      Json     @default("{}")
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FileScanRecord {
+  id         String   @id @default(uuid())
+  objectPath String
+  sha256     String
+  mime       String
+  size       Int
+  verdict    String
+  provider   String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([sha256])
+  @@index([verdict, createdAt])
 }
 
 model PersonnelReport {

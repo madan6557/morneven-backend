@@ -7,6 +7,8 @@ import { readFileWithMetadataFromStorage, saveFileToStorage } from '../../config
 import { env } from '../../config/env.js';
 import { fail, ok } from '../../utils/response.js';
 import { isReadableObjectPath, normalizeObjectPath } from './object-path.js';
+import { scanUploadBuffer } from '../../security/files/scanner.js';
+import { recordSecurityEvent } from '../../security/audit/events.js';
 
 export const filesRouter = Router();
 
@@ -39,7 +41,33 @@ filesRouter.post('/upload', auth, (req, res) => {
     try {
       const folder = parsedQuery.data.folder ?? 'uploads';
       const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      if (!safeName || safeName === '.' || safeName === '..') {
+        return fail(res, 400, 'Invalid file name', 'VALIDATION_ERROR');
+      }
       const objectPath = `${folder}/${Date.now()}-${randomUUID()}-${safeName}`;
+      const scan = await scanUploadBuffer({
+        objectPath,
+        buffer: req.file.buffer,
+        mime: req.file.mimetype
+      });
+
+      if (scan.verdict === 'blocked' || scan.verdict === 'quarantined') {
+        await recordSecurityEvent(req, {
+          action: 'file.upload.blocked',
+          severity: scan.verdict === 'quarantined' ? 'high' : 'medium',
+          decision: 'deny',
+          resource: 'FileUpload',
+          metadata: {
+            objectPath,
+            verdict: scan.verdict,
+            reason: scan.reason,
+            mime: scan.mime,
+            size: scan.size,
+            sha256: scan.sha256
+          }
+        });
+        return fail(res, 400, scan.reason ?? 'Upload blocked by security policy', 'FILE_BLOCKED');
+      }
 
       const stored = await saveFileToStorage({
         objectPath,
@@ -53,6 +81,8 @@ filesRouter.post('/upload', auth, (req, res) => {
         location: stored.location,
         contentType: req.file.mimetype,
         size: req.file.size,
+        sha256: scan.sha256,
+        scanVerdict: scan.verdict,
         url: stored.url
       });
     } catch (error) {
@@ -78,6 +108,7 @@ filesRouter.get('/object', auth, async (req, res) => {
     const filename = objectPath.split('/').pop() ?? 'file';
 
     res.setHeader('Content-Type', file.contentType ?? 'application/octet-stream');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     if (typeof file.contentLength === 'number' && Number.isFinite(file.contentLength)) {
       res.setHeader('Content-Length', String(file.contentLength));
     }

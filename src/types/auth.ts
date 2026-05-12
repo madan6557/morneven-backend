@@ -7,4 +7,5 @@ export type AuthUser = {
   accountStatus: AccountStatus;
   level: number;
   track: Track;
+  sessionId?: string;
 };

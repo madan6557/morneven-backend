@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
@@ -15,6 +15,9 @@ import { ensureInstituteMembership, syncDivisionMembership } from '../chat/servi
 import { createNotification } from '../notifications/service.js';
 import { updateAccountStatus } from '../personnel/service.js';
 import { writeAudit } from '../../utils/audit.js';
+import { createSecuritySession, revokeSecuritySessions, touchSecuritySession } from '../../security/sessions/session-service.js';
+import { recordSecurityEvent } from '../../security/audit/events.js';
+import { securityFeatures } from '../../security/config.js';
 
 export const authRouter = Router();
 const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
@@ -37,7 +40,7 @@ const loginSchema = z.object({
 });
 
 const refreshSchema = z.object({
-  refreshToken: z.string().min(10)
+  refreshToken: z.string().min(10).optional()
 });
 const forgotPasswordSchema = z.object({
   email: z.string().email()
@@ -112,16 +115,63 @@ const inactiveAccountFailure = (status: AccountStatus) => {
 
 const hashRefreshToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
-const issueTokens = async (user: { id: string; username: string; role: Role; level: number; track: Track }) => {
-  const token = jwt.sign({ sub: user.id, username: user.username, role: user.role, level: user.level, track: user.track }, env.jwtAccessSecret, { expiresIn: '1h' });
-  const refreshToken = jwt.sign({ sub: user.id }, env.jwtRefreshSecret, { expiresIn: '7d' });
-  await prisma.refreshToken.create({
+const readCookie = (req: Request, name: string) => {
+  const cookie = req.headers.cookie;
+  if (!cookie) return undefined;
+  const pair = cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+  return pair ? decodeURIComponent(pair.slice(name.length + 1)) : undefined;
+};
+
+const setAuthCookies = (res: Response, tokens: { token: string; refreshToken: string }) => {
+  if (!env.authCookieEnabled) return;
+  const cookieOptions = {
+    httpOnly: true,
+    secure: env.nodeEnv === 'production',
+    sameSite: 'none' as const,
+    path: '/',
+    ...(env.authCookieDomain ? { domain: env.authCookieDomain } : {})
+  };
+  res.cookie('morneven_access_token', tokens.token, { ...cookieOptions, maxAge: 60 * 60 * 1000 });
+  res.cookie('morneven_refresh_token', tokens.refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+};
+
+const clearAuthCookies = (res: Response) => {
+  if (!env.authCookieEnabled) return;
+  const cookieOptions = {
+    httpOnly: true,
+    secure: env.nodeEnv === 'production',
+    sameSite: 'none' as const,
+    path: '/',
+    ...(env.authCookieDomain ? { domain: env.authCookieDomain } : {})
+  };
+  res.clearCookie('morneven_access_token', cookieOptions);
+  res.clearCookie('morneven_refresh_token', cookieOptions);
+};
+
+const issueTokens = async (
+  user: { id: string; username: string; role: Role; level: number; track: Track },
+  req?: Request,
+  existingSessionId?: string
+) => {
+  const sessionId = existingSessionId ?? (await createSecuritySession(user.id, req));
+  const token = jwt.sign(
+    { sub: user.id, username: user.username, role: user.role, level: user.level, track: user.track, sid: sessionId },
+    env.jwtAccessSecret,
+    { expiresIn: '1h' }
+  );
+  const refreshToken = jwt.sign({ sub: user.id, sid: sessionId }, env.jwtRefreshSecret, { expiresIn: '7d' });
+  const stored = await prisma.refreshToken.create({
     data: {
       token: hashRefreshToken(refreshToken),
       userId: user.id,
+      sessionId,
       expiresAt: new Date(Date.now() + 7 * 86400000)
     }
   });
+  if (sessionId) await touchSecuritySession(sessionId);
   return { token, refreshToken };
 };
 
@@ -135,7 +185,8 @@ authRouter.post('/register', authRateLimiter, validateBody(registerSchema), asyn
     data: { email, username, passwordHash, role: Role.personel, level: 1, track: Track.executive }
   });
 
-  const { token, refreshToken } = await issueTokens(user);
+  const { token, refreshToken } = await issueTokens(user, req);
+  setAuthCookies(res, { token, refreshToken });
   await ensureInstituteMembership(user.username, user.level);
   await syncDivisionMembership(user.username, user.track, user.level);
   await createNotification({
@@ -153,17 +204,26 @@ authRouter.post('/register', authRateLimiter, validateBody(registerSchema), asyn
 authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
+  if (!user) {
+    await recordSecurityEvent(req, { action: 'auth.login.failed', severity: 'low', decision: 'deny', metadata: { reason: 'unknown-email' } });
+    return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
+  }
   if (user.accountStatus !== AccountStatus.active) {
     const [message, errorCode] = inactiveAccountFailure(user.accountStatus);
+    await recordSecurityEvent(req, { action: 'auth.login.inactive', severity: 'medium', decision: 'deny', metadata: { accountStatus: user.accountStatus } });
     return fail(res, 403, message, errorCode);
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
+  if (!valid) {
+    await recordSecurityEvent(req, { action: 'auth.login.failed', severity: 'low', decision: 'deny', metadata: { reason: 'bad-password', userId: user.id } });
+    return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
+  }
 
   await prisma.refreshToken.deleteMany({ where: { userId: user.id, expiresAt: { lte: new Date() } } });
-  const { token, refreshToken } = await issueTokens(user);
+  const { token, refreshToken } = await issueTokens(user, req);
+  setAuthCookies(res, { token, refreshToken });
+  await recordSecurityEvent(req, { action: 'auth.login.success', severity: 'low', decision: 'allow', metadata: { userId: user.id } });
 
   return ok(res, {
     token,
@@ -176,14 +236,24 @@ authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req
 });
 
 authRouter.post('/refresh', authRateLimiter, validateBody(refreshSchema), async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.body.refreshToken || readCookie(req, 'morneven_refresh_token');
 
   try {
-    const payload = jwt.verify(refreshToken, env.jwtRefreshSecret) as { sub: string };
+    const payload = jwt.verify(refreshToken, env.jwtRefreshSecret) as { sub: string; sid?: string };
     const hashed = hashRefreshToken(refreshToken);
     const stored = await prisma.refreshToken.findUnique({ where: { token: hashed } });
 
     if (!stored || stored.userId !== payload.sub || stored.expiresAt <= new Date()) {
+      if (securityFeatures.activeDefense) {
+        await prisma.refreshToken.deleteMany({ where: { userId: payload.sub } });
+        await revokeSecuritySessions({ userId: payload.sub, reason: 'Refresh token reuse or invalid refresh token' });
+      }
+      await recordSecurityEvent(req, {
+        action: 'auth.refresh.reuse-or-invalid',
+        severity: 'high',
+        decision: 'deny',
+        metadata: { userId: payload.sub, sessionId: payload.sid }
+      });
       return fail(res, 401, 'Invalid refresh token', 'UNAUTHORIZED');
     }
 
@@ -195,10 +265,12 @@ authRouter.post('/refresh', authRateLimiter, validateBody(refreshSchema), async 
       const [message, errorCode] = inactiveAccountFailure(dbUser.accountStatus);
       return fail(res, 403, message, errorCode);
     }
-    const rotated = await issueTokens(dbUser);
+    const rotated = await issueTokens(dbUser, req, stored.sessionId ?? payload.sid);
+    setAuthCookies(res, { token: rotated.token, refreshToken: rotated.refreshToken });
 
     return ok(res, { token: rotated.token, refreshToken: rotated.refreshToken });
   } catch {
+    await recordSecurityEvent(req, { action: 'auth.refresh.invalid', severity: 'medium', decision: 'deny' });
     return fail(res, 401, 'Invalid refresh token', 'UNAUTHORIZED');
   }
 });
@@ -221,6 +293,8 @@ authRouter.post('/guest', async (_req, res) => {
 });
 authRouter.post('/logout', auth, async (req, res) => {
   await prisma.refreshToken.deleteMany({ where: { userId: req.user!.id } });
+  await revokeSecuritySessions({ userId: req.user!.id, reason: 'User logout' });
+  clearAuthCookies(res);
   return ok(res, { loggedOut: true });
 });
 
@@ -278,7 +352,7 @@ authRouter.post('/password-reset/request', authRateLimiter, validateBody(passwor
     where: {
       level: { gte: 7 },
       accountStatus: AccountStatus.active,
-      role: { in: [Role.author, 'admin' as Role] }
+      role: { in: [Role.author, 'admin' as Role, 'security' as Role] }
     }
   });
   await Promise.all(
@@ -395,6 +469,10 @@ authRouter.post('/password-reset/confirm', authRateLimiter, validateBody(passwor
       }
     });
     await tx.refreshToken.deleteMany({ where: { userId: requestRecord.targetUserId } });
+    await (tx as any).securitySession.updateMany({
+      where: { userId: requestRecord.targetUserId, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: 'Password reset confirmed' }
+    });
     await writeAudit(tx, {
       actor: requestRecord.username,
       action: 'auth.password-reset.confirm',
@@ -414,6 +492,7 @@ authRouter.post('/change-password', auth, validateBody(changePasswordSchema), as
   const passwordHash = await bcrypt.hash(req.body.newPassword, 12);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
   await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+  await revokeSecuritySessions({ userId: user.id, reason: 'Password changed' });
   return ok(res, { changed: true });
 });
 
@@ -433,6 +512,10 @@ authRouter.delete('/delete-account', auth, validateBody(deleteAccountSchema), as
       action: 'auth.delete-account',
       entity: 'User',
       entityId: user.id
+    });
+    await (tx as any).securitySession.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: 'Account deleted' }
     });
     return updated;
   });

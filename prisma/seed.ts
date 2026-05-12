@@ -20,7 +20,7 @@ const clampLevel = (value: unknown) => {
 };
 
 const toRole = (value: string): Role =>
-  value === 'author' ? Role.author : value === 'admin' ? Role.admin : value === 'guest' ? Role.guest : Role.personel;
+  value === 'author' ? Role.author : value === 'admin' ? Role.admin : value === 'security' ? ('security' as Role) : value === 'guest' ? Role.guest : Role.personel;
 const toTrack = (value: string): Track => {
   const normalized = normalizeText(value).toLowerCase();
   if (normalized === 'field') return Track.field;

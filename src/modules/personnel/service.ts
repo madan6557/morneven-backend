@@ -3,6 +3,8 @@ import { ensureInstituteMembership, reconcileAutoMemberships, revokeConversation
 import { invalidateRealtimeSessions } from '../../realtime/events.js';
 import { roleForLevel } from '../../utils/serializers.js';
 
+const ROLE_SECURITY = 'security' as Role;
+
 // Confirmed-report policy:
 // 2 confirmed reports: one automatic demotion.
 // 4 confirmed reports: automatic ban and session revocation.
@@ -41,7 +43,7 @@ export const canModerateAccount = (
 ) => {
   if (actor.id === target.id) return false;
   if (actor.level < 6) return false;
-  if (target.role === Role.author) return false;
+  if (target.role === Role.author || target.role === ROLE_SECURITY) return false;
   if (actor.level === 6) return target.level < 6;
   if (actor.level >= 7 && actor.role === Role.author) return true;
   return target.level < 7;
@@ -87,6 +89,10 @@ export const updateAccountStatus = async (
 
   if (nextStatus !== AccountStatus.active) {
     await db.refreshToken.deleteMany({ where: { userId: user.id } });
+    await (db as any).securitySession.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: `Account ${nextStatus}` }
+    });
   }
 
   await syncMembershipsForUser(db, {
@@ -149,6 +155,10 @@ export const applyConfirmedReportDiscipline = async (
 
   if (updated.accountStatus !== AccountStatus.active) {
     await db.refreshToken.deleteMany({ where: { userId: updated.id } });
+    await (db as any).securitySession.updateMany({
+      where: { userId: updated.id, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: `Account ${updated.accountStatus}` }
+    });
     await applyInactiveAccountSideEffects(db, updated, updated.accountStatus);
   } else if (updated.level !== target.level || updated.track !== target.track) {
     await reconcileAutoMemberships(db as any, { emit: true });

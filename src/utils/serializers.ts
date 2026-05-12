@@ -30,6 +30,7 @@ export const roleForLevel = (level: number): Role => {
 
 export const normalizeUserRole = (role: Role, level: number): Role => {
   if (role === Role.author) return Role.author;
+  if (role === ('security' as Role)) return role;
   if (level >= 7) return ROLE_ADMIN;
   if (level <= 0) return Role.guest;
   return role === Role.guest ? Role.guest : Role.personel;

@@ -70,6 +70,13 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=200
 AUTH_RATE_LIMIT_WINDOW_MS=900000
 AUTH_RATE_LIMIT_MAX=10
+SECURITY_LEVEL=5
+SECURITY_BLOCK_TTL_MS=900000
+SECURITY_RETENTION_DAYS=90
+SECURITY_HASH_PEPPER="<OPTIONAL_SECURITY_HASH_PEPPER>"
+FILE_SCAN_PROVIDER="none"
+AUTH_COOKIE_ENABLED=false
+AUTH_COOKIE_DOMAIN=""
 MAX_UPLOAD_MB=20
 STORAGE_DRIVER="local"
 LOCAL_STORAGE_PATH="storage"
@@ -113,10 +120,27 @@ Before going live, validate these items:
 - Helmet security headers enabled.
 - CORS policy constrained by `CORS_ORIGIN`.
 - Global rate limiting enabled (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`) plus stricter auth endpoint limiter.
+- Modular security layer controlled by `SECURITY_LEVEL`, where `0` disables the module and `5` enables the full security posture.
+- Security event, session, temporary block, and file scan records are available through `/api/security/*` for authorized security operators.
+- Uploads are checked with MIME allowlist, file signature validation, SHA-256 hashing, and provider-ready scan abstraction.
 - Request body limit set to 1 MB.
 - Environment validation at startup (fail-fast on missing/invalid secrets).
 - Refresh tokens stored hashed in database.
+- Refresh tokens are bound to revocable security sessions when `SECURITY_LEVEL` is above `0`.
 - Graceful shutdown hooks for SIGTERM/SIGINT.
+
+## Security Module Level
+
+`SECURITY_LEVEL` is the global switch for the Morneven Security Module:
+
+| Level | Behavior |
+| --- | --- |
+| `0` | Security module off. Existing baseline middleware remains active. |
+| `1` | Observe and record security evidence. |
+| `2` | Add route-group rate limiting and session checks. |
+| `3` | Block high-risk injection and traversal probes. |
+| `4` | Enable active defense temporary blocks and session revocation responses. |
+| `5` | Full configured security posture. |
 
 ## Deployment Guide
 
