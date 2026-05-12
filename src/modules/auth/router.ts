@@ -6,7 +6,7 @@ import { AccountStatus, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
-import { auth } from '../../middleware/auth.js';
+import { allow, auth, hasPl7MaintenanceAccess } from '../../middleware/auth.js';
 import { authRateLimiter } from '../../middleware/security.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
@@ -17,6 +17,13 @@ import { updateAccountStatus } from '../personnel/service.js';
 import { writeAudit } from '../../utils/audit.js';
 
 export const authRouter = Router();
+const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
+  findFirst: (args: Record<string, unknown>) => Promise<any>;
+  findMany: (args: Record<string, unknown>) => Promise<any[]>;
+  findUnique: (args: Record<string, unknown>) => Promise<any>;
+  create: (args: Record<string, unknown>) => Promise<any>;
+  update: (args: Record<string, unknown>) => Promise<any>;
+};
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -35,12 +42,65 @@ const refreshSchema = z.object({
 const forgotPasswordSchema = z.object({
   email: z.string().email()
 });
+const passwordResetRequestSchema = z.object({
+  email: z.string().email(),
+  username: z.string().min(3).max(30),
+  newPassword: z.string().min(12).max(128),
+  confirmPassword: z.string().min(12).max(128),
+  identityProof: z.string().min(12).max(2000)
+}).refine((value) => value.newPassword === value.confirmPassword, {
+  path: ['confirmPassword'],
+  message: 'Password confirmation does not match'
+});
+const passwordResetConfirmSchema = z.object({
+  email: z.string().email(),
+  username: z.string().min(3).max(30),
+  newPassword: z.string().min(12).max(128),
+  confirmPassword: z.string().min(12).max(128)
+}).refine((value) => value.newPassword === value.confirmPassword, {
+  path: ['confirmPassword'],
+  message: 'Password confirmation does not match'
+});
+const passwordResetReviewSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+  reviewNote: z.string().trim().max(1000).optional()
+});
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(12).max(128)
 });
 const deleteAccountSchema = z.object({
   password: z.string().min(1)
+});
+
+const serializePasswordResetRequest = (
+  request: {
+    id: string;
+    email: string;
+    username: string;
+    identityProof: string;
+    status: string;
+    reviewNote?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    reviewedAt?: Date | null;
+    completedAt?: Date | null;
+    targetUser?: { id: string; username: string; email: string; level: number; role: Role; track: Track } | null;
+    reviewedBy?: { id: string; username: string; email: string; level: number; role: Role; track: Track } | null;
+  }
+) => ({
+  id: request.id,
+  email: request.email,
+  username: request.username,
+  identityProof: request.identityProof,
+  status: request.status,
+  reviewNote: request.reviewNote ?? undefined,
+  createdAt: request.createdAt.toISOString(),
+  updatedAt: request.updatedAt.toISOString(),
+  reviewedAt: request.reviewedAt?.toISOString(),
+  completedAt: request.completedAt?.toISOString(),
+  targetUser: request.targetUser ? serializeUser(request.targetUser as any) : undefined,
+  reviewedBy: request.reviewedBy ? serializeUser(request.reviewedBy as any) : undefined
 });
 
 const inactiveAccountFailure = (status: AccountStatus) => {
@@ -173,6 +233,177 @@ authRouter.post('/forgot-password', authRateLimiter, validateBody(forgotPassword
     console.log(`Password reset requested for ${email}`);
   }
   return ok(res, { accepted: true });
+});
+
+authRouter.post('/password-reset/request', authRateLimiter, validateBody(passwordResetRequestSchema), async (req, res) => {
+  const email = String(req.body.email).trim().toLowerCase();
+  const username = String(req.body.username).trim();
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+      username: { equals: username, mode: 'insensitive' }
+    }
+  });
+
+  if (!user) return fail(res, 404, 'Account not found for the submitted email and username', 'NOT_FOUND');
+  if (user.accountStatus === AccountStatus.deleted) return fail(res, 409, 'Deleted accounts cannot request password reset', 'CONFLICT');
+
+  const openRequest = await passwordResetRequestModel.findFirst({
+    where: {
+      targetUserId: user.id,
+      status: { in: ['pending', 'approved'] }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (openRequest) {
+    return fail(res, 409, 'There is already an open password reset request for this account', 'CONFLICT');
+  }
+
+  const newPasswordHash = await bcrypt.hash(String(req.body.newPassword), 12);
+  const created = await passwordResetRequestModel.create({
+    data: {
+      targetUserId: user.id,
+      email,
+      username: user.username,
+      identityProof: String(req.body.identityProof).trim(),
+      newPasswordHash
+    },
+    include: {
+      targetUser: true,
+      reviewedBy: true
+    }
+  });
+
+  const reviewers = await prisma.user.findMany({
+    where: {
+      level: { gte: 7 },
+      accountStatus: AccountStatus.active,
+      role: { in: [Role.author, 'admin' as Role] }
+    }
+  });
+  await Promise.all(
+    reviewers.map((reviewer) =>
+      createNotification({
+        kind: 'warning',
+        title: 'Password reset request submitted',
+        body: `${user.username} submitted a password reset request for manual review.`,
+        recipient: reviewer.username,
+        sender: 'system',
+        link: '/settings'
+      })
+    )
+  );
+
+  await writeAudit(prisma, {
+    actor: user.username,
+    action: 'auth.password-reset.request',
+    entity: 'PasswordResetRequest',
+    entityId: created.id
+  });
+
+  return res.status(201).json({ success: true, data: serializePasswordResetRequest(created) });
+});
+
+authRouter.get('/password-reset/requests', auth, allow(hasPl7MaintenanceAccess), async (_req, res) => {
+  const requests = await passwordResetRequestModel.findMany({
+    include: {
+      targetUser: true,
+      reviewedBy: true
+    },
+    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }]
+  });
+  return ok(res, requests.map(serializePasswordResetRequest));
+});
+
+authRouter.post('/password-reset/requests/:id/review', auth, allow(hasPl7MaintenanceAccess), validateBody(passwordResetReviewSchema), async (req, res) => {
+  const requestRecord = await passwordResetRequestModel.findUnique({
+    where: { id: req.params.id },
+    include: {
+      targetUser: true,
+      reviewedBy: true
+    }
+  });
+  if (!requestRecord) return fail(res, 404, 'Password reset request not found', 'NOT_FOUND');
+  if (requestRecord.status !== 'pending') return fail(res, 409, 'Password reset request is already reviewed', 'CONFLICT');
+
+  const reviewed = await passwordResetRequestModel.update({
+    where: { id: requestRecord.id },
+    data: {
+      status: req.body.status,
+      reviewNote: req.body.reviewNote?.trim() || null,
+      reviewedById: req.user!.id,
+      reviewedAt: new Date()
+    },
+    include: {
+      targetUser: true,
+      reviewedBy: true
+    }
+  });
+
+  await createNotification({
+    kind: req.body.status === 'approved' ? 'system' : 'warning',
+    title: req.body.status === 'approved' ? 'Password reset request approved' : 'Password reset request rejected',
+    body:
+      req.body.status === 'approved'
+        ? 'Your password reset request has been approved. Open credential confirmation to activate the new password.'
+        : req.body.reviewNote?.trim() || 'Your password reset request was rejected.',
+    recipient: requestRecord.targetUser.username,
+    sender: req.user!.username,
+    link: '/auth/password-reset/confirm'
+  });
+
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'auth.password-reset.review',
+    entity: 'PasswordResetRequest',
+    entityId: reviewed.id,
+    metadata: { status: reviewed.status }
+  });
+
+  return ok(res, serializePasswordResetRequest(reviewed));
+});
+
+authRouter.post('/password-reset/confirm', authRateLimiter, validateBody(passwordResetConfirmSchema), async (req, res) => {
+  const email = String(req.body.email).trim().toLowerCase();
+  const username = String(req.body.username).trim();
+  const requestRecord = await passwordResetRequestModel.findFirst({
+    where: {
+      email,
+      username: { equals: username, mode: 'insensitive' },
+      status: 'approved'
+    },
+    include: {
+      targetUser: true
+    },
+    orderBy: { reviewedAt: 'desc' }
+  });
+
+  if (!requestRecord) return fail(res, 404, 'No approved password reset request found', 'NOT_FOUND');
+  const valid = await bcrypt.compare(String(req.body.newPassword), requestRecord.newPasswordHash);
+  if (!valid) return fail(res, 403, 'Submitted credentials do not match the approved request', 'FORBIDDEN');
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: requestRecord.targetUserId },
+      data: { passwordHash: requestRecord.newPasswordHash }
+    });
+    await (tx as any).passwordResetRequest.update({
+      where: { id: requestRecord.id },
+      data: {
+        status: 'completed',
+        completedAt: new Date()
+      }
+    });
+    await tx.refreshToken.deleteMany({ where: { userId: requestRecord.targetUserId } });
+    await writeAudit(tx, {
+      actor: requestRecord.username,
+      action: 'auth.password-reset.confirm',
+      entity: 'PasswordResetRequest',
+      entityId: requestRecord.id
+    });
+  });
+
+  return ok(res, { confirmed: true });
 });
 
 authRouter.post('/change-password', auth, validateBody(changePasswordSchema), async (req, res) => {

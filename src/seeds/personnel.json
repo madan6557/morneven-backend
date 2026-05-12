@@ -13,7 +13,7 @@
     "id": "psn-002",
     "username": "admin",
     "email": "admin@morneven.com",
-    "role": "author",
+    "role": "admin",
     "level": 7,
     "track": "executive",
     "note": "System administrator",

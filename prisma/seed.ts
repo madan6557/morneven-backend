@@ -1,11 +1,15 @@
-import { Prisma, PrismaClient, Role, Track, ProjectStatus, EntityType, MediaType, MapStatus } from '@prisma/client';
+import { Prisma, PrismaClient, Role, Track, ProjectStatus, EntityType, MediaType, MapStatus, AccountStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { normalizeLoreMetadata, normalizeProjectMeta } from '../src/utils/lore-contract.js';
 
 const prisma = new PrismaClient();
-const seedDir = path.resolve(process.cwd(), 'fe-seed');
+const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
+  deleteMany: () => Promise<unknown>;
+  create: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+};
+const seedDir = path.resolve(process.cwd(), 'src', 'seeds');
 
 const normalizeText = (value: unknown) => String(value ?? '').trim();
 const normalizeUsername = (value: unknown) => normalizeText(value).toLowerCase();
@@ -54,6 +58,13 @@ const toMapStatus = (value: string): MapStatus => {
   if (value === 'mission') return MapStatus.mission;
   return MapStatus.safe;
 };
+const toAccountStatus = (value: unknown): AccountStatus => {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === 'suspended') return AccountStatus.suspended;
+  if (normalized === 'banned') return AccountStatus.banned;
+  if (normalized === 'deleted') return AccountStatus.deleted;
+  return AccountStatus.active;
+};
 
 async function seedDiscussionThread(
   entityType: EntityType,
@@ -94,6 +105,15 @@ async function loadJson<T>(filename: string): Promise<T> {
   const fullPath = path.join(seedDir, filename);
   const raw = await readFile(fullPath, 'utf-8');
   return JSON.parse(raw) as T;
+}
+
+async function loadOptionalJson<T>(filename: string, fallback: T): Promise<T> {
+  try {
+    return await loadJson<T>(filename);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return fallback;
+    throw error;
+  }
 }
 
 type SeedConversationMember = {
@@ -177,6 +197,9 @@ async function seedReadState(conversationId: string, username: string, lastReadA
 }
 
 async function main() {
+  await prisma.notificationRead.deleteMany();
+  await passwordResetRequestModel.deleteMany();
+  await prisma.personnelReport.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.extractionJob.deleteMany();
   await prisma.chatReadState.deleteMany();
@@ -204,7 +227,21 @@ async function main() {
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
 
-  const [personnel, projects, news, gallery, characters, places, technology, creatures, other, events, mapData] = await Promise.all([
+  const [
+    personnel,
+    projects,
+    news,
+    gallery,
+    characters,
+    places,
+    technology,
+    creatures,
+    other,
+    events,
+    mapData,
+    passwordResetRequests,
+    personnelReports
+  ] = await Promise.all([
     loadJson<any[]>('personnel.json'),
     loadJson<any[]>('projects.json'),
     loadJson<any[]>('news.json'),
@@ -215,7 +252,9 @@ async function main() {
     loadJson<any[]>('creatures.json'),
     loadJson<any[]>('other.json'),
     loadJson<any[]>('events.json'),
-    loadJson<{ mapImage: string; markers: any[] }>('map.json')
+    loadJson<{ mapImage: string; markers: any[] }>('map.json'),
+    loadOptionalJson<any[]>('password-reset-requests.json', []),
+    loadOptionalJson<any[]>('personnel-reports.json', [])
   ]);
 
   const usersByUsername = new Map<string, string>();
@@ -236,9 +275,11 @@ async function main() {
         email,
         passwordHash,
         role: toRole(user.role),
+        accountStatus: toAccountStatus(user.status ?? user.accountStatus),
         level: clampLevel(user.level),
         track: toTrack(user.track),
-        note: user.note
+        note: user.note,
+        statusReason: normalizeText(user.statusReason) || null
       }
     });
     usersByUsername.set(created.username.toLowerCase(), created.id);
@@ -246,6 +287,68 @@ async function main() {
 
   const fallbackAuthorId = usersByUsername.get('author') ?? Array.from(usersByUsername.values())[0];
   if (!fallbackAuthorId) throw new Error('No seed users available in personnel.json');
+
+  for (const request of passwordResetRequests) {
+    const targetId =
+      usersByUsername.get(normalizeUsername(request.username ?? request.targetUsername)) ??
+      usersByUsername.get(normalizeUsername(request.targetUser?.username));
+    if (!targetId) continue;
+    const reviewedById =
+      usersByUsername.get(normalizeUsername(request.reviewedBy ?? request.reviewedByUsername)) ??
+      usersByUsername.get(normalizeUsername(request.reviewedBy?.username));
+    const newPasswordHash =
+      normalizeText(request.newPasswordHash) ||
+      await bcrypt.hash(normalizeText(request.newPassword) || 'ResetAccess123', 12);
+
+    await passwordResetRequestModel.create({
+      data: {
+        id: request.id,
+        targetUserId: targetId,
+        email: normalizeText(request.email).toLowerCase(),
+        username: normalizeText(request.username) || normalizeText(request.targetUsername),
+        identityProof: normalizeText(request.identityProof) || 'Seeded personnel identity proof.',
+        newPasswordHash,
+        status: normalizeText(request.status) || 'pending',
+        reviewNote: normalizeText(request.reviewNote) || null,
+        reviewedById: reviewedById ?? null,
+        createdAt: request.createdAt ? new Date(request.createdAt) : new Date(),
+        updatedAt: request.updatedAt ? new Date(request.updatedAt) : request.createdAt ? new Date(request.createdAt) : new Date(),
+        reviewedAt: request.reviewedAt ? new Date(request.reviewedAt) : null,
+        completedAt: request.completedAt ? new Date(request.completedAt) : null
+      }
+    });
+  }
+
+  for (const report of personnelReports) {
+    const reporterId =
+      usersByUsername.get(normalizeUsername(report.reporterUsername)) ??
+      usersByUsername.get(normalizeUsername(report.reporter?.username)) ??
+      fallbackAuthorId;
+    const targetId =
+      usersByUsername.get(normalizeUsername(report.targetUsername)) ??
+      usersByUsername.get(normalizeUsername(report.target?.username));
+    if (!targetId) continue;
+    const resolvedById =
+      usersByUsername.get(normalizeUsername(report.resolvedByUsername)) ??
+      usersByUsername.get(normalizeUsername(report.resolvedBy?.username));
+
+    await prisma.personnelReport.create({
+      data: {
+        id: report.id,
+        reporterId,
+        targetUserId: targetId,
+        category: normalizeText(report.category) || 'other',
+        details: normalizeText(report.details ?? report.reason) || 'Seeded personnel report.',
+        status: normalizeText(report.status) || 'open',
+        resolutionAction: normalizeText(report.resolutionAction ?? report.resolution) || null,
+        resolutionNote: normalizeText(report.resolutionNote ?? report.reviewNote) || null,
+        resolvedById: resolvedById ?? null,
+        createdAt: report.createdAt ? new Date(report.createdAt) : new Date(),
+        updatedAt: report.updatedAt ? new Date(report.updatedAt) : report.createdAt ? new Date(report.createdAt) : new Date(),
+        resolvedAt: report.resolvedAt ? new Date(report.resolvedAt) : report.reviewedAt ? new Date(report.reviewedAt) : null
+      }
+    });
+  }
 
   for (const item of projects) {
     await prisma.project.create({

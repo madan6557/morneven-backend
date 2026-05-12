@@ -87,6 +87,8 @@ model User {
   submittedReports PersonnelReport[] @relation("PersonnelReportReporter")
   receivedReports  PersonnelReport[] @relation("PersonnelReportTarget")
   resolvedReports  PersonnelReport[] @relation("PersonnelReportResolver")
+  passwordResetRequests PasswordResetRequest[] @relation("PasswordResetRequestTarget")
+  reviewedPasswordResetRequests PasswordResetRequest[] @relation("PasswordResetRequestReviewer")
 }
 
 model CommandCenterSettings {
@@ -408,4 +410,25 @@ model PersonnelReport {
 
   @@index([targetUserId, status])
   @@index([reporterId, createdAt])
+}
+
+model PasswordResetRequest {
+  id              String   @id @default(uuid())
+  targetUserId    String
+  email           String
+  username        String
+  identityProof   String
+  newPasswordHash String
+  status          String   @default("pending")
+  reviewNote      String?
+  reviewedById    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  reviewedAt      DateTime?
+  completedAt     DateTime?
+  targetUser      User     @relation("PasswordResetRequestTarget", fields: [targetUserId], references: [id])
+  reviewedBy      User?    @relation("PasswordResetRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@index([targetUserId, status])
+  @@index([status, createdAt])
 }

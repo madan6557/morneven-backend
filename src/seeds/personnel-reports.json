@@ -1,0 +1,26 @@
+[
+  {
+    "id": "preport-seed-001",
+    "reporterUsername": "j.huang",
+    "targetUsername": "e.ravel",
+    "category": "misconduct",
+    "details": "Repeatedly ignored archive handling instructions during shared maintenance handoff.",
+    "status": "open",
+    "createdAt": "2026-05-07T08:00:00.000Z",
+    "updatedAt": "2026-05-07T08:00:00.000Z"
+  },
+  {
+    "id": "preport-seed-002",
+    "reporterUsername": "m.varga",
+    "targetUsername": "t.bremmer",
+    "category": "security",
+    "details": "Uploaded restricted field imagery to the wrong review thread.",
+    "status": "confirmed",
+    "resolutionAction": "demote",
+    "resolutionNote": "Confirmed after review. Clearance reduced pending retraining.",
+    "resolvedByUsername": "author",
+    "createdAt": "2026-05-02T05:20:00.000Z",
+    "updatedAt": "2026-05-03T11:10:00.000Z",
+    "resolvedAt": "2026-05-03T11:10:00.000Z"
+  }
+]

@@ -31,6 +31,10 @@ import {
 import { emitToUser } from '../../realtime/events.js';
 
 export const settingsRouter = Router();
+const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
+  findMany: (args?: Record<string, unknown>) => Promise<any[]>;
+  count: () => Promise<number>;
+};
 
 const defaultSettings = defaultCommandCenterSettings;
 
@@ -234,6 +238,34 @@ type ExportSnapshot = {
     attachments: Array<{ type: 'image' | 'video' | 'link'; url: string; caption?: string }>;
   }>;
   personnel: ReturnType<typeof serializeUser>[];
+  passwordResetRequests: Array<{
+    id: string;
+    email: string;
+    username: string;
+    identityProof: string;
+    status: string;
+    reviewNote?: string;
+    reviewedBy?: string;
+    newPasswordHash: string;
+    createdAt: string;
+    updatedAt: string;
+    reviewedAt?: string;
+    completedAt?: string;
+  }>;
+  personnelReports: Array<{
+    id: string;
+    reporterUsername: string;
+    targetUsername: string;
+    category: string;
+    details: string;
+    status: string;
+    resolutionAction?: string;
+    resolutionNote?: string;
+    resolvedByUsername?: string;
+    createdAt: string;
+    updatedAt: string;
+    resolvedAt?: string;
+  }>;
   map: {
     mapImage: string;
     markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
@@ -269,12 +301,61 @@ const serializeNewsForExtraction = (item: Prisma.NewsGetPayload<{ include: { att
   }))
 });
 
+const serializePasswordResetRequestForExtraction = (
+  item: {
+    id: string;
+    email: string;
+    username: string;
+    identityProof: string;
+    status: string;
+    reviewNote?: string | null;
+    reviewedBy?: { username: string } | null;
+    newPasswordHash: string;
+    createdAt: Date;
+    updatedAt: Date;
+    reviewedAt?: Date | null;
+    completedAt?: Date | null;
+  }
+): ExportSnapshot['passwordResetRequests'][number] => ({
+  id: item.id,
+  email: item.email,
+  username: item.username,
+  identityProof: item.identityProof,
+  status: item.status,
+  reviewNote: item.reviewNote ?? undefined,
+  reviewedBy: item.reviewedBy?.username ?? undefined,
+  newPasswordHash: item.newPasswordHash,
+  createdAt: item.createdAt.toISOString(),
+  updatedAt: item.updatedAt.toISOString(),
+  reviewedAt: item.reviewedAt?.toISOString(),
+  completedAt: item.completedAt?.toISOString()
+});
+
+const serializePersonnelReportForExtraction = (
+  item: Prisma.PersonnelReportGetPayload<{ include: { reporter: true; target: true; resolvedBy: true } }>
+): ExportSnapshot['personnelReports'][number] => ({
+  id: item.id,
+  reporterUsername: item.reporter.username,
+  targetUsername: item.target.username,
+  category: item.category,
+  details: item.details,
+  status: item.status,
+  resolutionAction: item.resolutionAction ?? undefined,
+  resolutionNote: item.resolutionNote ?? undefined,
+  resolvedByUsername: item.resolvedBy?.username ?? undefined,
+  createdAt: item.createdAt.toISOString(),
+  updatedAt: item.updatedAt.toISOString(),
+  resolvedAt: item.resolvedAt?.toISOString()
+});
+
 const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
-  const [projects, gallery, news, personnel, mapMarkers, mapImage, lore, docs] = await Promise.all([
+  const [projects, gallery, news, personnel, passwordResetRequests, personnelReports, mapMarkers, mapImage, lore, docs] = await Promise.all([
     prisma.project.findMany({ include: { patches: true } }),
     prisma.galleryItem.findMany({ include: { tags: true, uploader: true } }),
     prisma.news.findMany({ include: { attachments: true } }),
     prisma.user.findMany(),
+    passwordResetRequestModel.findMany({ include: { reviewedBy: true } }),
+    prisma.personnelReport.findMany({ include: { reporter: true, target: true, resolvedBy: true } }),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
     prisma.loreItem.findMany(),
@@ -303,6 +384,8 @@ const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     gallery: gallery.map((item) => serializeGalleryItem(item)),
     news: news.map(serializeNewsForExtraction),
     personnel: personnel.map(serializeUser),
+    passwordResetRequests: passwordResetRequests.map(serializePasswordResetRequestForExtraction),
+    personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
     map: {
       mapImage: mapImage?.imageUrl ?? '',
       markers: mapMarkers
@@ -417,6 +500,8 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/gallery.json', content: JSON.stringify(exportedSnapshot.gallery, null, 2) });
     files.push({ name: 'db/news.json', content: JSON.stringify(exportedSnapshot.news, null, 2) });
     files.push({ name: 'db/personnel.json', content: JSON.stringify(exportedSnapshot.personnel, null, 2) });
+    files.push({ name: 'db/password-reset-requests.json', content: JSON.stringify(exportedSnapshot.passwordResetRequests, null, 2) });
+    files.push({ name: 'db/personnel-reports.json', content: JSON.stringify(exportedSnapshot.personnelReports, null, 2) });
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
   }
 
@@ -520,6 +605,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
 
 type MigrationDataset = {
   users: Awaited<ReturnType<typeof prisma.user.findMany>>;
+  passwordResetRequests: any[];
   commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
   refreshTokens: Awaited<ReturnType<typeof prisma.refreshToken.findMany>>;
   projects: Awaited<ReturnType<typeof prisma.project.findMany>>;
@@ -595,6 +681,7 @@ const summarizeMigrationDataset = (dataset: MigrationDataset, assetCount: number
 const collectMigrationDataset = async (): Promise<MigrationDataset> => {
   const [
     users,
+    passwordResetRequests,
     commandCenterSettings,
     refreshTokens,
     projects,
@@ -624,6 +711,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     personnelReports
   ] = await Promise.all([
     prisma.user.findMany(),
+    passwordResetRequestModel.findMany(),
     prisma.commandCenterSettings.findMany(),
     prisma.refreshToken.findMany(),
     prisma.project.findMany(),
@@ -655,6 +743,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
 
   return {
     users,
+    passwordResetRequests,
     commandCenterSettings,
     refreshTokens,
     projects,
@@ -704,6 +793,7 @@ const collectMigrationPayload = async (assetEndpoint: string): Promise<Migration
 const countCurrentMigrationState = async () => {
   const [
     users,
+    passwordResetRequests,
     commandCenterSettings,
     refreshTokens,
     projects,
@@ -734,6 +824,7 @@ const countCurrentMigrationState = async () => {
     assets
   ] = await Promise.all([
     prisma.user.count(),
+    passwordResetRequestModel.count(),
     prisma.commandCenterSettings.count(),
     prisma.refreshToken.count(),
     prisma.project.count(),
@@ -767,6 +858,7 @@ const countCurrentMigrationState = async () => {
   return {
     tables: {
       users,
+      passwordResetRequests,
       commandCenterSettings,
       refreshTokens,
       projects,
@@ -813,6 +905,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     await tx.chatConversationMember.deleteMany();
     await tx.chatConversation.deleteMany();
     await tx.refreshToken.deleteMany();
+    await (tx as any).passwordResetRequest.deleteMany();
     await tx.extractionJob.deleteMany();
     await tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } });
     await tx.personnelReport.deleteMany();
@@ -831,6 +924,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     await tx.user.deleteMany();
 
     if (dataset.users.length) await tx.user.createMany({ data: dataset.users as any });
+    if (dataset.passwordResetRequests.length) await (tx as any).passwordResetRequest.createMany({ data: dataset.passwordResetRequests as any });
     if (dataset.commandCenterSettings.length) await tx.commandCenterSettings.createMany({ data: dataset.commandCenterSettings as any });
     if (dataset.refreshTokens.length) await tx.refreshToken.createMany({ data: dataset.refreshTokens as any });
     if (dataset.projects.length) await tx.project.createMany({ data: dataset.projects as any });
