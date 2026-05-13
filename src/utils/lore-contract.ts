@@ -41,6 +41,7 @@ const average = (values: number[]) => {
 };
 
 const text = (value: unknown) => String(value ?? '').trim();
+const multilineText = (value: unknown) => String(value ?? '').replace(/\r\n/g, '\n');
 
 const textOrUndefined = (value: unknown) => {
   const normalized = text(value);
@@ -164,10 +165,10 @@ export const normalizeSkillItems = (value: unknown) =>
     const raw = asObject(entry);
     const legacyRestriction = text(raw.cooldown ?? raw.cd ?? raw.recovery) || text(raw.level);
     const restriction = normalizeSkillRestriction(raw.restriction, legacyRestriction);
-    const baseDescription = text(raw.description ?? raw.details ?? raw.summary);
+    const baseDescription = multilineText(raw.description ?? raw.details ?? raw.summary);
     const description =
       raw.immune === true && !baseDescription.includes('[[attr:immune')
-        ? `${baseDescription} ${baseDescription ? '' : ''}[[attr:immune]]`.trim()
+        ? `${baseDescription}${baseDescription && !/\s$/.test(baseDescription) ? ' ' : ''}[[attr:immune]]`
         : baseDescription;
     return {
       id: text(raw.id) || `skill-${index + 1}`,
