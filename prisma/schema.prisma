@@ -75,6 +75,7 @@ model User {
   note          String?
   statusReason  String?
   statusChangedAt DateTime?
+  statusExpiresAt DateTime?
   disciplineStrikeCount Int @default(0)
   disciplineTier Int @default(0)
   createdAt     DateTime @default(now())

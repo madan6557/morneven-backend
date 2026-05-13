@@ -13,7 +13,7 @@ import { fail, ok } from '../../utils/response.js';
 import { normalizeUserRole, serializeUser } from '../../utils/serializers.js';
 import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
 import { createNotification } from '../notifications/service.js';
-import { updateAccountStatus } from '../personnel/service.js';
+import { restoreExpiredAccountStatus, updateAccountStatus } from '../personnel/service.js';
 import { writeAudit } from '../../utils/audit.js';
 import { createSecuritySession, revokeSecuritySessions, touchSecuritySession } from '../../security/sessions/session-service.js';
 import { recordSecurityEvent } from '../../security/audit/events.js';
@@ -203,11 +203,12 @@ authRouter.post('/register', authRateLimiter, validateBody(registerSchema), asyn
 
 authRouter.post('/login', authRateLimiter, validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     await recordSecurityEvent(req, { action: 'auth.login.failed', severity: 'low', decision: 'deny', metadata: { reason: 'unknown-email' } });
     return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED');
   }
+  user = await restoreExpiredAccountStatus(prisma, user);
   if (user.accountStatus !== AccountStatus.active) {
     const [message, errorCode] = inactiveAccountFailure(user.accountStatus);
     await recordSecurityEvent(req, { action: 'auth.login.inactive', severity: 'medium', decision: 'deny', metadata: { accountStatus: user.accountStatus } });
@@ -258,8 +259,9 @@ authRouter.post('/refresh', authRateLimiter, validateBody(refreshSchema), async 
     }
 
     await prisma.refreshToken.delete({ where: { token: hashed } });
-    const dbUser = await prisma.user.findUnique({ where: { id: payload.sub } });
+    let dbUser = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!dbUser) return fail(res, 401, 'Invalid refresh token', 'UNAUTHORIZED');
+    dbUser = await restoreExpiredAccountStatus(prisma, dbUser);
     if (dbUser.accountStatus !== AccountStatus.active) {
       await prisma.refreshToken.deleteMany({ where: { userId: dbUser.id } });
       const [message, errorCode] = inactiveAccountFailure(dbUser.accountStatus);

@@ -16,6 +16,8 @@ import {
   REPORT_AUTO_DEMOTE_THRESHOLD,
   applyConfirmedReportDiscipline,
   canModerateAccount,
+  restoreExpiredAccountStatus,
+  restoreExpiredAccountStatuses,
   updateAccountStatus
 } from './service.js';
 import { emitToMatchingClients, emitToUsers } from '../../realtime/events.js';
@@ -44,7 +46,12 @@ const personnelCreateSchema = personnelPatchSchema.extend({
 
 const personnelStatusSchema = z.object({
   status: z.enum(['active', 'suspended', 'banned']),
-  reason: z.string().trim().min(3).max(300)
+  reason: z.string().trim().min(3).max(300),
+  durationMode: z.enum(['manual', 'minutes', 'hours', 'days']).optional().default('manual'),
+  durationAmount: z.coerce.number().int().min(1).max(3650).optional()
+}).refine((value) => value.status === 'active' || value.durationMode === 'manual' || value.durationAmount !== undefined, {
+  path: ['durationAmount'],
+  message: 'Duration amount is required for timed restrictions'
 });
 
 const personnelReportCreateSchema = z.object({
@@ -58,8 +65,32 @@ const personnelReportManualActions = ['none', 'suspend', 'demote', 'ban'] as con
 const personnelReportResolveSchema = z.object({
   status: z.enum(['confirmed', 'dismissed']),
   resolutionNote: z.string().trim().max(1000).optional(),
-  action: z.enum(personnelReportManualActions).optional().default('none')
-});
+  action: z.enum(personnelReportManualActions).optional().default('none'),
+  actionDurationMode: z.enum(['manual', 'minutes', 'hours', 'days']).optional().default('manual'),
+  actionDurationAmount: z.coerce.number().int().min(1).max(3650).optional()
+}).refine(
+  (value) =>
+    !['suspend', 'ban'].includes(value.action)
+    || value.actionDurationMode === 'manual'
+    || value.actionDurationAmount !== undefined,
+  {
+    path: ['actionDurationAmount'],
+    message: 'Duration amount is required for timed suspend or ban actions'
+  }
+);
+
+const resolveRestrictionExpiresAt = (input: {
+  mode?: 'manual' | 'minutes' | 'hours' | 'days';
+  amount?: number;
+}) => {
+  if (!input.mode || input.mode === 'manual') return null;
+  const multipliers = {
+    minutes: 60 * 1000,
+    hours: 60 * 60 * 1000,
+    days: 24 * 60 * 60 * 1000
+  } as const;
+  return new Date(Date.now() + (input.amount ?? 1) * multipliers[input.mode]);
+};
 
 const isPl7ProtectedTarget = (user: { level: number; role: Role }) => user.level >= 7 && (user.role === Role.author || user.role === ROLE_SECURITY);
 
@@ -138,6 +169,7 @@ const syncPersonnelMemberships = async (
 
 personnelRouter.get('/', auth, async (req, res) => {
   if (req.user!.level < 4) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  await restoreExpiredAccountStatuses(prisma);
   const { track, level, q, status } = req.query;
   const where: Prisma.UserWhereInput = {
     ...(track ? { track: track as Track } : {}),
@@ -159,6 +191,7 @@ personnelRouter.get('/', auth, async (req, res) => {
 });
 
 personnelRouter.get('/lookup', auth, async (req, res) => {
+  await restoreExpiredAccountStatuses(prisma);
   const raw = String(req.query.usernames ?? '');
   const usernames = [...new Set(raw.split(',').map((item) => item.trim()).filter(Boolean))];
   if (!usernames.length) return ok(res, []);
@@ -178,6 +211,7 @@ personnelRouter.get('/lookup', auth, async (req, res) => {
       track: true,
       note: true,
       statusReason: true,
+      statusExpiresAt: true,
       updatedAt: true
     }
   });
@@ -207,6 +241,7 @@ personnelRouter.get('/reports/mine', auth, async (req, res) => {
 });
 
 personnelRouter.get('/reports', auth, allow((u) => u.level >= 6), async (req, res) => {
+  await restoreExpiredAccountStatuses(prisma);
   const where: Prisma.PersonnelReportWhereInput = {
     ...(req.query.status ? { status: String(req.query.status) } : {}),
     ...(req.query.category ? { category: String(req.query.category) } : {}),
@@ -317,7 +352,10 @@ personnelRouter.post('/reports/:id/resolve', auth, allow((u) => u.level >= 6), a
           ...target,
           disciplineStrikeCount: target.disciplineStrikeCount,
           disciplineTier: target.disciplineTier
-        }, AccountStatus.banned, resolutionNote ?? 'Manually banned after confirmed report');
+        }, AccountStatus.banned, resolutionNote ?? 'Manually banned after confirmed report', resolveRestrictionExpiresAt({
+          mode: parsed.data.actionDurationMode,
+          amount: parsed.data.actionDurationAmount
+        }));
         target = await tx.user.update({
           where: { id: banned.id },
           data: {
@@ -330,7 +368,10 @@ personnelRouter.post('/reports/:id/resolve', auth, allow((u) => u.level >= 6), a
           ...target,
           disciplineStrikeCount: target.disciplineStrikeCount,
           disciplineTier: target.disciplineTier
-        }, AccountStatus.suspended, resolutionNote ?? 'Suspended after confirmed report');
+        }, AccountStatus.suspended, resolutionNote ?? 'Suspended after confirmed report', resolveRestrictionExpiresAt({
+          mode: parsed.data.actionDurationMode,
+          amount: parsed.data.actionDurationAmount
+        }));
         target = await tx.user.update({
           where: { id: suspended.id },
           data: {
@@ -415,8 +456,9 @@ personnelRouter.get('/:id', auth, async (req, res) => {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   }
 
-  const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+  let user = await prisma.user.findUnique({ where: { id: req.params.id } });
   if (!user) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
+  user = await restoreExpiredAccountStatus(prisma, user);
   return ok(res, serializeUser(user));
 });
 
@@ -477,7 +519,10 @@ personnelRouter.post('/:id/status', auth, allow((u) => u.level >= 6), async (req
       ...target,
       disciplineStrikeCount: target.disciplineStrikeCount,
       disciplineTier: target.disciplineTier
-    }, parsed.data.status as AccountStatus, parsed.data.reason)
+    }, parsed.data.status as AccountStatus, parsed.data.reason, resolveRestrictionExpiresAt({
+      mode: parsed.data.status === 'active' ? 'manual' : parsed.data.durationMode,
+      amount: parsed.data.durationAmount
+    }))
   );
 
   await writeAudit(prisma, {
@@ -485,7 +530,7 @@ personnelRouter.post('/:id/status', auth, allow((u) => u.level >= 6), async (req
     action: 'personnel.status.update',
     entity: 'User',
     entityId: updated.id,
-    metadata: { status: updated.accountStatus }
+    metadata: { status: updated.accountStatus, expiresAt: updated.statusExpiresAt?.toISOString() }
   });
 
   const serialized = serializeUser(updated);

@@ -88,6 +88,7 @@ type SerializableUser = {
   track: Prisma.UserGetPayload<object>['track'];
   note: string | null;
   statusReason?: string | null;
+  statusExpiresAt?: Date | string | null;
   updatedAt: Date | string;
 };
 
@@ -101,6 +102,7 @@ export const serializeUser = (user: SerializableUser) => ({
   track: user.track,
   note: user.note ?? '',
   statusReason: user.statusReason ?? undefined,
+  statusExpiresAt: user.statusExpiresAt ? new Date(user.statusExpiresAt).toISOString() : undefined,
   updatedAt: dateOnly(user.updatedAt),
   ...getPresenceSnapshot(user.username)
 });

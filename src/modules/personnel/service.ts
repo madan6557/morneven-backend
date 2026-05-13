@@ -72,7 +72,8 @@ export const updateAccountStatus = async (
   db: DbClient,
   user: UserLike,
   nextStatus: AccountStatus,
-  reason?: string | null
+  reason?: string | null,
+  expiresAt?: Date | null
 ) => {
   const statusChanged = user.accountStatus !== nextStatus;
   const updated = await db.user.update({
@@ -81,6 +82,7 @@ export const updateAccountStatus = async (
       accountStatus: nextStatus,
       statusReason: reason ?? null,
       statusChangedAt: new Date(),
+      statusExpiresAt: nextStatus === AccountStatus.active || nextStatus === AccountStatus.deleted ? null : expiresAt ?? null,
       ...(nextStatus === AccountStatus.deleted
         ? { level: 0, role: Role.guest, track: Track.executive }
         : {})
@@ -111,6 +113,36 @@ export const updateAccountStatus = async (
   }
 
   return updated;
+};
+
+export const restoreExpiredAccountStatus = async <T extends UserLike & { statusExpiresAt?: Date | null }>(
+  db: DbClient,
+  user: T
+) => {
+  if (
+    (user.accountStatus !== AccountStatus.suspended && user.accountStatus !== AccountStatus.banned)
+    || !user.statusExpiresAt
+    || user.statusExpiresAt > new Date()
+  ) {
+    return user;
+  }
+
+  return updateAccountStatus(db, user, AccountStatus.active, null, null);
+};
+
+export const restoreExpiredAccountStatuses = async (db: DbClient) => {
+  const expired = await db.user.findMany({
+    where: {
+      accountStatus: { in: [AccountStatus.suspended, AccountStatus.banned] },
+      statusExpiresAt: { lte: new Date() }
+    }
+  });
+
+  for (const user of expired) {
+    await restoreExpiredAccountStatus(db, user as UserLike & { statusExpiresAt?: Date | null });
+  }
+
+  return expired.length;
 };
 
 export const applyConfirmedReportDiscipline = async (
@@ -147,7 +179,8 @@ export const applyConfirmedReportDiscipline = async (
       ...(action !== 'none'
         ? {
             statusReason: reason,
-            statusChangedAt: new Date()
+            statusChangedAt: new Date(),
+            ...(nextStatus !== AccountStatus.active ? { statusExpiresAt: null } : {})
           }
         : {})
     }

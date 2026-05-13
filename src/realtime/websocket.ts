@@ -11,6 +11,7 @@ import { emitToMatchingClients, emitToUsers, registerRealtimeClient } from './ev
 import { markPresenceOffline, markPresenceOnline } from '../modules/presence/service.js';
 import { normalizeUserRole } from '../utils/serializers.js';
 import { securityFeatures } from '../security/config.js';
+import { restoreExpiredAccountStatus } from '../modules/personnel/service.js';
 
 const acceptKey = (key: string) =>
   createHash('sha1')
@@ -76,8 +77,9 @@ const authenticate = async (req: IncomingMessage): Promise<AuthUser | null> => {
       return { id: 'guest', username: 'guest', role: Role.guest, accountStatus: AccountStatus.active, level: 0, track: Track.executive, sessionId: payload.sid };
     }
 
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    let user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) return null;
+    user = await restoreExpiredAccountStatus(prisma, user);
     if (user.accountStatus !== AccountStatus.active) return null;
     if (securityFeatures.routeRateLimit && payload.sid) {
       const session = await prisma.securitySession.findUnique({ where: { id: payload.sid } });

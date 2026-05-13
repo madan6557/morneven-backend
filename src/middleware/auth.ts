@@ -8,6 +8,7 @@ import { AuthUser } from '../types/auth.js';
 import { normalizeUserRole } from '../utils/serializers.js';
 import { recordSecurityEvent } from '../security/audit/events.js';
 import { ensureSessionAllowed } from '../security/sessions/session-service.js';
+import { restoreExpiredAccountStatus } from '../modules/personnel/service.js';
 
 const ROLE_ADMIN = 'admin' as Role;
 const ROLE_SECURITY = 'security' as Role;
@@ -57,9 +58,10 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
       return next();
     }
 
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    let user = await prisma.user.findUnique({ where: { id: payload.sub } });
 
     if (!user) return fail(res, 401, 'Invalid token', 'UNAUTHORIZED');
+    user = await restoreExpiredAccountStatus(prisma, user);
     if (user.accountStatus !== AccountStatus.active) {
       await recordSecurityEvent(req, {
         action: 'auth.inactive-account',
