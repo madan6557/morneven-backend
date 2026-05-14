@@ -1,8 +1,9 @@
-import { Request, Response, Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import { raw } from 'express';
 import bcrypt from 'bcryptjs';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { EntityType, MediaType, Prisma, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { auth, hasPl7MaintenanceAccess, isPl7Author } from '../../middleware/auth.js';
@@ -11,6 +12,7 @@ import { env } from '../../config/env.js';
 import { saveFileToStorage } from '../../config/storage.js';
 import { readFileFromStorage } from '../../config/storage.js';
 import { readFileWithMetadataFromStorage } from '../../config/storage.js';
+import { createReadStreamFromStorage } from '../../config/storage.js';
 import { fail, ok } from '../../utils/response.js';
 import {
   serializeGalleryItem,
@@ -96,7 +98,8 @@ const extractionSchema = z.object({
   mediaSources: z.array(backupMediaSourceSchema).optional().default(defaultBackupMediaSources),
   autoDownload: z.boolean().optional().default(false),
   confirmText: z.literal('CONFIRM'),
-  password: z.string().min(1)
+  password: z.string().min(1),
+  secretKey: z.string().min(16)
 });
 
 const migrationSchema = z
@@ -121,6 +124,10 @@ const migrationSchema = z
 
 const clearExtractionSchema = z.object({
   ids: z.array(z.string()).optional()
+});
+
+const extractionDownloadTicketSchema = z.object({
+  secretKey: z.string().min(16)
 });
 
 const canUpdateCommandCenter = (user: NonNullable<Express.Request['user']>) =>
@@ -949,6 +956,55 @@ const requireMigrationKey = (key?: string | null) => {
   if (!key || key !== env.migrationKey) throw new Error('Invalid migration key');
 };
 
+const secretEquals = (candidate: string | null | undefined, expected: string) => {
+  if (!candidate) return false;
+  const candidateBuffer = Buffer.from(candidate);
+  const expectedBuffer = Buffer.from(expected);
+  return candidateBuffer.length === expectedBuffer.length && timingSafeEqual(candidateBuffer, expectedBuffer);
+};
+
+const requireExtractionKey = (key?: string | null) => {
+  if (!env.extractionKey) throw new Error('EXTRACTION_KEY is not configured on this backend');
+  if (!secretEquals(key, env.extractionKey)) throw new Error('Invalid extraction key');
+};
+
+type ExtractionDownloadTicket = {
+  jobId: string;
+  actor: string;
+  exp: number;
+  nonce: string;
+};
+
+const signTicketPayload = (payload: string) =>
+  createHmac('sha256', env.jwtAccessSecret).update(payload).digest('base64url');
+
+const createExtractionDownloadTicket = (jobId: string, actor: string) => {
+  const payload: ExtractionDownloadTicket = {
+    jobId,
+    actor,
+    exp: Date.now() + 5 * 60 * 1000,
+    nonce: randomUUID()
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return `${encodedPayload}.${signTicketPayload(encodedPayload)}`;
+};
+
+const parseExtractionDownloadTicket = (ticket: string): ExtractionDownloadTicket => {
+  const [encodedPayload, signature] = ticket.split('.');
+  if (!encodedPayload || !signature) throw new Error('Invalid download ticket');
+  const expectedSignature = signTicketPayload(encodedPayload);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    throw new Error('Invalid download ticket');
+  }
+  const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as ExtractionDownloadTicket;
+  if (!payload.jobId || !payload.actor || !payload.exp || payload.exp < Date.now()) {
+    throw new Error('Expired download ticket');
+  }
+  return payload;
+};
+
 const parseMigrationPayload = (buffer: Buffer): MigrationPayload => {
   const parsed = JSON.parse(buffer.toString('utf8')) as MigrationPayload;
   if (!parsed || parsed.version !== 1 || !parsed.dataset || !parsed.source?.assetEndpoint) {
@@ -1453,6 +1509,36 @@ const buildDefaultMigrationReceiveUrl = (baseUrl: string) => {
   return /\/api$/i.test(trimmed) ? `${trimmed}/settings/migration/receive` : `${trimmed}/api/settings/migration/receive`;
 };
 
+const sendExtractionDownload = async (
+  res: Response,
+  job: { id: string; artifactPath: string | null; downloadName: string | null },
+  actor: string
+) => {
+  if (!job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+
+  await writeAudit(prisma, {
+    actor,
+    action: 'extraction.download',
+    entity: 'ExtractionJob',
+    entityId: job.id
+  });
+
+  const file = await createReadStreamFromStorage(job.artifactPath);
+  const filename = job.downloadName ?? `morneven-backup-${job.id}.zip`;
+  res.setHeader('Content-Type', file.contentType ?? 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  if (file.contentLength !== undefined) res.setHeader('Content-Length', String(file.contentLength));
+
+  file.stream.on('error', (error) => {
+    if (!res.headersSent) {
+      fail(res, 500, 'Download stream failed', 'STORAGE_ERROR');
+      return;
+    }
+    res.destroy(error);
+  });
+  return file.stream.pipe(res);
+};
+
 settingsRouter.get('/migration/assets', async (req, res) => {
   try {
     requireMigrationKey(req.header('x-migration-key'));
@@ -1494,6 +1580,17 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
 
   const parsed = extractionSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid extraction key';
+    return fail(
+      res,
+      message.includes('configured') ? 503 : 403,
+      message,
+      message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN'
+    );
+  }
 
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
@@ -1530,22 +1627,51 @@ settingsRouter.get('/extractions/:id', auth, async (req, res) => {
   return ok(res, serializeExtractionJob(job));
 });
 
+settingsRouter.post('/extractions/:id/download-ticket', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const parsed = extractionDownloadTicketSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid extraction key';
+    return fail(
+      res,
+      message.includes('configured') ? 503 : 403,
+      message,
+      message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN'
+    );
+  }
+
+  const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+  const ticket = createExtractionDownloadTicket(job.id, req.user!.username);
+  return ok(res, {
+    ticket,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+  });
+});
+
+settingsRouter.get('/extractions/:id/download', async (req, res, next: NextFunction) => {
+  const ticket = typeof req.query.ticket === 'string' ? req.query.ticket : null;
+  if (!ticket) return next();
+
+  try {
+    const payload = parseExtractionDownloadTicket(ticket);
+    if (payload.jobId !== req.params.id) return fail(res, 403, 'Invalid download ticket', 'FORBIDDEN');
+    const job = await prisma.extractionJob.findFirst({ where: { id: payload.jobId, createdBy: payload.actor } });
+    if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+    return sendExtractionDownload(res, job, payload.actor);
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Invalid download ticket', 'FORBIDDEN');
+  }
+});
+
 settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
   const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
   if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
-
-  await writeAudit(prisma, {
-    actor: req.user!.username,
-    action: 'extraction.download',
-    entity: 'ExtractionJob',
-    entityId: job.id
-  });
-
-  const file = await readFileFromStorage(job.artifactPath);
-  res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-backup-${job.id}.zip`}"`);
-  return res.send(file);
+  return sendExtractionDownload(res, job, req.user!.username);
 });
 
 settingsRouter.get('/migrations', auth, async (req, res) => {

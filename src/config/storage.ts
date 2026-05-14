@@ -58,6 +58,12 @@ export type ReadFileFromStorageResult = {
   lastModified?: Date;
 };
 
+export type ReadStreamFromStorageResult = {
+  stream: Readable;
+  contentType?: string;
+  contentLength?: number;
+};
+
 export type StorageObjectEntry = {
   objectPath: string;
   size?: number;
@@ -200,6 +206,45 @@ export const readFileWithMetadataFromStorage = async (objectPath: string): Promi
 export const readFileFromStorage = async (objectPath: string): Promise<Buffer> => {
   const file = await readFileWithMetadataFromStorage(objectPath);
   return file.buffer;
+};
+
+export const createReadStreamFromStorage = async (objectPath: string): Promise<ReadStreamFromStorageResult> => {
+  if (env.storageDriver === 'local') {
+    const fullPath = path.join(env.localStoragePath, objectPath);
+    const [{ createReadStream }, metadata] = await Promise.all([
+      import('fs'),
+      stat(fullPath)
+    ]);
+    return {
+      stream: createReadStream(fullPath),
+      contentLength: metadata.size
+    };
+  }
+
+  if (env.storageDriver === 's3') {
+    const bucketName = getS3BucketName();
+    const response = await getS3Client().send(
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: objectPath
+      })
+    );
+    if (!response.Body) throw new Error('S3 object body is empty');
+    return {
+      stream: response.Body as Readable,
+      contentType: response.ContentType,
+      contentLength: response.ContentLength
+    };
+  }
+
+  const bucket = getStorageBucket();
+  const file = bucket.file(objectPath);
+  const [metadata] = await file.getMetadata();
+  return {
+    stream: file.createReadStream(),
+    contentType: metadata.contentType,
+    contentLength: metadata.size ? Number(metadata.size) : undefined
+  };
 };
 
 const walkLocalStorage = async (rootPath: string, prefix = ''): Promise<StorageObjectEntry[]> => {
