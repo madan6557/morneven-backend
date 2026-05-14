@@ -304,6 +304,7 @@ type ExportSnapshot = {
     resolvedAt?: string;
   }>;
   contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
+  contentViewEvents: Awaited<ReturnType<typeof prisma.contentViewEvent.findMany>>;
   contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
   map: {
     mapImage: string;
@@ -398,6 +399,7 @@ const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     passwordResetRequests,
     personnelReports,
     contentMetrics,
+    contentViewEvents,
     contentReactions,
     mapMarkers,
     mapImage,
@@ -411,6 +413,7 @@ const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     passwordResetRequestModel.findMany({ include: { reviewedBy: true } }),
     prisma.personnelReport.findMany({ include: { reporter: true, target: true, resolvedBy: true } }),
     prisma.contentMetric.findMany(),
+    prisma.contentViewEvent.findMany(),
     prisma.contentReaction.findMany(),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
@@ -443,6 +446,7 @@ const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     passwordResetRequests: passwordResetRequests.map(serializePasswordResetRequestForExtraction),
     personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
     contentMetrics,
+    contentViewEvents,
     contentReactions,
     map: {
       mapImage: mapImage?.imageUrl ?? '',
@@ -673,6 +677,7 @@ const buildDatabaseSqlDump = (dataset: MigrationDataset) => {
     ['Reply', dataset.replies as Array<Record<string, unknown>>],
     ['Mention', dataset.mentions as Array<Record<string, unknown>>],
     ['ContentMetric', dataset.contentMetrics as Array<Record<string, unknown>>],
+    ['ContentViewEvent', dataset.contentViewEvents as Array<Record<string, unknown>>],
     ['ContentReaction', dataset.contentReactions as Array<Record<string, unknown>>],
     ['ManagementRequest', dataset.managementRequests as Array<Record<string, unknown>>],
     ['Team', dataset.teams as Array<Record<string, unknown>>],
@@ -773,6 +778,7 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/password-reset-requests.json', content: JSON.stringify(exportedSnapshot.passwordResetRequests, null, 2) });
     files.push({ name: 'db/personnel-reports.json', content: JSON.stringify(exportedSnapshot.personnelReports, null, 2) });
     files.push({ name: 'db/content-metrics.json', content: JSON.stringify(exportedSnapshot.contentMetrics, null, 2) });
+    files.push({ name: 'db/content-view-events.json', content: JSON.stringify(exportedSnapshot.contentViewEvents, null, 2) });
     files.push({ name: 'db/content-reactions.json', content: JSON.stringify(exportedSnapshot.contentReactions, null, 2) });
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
   }
@@ -909,6 +915,7 @@ type MigrationDataset = {
   replies: Awaited<ReturnType<typeof prisma.reply.findMany>>;
   mentions: Awaited<ReturnType<typeof prisma.mention.findMany>>;
   contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
+  contentViewEvents: Awaited<ReturnType<typeof prisma.contentViewEvent.findMany>>;
   contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
   managementRequests: Awaited<ReturnType<typeof prisma.managementRequest.findMany>>;
   teams: Awaited<ReturnType<typeof prisma.team.findMany>>;
@@ -1010,6 +1017,7 @@ const parseMigrationPayload = (buffer: Buffer): MigrationPayload => {
   if (!parsed || parsed.version !== 1 || !parsed.dataset || !parsed.source?.assetEndpoint) {
     throw new Error('Invalid migration payload');
   }
+  (parsed.dataset as Partial<MigrationDataset>).contentViewEvents ??= [];
   return parsed;
 };
 
@@ -1041,6 +1049,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     replies,
     mentions,
     contentMetrics,
+    contentViewEvents,
     contentReactions,
     managementRequests,
     teams,
@@ -1078,6 +1087,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     prisma.reply.findMany(),
     prisma.mention.findMany(),
     prisma.contentMetric.findMany(),
+    prisma.contentViewEvent.findMany(),
     prisma.contentReaction.findMany(),
     prisma.managementRequest.findMany(),
     prisma.team.findMany(),
@@ -1117,6 +1127,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     replies,
     mentions,
     contentMetrics,
+    contentViewEvents,
     contentReactions,
     managementRequests,
     teams,
@@ -1174,6 +1185,7 @@ const countCurrentMigrationState = async () => {
     replies,
     mentions,
     contentMetrics,
+    contentViewEvents,
     contentReactions,
     managementRequests,
     teams,
@@ -1212,6 +1224,7 @@ const countCurrentMigrationState = async () => {
     prisma.reply.count(),
     prisma.mention.count(),
     prisma.contentMetric.count(),
+    prisma.contentViewEvent.count(),
     prisma.contentReaction.count(),
     prisma.managementRequest.count(),
     prisma.team.count(),
@@ -1253,6 +1266,7 @@ const countCurrentMigrationState = async () => {
       replies,
       mentions,
       contentMetrics,
+      contentViewEvents,
       contentReactions,
       managementRequests,
       teams,
@@ -1280,6 +1294,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     await tx.notificationRead.deleteMany();
     await tx.mention.deleteMany();
     await tx.contentReaction.deleteMany();
+    await tx.contentViewEvent.deleteMany();
     await tx.contentMetric.deleteMany();
     await tx.reply.deleteMany();
     await tx.comment.deleteMany();
@@ -1333,6 +1348,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     if (dataset.replies.length) await tx.reply.createMany({ data: dataset.replies as any });
     if (dataset.mentions.length) await tx.mention.createMany({ data: dataset.mentions as any });
     if (dataset.contentMetrics.length) await tx.contentMetric.createMany({ data: dataset.contentMetrics as any });
+    if (dataset.contentViewEvents.length) await tx.contentViewEvent.createMany({ data: dataset.contentViewEvents as any });
     if (dataset.contentReactions.length) await tx.contentReaction.createMany({ data: dataset.contentReactions as any });
     if (dataset.managementRequests.length) await tx.managementRequest.createMany({ data: dataset.managementRequests as any });
     if (dataset.teams.length) await tx.team.createMany({ data: dataset.teams as any });

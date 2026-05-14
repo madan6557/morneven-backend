@@ -1,5 +1,8 @@
 import { ContentReactionKind, EntityType, Prisma } from '@prisma/client';
+import { createHash } from 'node:crypto';
+import type { Request } from 'express';
 import { prisma } from '../config/prisma.js';
+import { env } from '../config/env.js';
 
 export type ContentMetricSummary = {
   views: number;
@@ -18,8 +21,50 @@ export type ContentKey = {
   entityId: string;
 };
 
+type ViewIdentity = {
+  userId?: string;
+  sessionId?: string;
+  ip?: string;
+  userAgent?: string;
+  now?: Date;
+};
+
 const metricId = (entityType: EntityType, entityId: string) => `metric-${entityType}-${entityId}`;
 const keyOf = (key: ContentKey) => `${key.entityType}:${key.entityId}`;
+const VIEW_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+const hashViewerToken = (value: string) =>
+  createHash('sha256').update(`${env.securityHashPepper}:content-view:${value}`).digest('hex');
+
+const getViewBucketStart = (now = new Date()) =>
+  new Date(Math.floor(now.getTime() / VIEW_WINDOW_MS) * VIEW_WINDOW_MS);
+
+const getForwardedIp = (req: Request) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0]?.trim();
+  if (Array.isArray(forwarded)) return forwarded[0]?.split(',')[0]?.trim();
+  return undefined;
+};
+
+export const viewIdentityFromRequest = (req: Request): ViewIdentity => ({
+  userId: req.user?.id,
+  sessionId: req.user?.sessionId,
+  ip: getForwardedIp(req) || req.ip || req.socket.remoteAddress || undefined,
+  userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined
+});
+
+const resolveViewer = (identity: ViewIdentity) => {
+  if (identity.userId && identity.userId !== 'guest') {
+    return { viewerKey: `user:${identity.userId}`, viewerKind: 'user' };
+  }
+  if (identity.sessionId) {
+    return { viewerKey: `session:${hashViewerToken(identity.sessionId)}`, viewerKind: 'session' };
+  }
+  return {
+    viewerKey: `anon:${hashViewerToken(`${identity.ip ?? 'unknown'}:${identity.userAgent ?? 'unknown'}`)}`,
+    viewerKind: 'anonymous'
+  };
+};
 
 export const emptyMetric: ContentMetricSummary = {
   views: 0,
@@ -39,12 +84,38 @@ export const ensureContentMetric = async (
     create: { id: metricId(entityType, entityId), entityType, entityId }
   });
 
-export const incrementContentView = async (entityType: EntityType, entityId: string) =>
-  prisma.contentMetric.upsert({
-    where: { entityType_entityId: { entityType, entityId } },
-    update: { views: { increment: 1 } },
-    create: { id: metricId(entityType, entityId), entityType, entityId, views: 1 }
-  });
+export const recordContentView = async (entityType: EntityType, entityId: string, identity: ViewIdentity) => {
+  const { viewerKey, viewerKind } = resolveViewer(identity);
+  const bucketStart = getViewBucketStart(identity.now);
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await ensureContentMetric(tx, entityType, entityId);
+      await tx.contentViewEvent.create({
+        data: {
+          entityType,
+          entityId,
+          viewerKey,
+          viewerKind,
+          bucketStart
+        }
+      });
+      return tx.contentMetric.update({
+        where: { entityType_entityId: { entityType, entityId } },
+        data: { views: { increment: 1 } }
+      });
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return prisma.contentMetric.upsert({
+        where: { entityType_entityId: { entityType, entityId } },
+        update: {},
+        create: { id: metricId(entityType, entityId), entityType, entityId }
+      });
+    }
+    throw error;
+  }
+};
 
 export const loadContentMetrics = async (keys: ContentKey[]) => {
   if (!keys.length) return new Map<string, ContentMetricSummary>();

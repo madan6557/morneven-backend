@@ -225,6 +225,7 @@ async function main() {
   await prisma.managementRequest.deleteMany();
   await prisma.team.deleteMany();
   await prisma.contentReaction.deleteMany();
+  await prisma.contentViewEvent.deleteMany();
   await prisma.contentMetric.deleteMany();
   await prisma.mention.deleteMany();
   await prisma.reply.deleteMany();

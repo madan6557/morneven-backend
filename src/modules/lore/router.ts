@@ -11,11 +11,12 @@ import { categoryToEntityType, serializeDiscussionComments, serializeLoreItem } 
 import { cleanupUnreferencedStoragePaths, collectLoreStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 import {
   engagementFor,
-  incrementContentView,
   loadContentMetrics,
   loadViewerEngagement,
   metricFor,
-  setLoreStar
+  recordContentView,
+  setLoreStar,
+  viewIdentityFromRequest
 } from '../../utils/content-metrics.js';
 
 export const loreRouter = Router();
@@ -142,7 +143,7 @@ loreRouter.get('/:category/:id', auth, async (req, res) => {
   if (!entityType) return fail(res, 400, 'Unsupported lore category', 'BAD_REQUEST');
   const target = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType }, select: { id: true } });
   if (!target) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
-  await incrementContentView(entityType, req.params.id);
+  await recordContentView(entityType, req.params.id, viewIdentityFromRequest(req));
   return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });
 

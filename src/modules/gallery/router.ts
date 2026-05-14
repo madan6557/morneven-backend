@@ -10,10 +10,11 @@ import { writeAudit } from '../../utils/audit.js';
 import { cleanupUnreferencedStoragePaths, collectGalleryStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 import {
   engagementFor,
-  incrementContentView,
   loadContentMetrics,
   loadViewerEngagement,
   metricFor,
+  recordContentView,
+  viewIdentityFromRequest,
   setGalleryReaction
 } from '../../utils/content-metrics.js';
 
@@ -132,7 +133,7 @@ galleryRouter.get('/:id', auth, async (req, res) => {
   });
   if (!item) return fail(res, 404, 'Gallery item not found', 'NOT_FOUND');
   const [metric, comments, engagement] = await Promise.all([
-    incrementContentView(EntityType.gallery, item.id),
+    recordContentView(EntityType.gallery, item.id, viewIdentityFromRequest(req)),
     prisma.comment.findMany({
       where: { entityType: EntityType.gallery, entityId: item.id },
       include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'desc' } } },

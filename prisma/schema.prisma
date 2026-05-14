@@ -258,6 +258,20 @@ model ContentMetric {
   @@index([entityType, stars])
 }
 
+model ContentViewEvent {
+  id          String     @id @default(uuid())
+  entityType  EntityType
+  entityId    String
+  viewerKey   String
+  viewerKind  String
+  bucketStart DateTime
+  createdAt   DateTime   @default(now())
+
+  @@unique([entityType, entityId, viewerKey, bucketStart])
+  @@index([entityType, entityId, createdAt])
+  @@index([viewerKey, createdAt])
+}
+
 model ContentReaction {
   id         String              @id @default(uuid())
   entityType EntityType
