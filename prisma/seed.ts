@@ -101,6 +101,20 @@ async function seedDiscussionThread(
   }
 }
 
+async function seedContentMetric(entityType: EntityType, entityId: string, ordinal: number, kind: 'gallery' | 'lore') {
+  await prisma.contentMetric.create({
+    data: {
+      id: `metric-${entityType}-${entityId}`,
+      entityType,
+      entityId,
+      views: kind === 'gallery' ? 240 + ordinal * 37 : 180 + ordinal * 29,
+      likes: kind === 'gallery' ? 12 + (ordinal % 9) : 0,
+      dislikes: kind === 'gallery' ? ordinal % 3 : 0,
+      stars: kind === 'lore' ? 8 + (ordinal % 11) : 0
+    }
+  });
+}
+
 async function loadJson<T>(filename: string): Promise<T> {
   const fullPath = path.join(seedDir, filename);
   const raw = await readFile(fullPath, 'utf-8');
@@ -210,6 +224,8 @@ async function main() {
   await prisma.quotaRecord.deleteMany();
   await prisma.managementRequest.deleteMany();
   await prisma.team.deleteMany();
+  await prisma.contentReaction.deleteMany();
+  await prisma.contentMetric.deleteMany();
   await prisma.mention.deleteMany();
   await prisma.reply.deleteMany();
   await prisma.comment.deleteMany();
@@ -224,7 +240,12 @@ async function main() {
   await prisma.mapMarker.deleteMany();
   await prisma.mapImage.deleteMany();
   await prisma.commandCenterSettings.deleteMany();
+  await prisma.securityEvent.deleteMany();
+  await prisma.securityBlock.deleteMany();
+  await prisma.securityPolicy.deleteMany();
+  await prisma.fileScanRecord.deleteMany();
   await prisma.refreshToken.deleteMany();
+  await prisma.securitySession.deleteMany();
   await prisma.user.deleteMany();
 
   const [
@@ -395,7 +416,9 @@ async function main() {
     });
   }
 
+  let galleryOrdinal = 0;
   for (const item of gallery) {
+    galleryOrdinal += 1;
     const uploader = usersByUsername.get(normalizeUsername(item.uploadedBy)) ?? fallbackAuthorId;
     const createdGallery = await prisma.galleryItem.create({
       data: {
@@ -412,6 +435,7 @@ async function main() {
     });
 
     await seedDiscussionThread(EntityType.gallery, createdGallery.id, item.comments ?? [], usersByUsername, fallbackAuthorId);
+    await seedContentMetric(EntityType.gallery, createdGallery.id, galleryOrdinal, 'gallery');
   }
 
   const loreGroups = [
@@ -425,23 +449,24 @@ async function main() {
 
   for (const group of loreGroups) {
     for (const item of group.items) {
+      const entityType = toEntityType(group.category);
       const createdLore = await prisma.loreItem.create({
         data: {
           id: item.id,
-          category: toEntityType(group.category),
+          category: entityType,
           name: item.name ?? item.title,
           type: item.type ?? item.category ?? item.classification ?? item.era ?? null,
           thumbnail: item.thumbnail || null,
           shortDesc: item.shortDesc,
           fullDesc: item.fullDesc,
-          metadata: normalizeLoreMetadata(toEntityType(group.category), item) as Prisma.InputJsonValue
+          metadata: normalizeLoreMetadata(entityType, item) as Prisma.InputJsonValue
         }
       });
 
       for (const doc of item.docs ?? []) {
         await prisma.entityDoc.create({
           data: {
-            entityType: toEntityType(group.category),
+            entityType,
             entityId: createdLore.id,
             type: toMediaType(doc.type),
             url: doc.url || 'https://placeholder.local/doc.jpg',
@@ -451,12 +476,13 @@ async function main() {
       }
 
       await seedDiscussionThread(
-        toEntityType(group.category),
+        entityType,
         createdLore.id,
         item.discussions ?? [],
         usersByUsername,
         fallbackAuthorId
       );
+      await seedContentMetric(entityType, createdLore.id, Number(String(createdLore.id).replace(/\D/g, '').slice(-4)) || 1, 'lore');
     }
   }
 

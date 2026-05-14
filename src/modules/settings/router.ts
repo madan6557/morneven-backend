@@ -62,8 +62,38 @@ const presetUpdateSchema = z.object({
   settings: settingsSchema.optional()
 });
 
+const backupMediaSourceSchema = z.enum([
+  'chat',
+  'gallery',
+  'characters',
+  'creatures',
+  'places',
+  'technology',
+  'events',
+  'other',
+  'projects',
+  'news',
+  'map'
+]);
+type BackupMediaSource = z.infer<typeof backupMediaSourceSchema>;
+
+const defaultBackupMediaSources: BackupMediaSource[] = [
+  'chat',
+  'gallery',
+  'characters',
+  'creatures',
+  'places',
+  'technology',
+  'events',
+  'other',
+  'projects',
+  'news',
+  'map'
+];
+
 const extractionSchema = z.object({
   mode: z.enum(['db', 'images', 'all']),
+  mediaSources: z.array(backupMediaSourceSchema).optional().default(defaultBackupMediaSources),
   autoDownload: z.boolean().optional().default(false),
   confirmText: z.literal('CONFIRM'),
   password: z.string().min(1)
@@ -277,6 +307,7 @@ type ExportSnapshot = {
 type EmbeddedAsset = {
   objectPath: string;
   archivePath: string;
+  source: BackupMediaSource;
   size?: number;
   contentType?: string;
 };
@@ -286,6 +317,7 @@ type ExtractionBuildResult = {
   mediaSummary: {
     embeddedCount: number;
     failedCount: number;
+    selectedSources: BackupMediaSource[];
   };
 };
 
@@ -468,28 +500,236 @@ const buildImageManifests = (snapshot: ExportSnapshot): Array<{ name: string; va
   }
 ];
 
+const addPathSetValue = (target: Set<string>, value: unknown) => {
+  const next = collectStoragePathsFromValue(value);
+  for (const objectPath of next) target.add(objectPath);
+};
+
+const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, Set<string>>> => {
+  const sets = Object.fromEntries(defaultBackupMediaSources.map((source) => [source, new Set<string>()])) as Record<
+    BackupMediaSource,
+    Set<string>
+  >;
+
+  const [
+    chatMessages,
+    galleryItems,
+    projects,
+    news,
+    mapImage,
+    loreItems,
+    docs
+  ] = await Promise.all([
+    prisma.chatMessage.findMany({ select: { attachments: true } }),
+    prisma.galleryItem.findMany({ include: { tags: true } }),
+    prisma.project.findMany(),
+    prisma.news.findMany({ include: { attachments: true } }),
+    prisma.mapImage.findUnique({ where: { id: 'main' } }),
+    prisma.loreItem.findMany(),
+    prisma.entityDoc.findMany()
+  ]);
+
+  for (const message of chatMessages) addPathSetValue(sets.chat, message.attachments);
+  for (const item of galleryItems) addPathSetValue(sets.gallery, item);
+  for (const project of projects) addPathSetValue(sets.projects, project);
+  for (const item of news) addPathSetValue(sets.news, item);
+  addPathSetValue(sets.map, mapImage?.imageUrl);
+
+  const docsByEntity = new Map<string, typeof docs>();
+  for (const doc of docs) {
+    const key = `${doc.entityType}:${doc.entityId}`;
+    docsByEntity.set(key, [...(docsByEntity.get(key) ?? []), doc]);
+  }
+
+  const sourceByEntityType: Partial<Record<EntityType, BackupMediaSource>> = {
+    [EntityType.character]: 'characters',
+    [EntityType.creature]: 'creatures',
+    [EntityType.place]: 'places',
+    [EntityType.technology]: 'technology',
+    [EntityType.event]: 'events',
+    [EntityType.other]: 'other'
+  };
+
+  for (const item of loreItems) {
+    const source = sourceByEntityType[item.category];
+    if (!source) continue;
+    addPathSetValue(sets[source], item);
+    addPathSetValue(sets[source], docsByEntity.get(`${item.category}:${item.id}`) ?? []);
+  }
+
+  return sets;
+};
+
+const getSelectedMediaPaths = async (selectedSources: BackupMediaSource[]) => {
+  const pathSets = await collectBackupMediaPathSets();
+  const unique = new Map<string, BackupMediaSource>();
+  for (const source of selectedSources) {
+    for (const objectPath of pathSets[source] ?? []) {
+      if (!unique.has(objectPath)) unique.set(objectPath, source);
+    }
+  }
+  return {
+    pathSets,
+    selected: Array.from(unique.entries())
+      .map(([objectPath, source]) => ({ objectPath, source }))
+      .sort((left, right) => left.objectPath.localeCompare(right.objectPath))
+  };
+};
+
+const backupReadme = (selectedSources: BackupMediaSource[], embeddedAssets: EmbeddedAsset[], failedAssets: Array<{ objectPath: string; error: string }>) => `# Morneven Backup Attachment Guide
+
+This archive is produced by the Morneven backend backup system.
+
+## Folders
+
+- \`database/morneven-full-backup.sql\`: PostgreSQL restore script for the database snapshot.
+- \`db/morneven-full-dataset.json\`: full JSON dataset aligned with the migration payload structure.
+- \`db/*.json\`: compatibility JSON exports used by older review and import tooling.
+- \`attachments/\`: binary media and attachment files copied from object storage.
+- \`attachments/manifest.json\`: object path to archive path mapping for restored media.
+- \`images/*.json\`: legacy image manifests with paths rewritten to local archive paths when available.
+
+## Selected Attachment Sources
+
+${selectedSources.map((source) => `- ${source}`).join('\n') || '- none'}
+
+## Restore Notes
+
+1. Restore the SQL into a compatible Morneven PostgreSQL database after the matching Prisma migrations are applied.
+2. Upload every file under \`attachments/\` back into the target object storage using the original \`objectPath\` from \`attachments/manifest.json\`.
+3. Preserve object paths exactly. Database rows reference storage paths by value.
+4. If migrating to another storage provider, translate paths at the storage layer or rewrite DB values consistently before restoring.
+
+## Media Summary
+
+- Embedded assets: ${embeddedAssets.length}
+- Failed assets: ${failedAssets.length}
+`;
+
+const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
+const sqlIdent = (value: string) => `"${value.replace(/"/g, '""')}"`;
+const jsonColumns = new Set([
+  'metadata',
+  'docs',
+  'meta',
+  'itemLimits',
+  'manualSelections',
+  'payload',
+  'members',
+  'monthly',
+  'yearly',
+  'supervised',
+  'source',
+  'attachments',
+  'replyTo',
+  'progress',
+  'config'
+]);
+
+const sqlValue = (column: string, value: unknown) => {
+  if (value === null || value === undefined) return 'NULL';
+  if (value instanceof Date) return sqlString(value.toISOString());
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL';
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'object' || jsonColumns.has(column)) return `${sqlString(JSON.stringify(value))}::jsonb`;
+  return sqlString(String(value));
+};
+
+const sqlInsertBlock = (table: string, rows: Array<Record<string, unknown>>) => {
+  if (!rows.length) return `-- ${table}: no rows`;
+  const columns = Object.keys(rows[0]);
+  const columnSql = columns.map(sqlIdent).join(', ');
+  const values = rows
+    .map((row) => `(${columns.map((column) => sqlValue(column, row[column])).join(', ')})`)
+    .join(',\n');
+  return `INSERT INTO ${sqlIdent(table)} (${columnSql}) VALUES\n${values};`;
+};
+
+const buildDatabaseSqlDump = (dataset: MigrationDataset) => {
+  const tables: Array<[string, Array<Record<string, unknown>>]> = [
+    ['User', dataset.users as Array<Record<string, unknown>>],
+    ['SecuritySession', dataset.securitySessions as Array<Record<string, unknown>>],
+    ['CommandCenterSettings', dataset.commandCenterSettings as Array<Record<string, unknown>>],
+    ['RefreshToken', dataset.refreshTokens as Array<Record<string, unknown>>],
+    ['Project', dataset.projects as Array<Record<string, unknown>>],
+    ['ProjectPatch', dataset.projectPatches as Array<Record<string, unknown>>],
+    ['News', dataset.news as Array<Record<string, unknown>>],
+    ['NewsAttachment', dataset.newsAttachments as Array<Record<string, unknown>>],
+    ['LoreItem', dataset.loreItems as Array<Record<string, unknown>>],
+    ['EntityDoc', dataset.entityDocs as Array<Record<string, unknown>>],
+    ['GalleryItem', dataset.galleryItems as Array<Record<string, unknown>>],
+    ['GalleryTag', dataset.galleryTags as Array<Record<string, unknown>>],
+    ['MapImage', dataset.mapImages as Array<Record<string, unknown>>],
+    ['MapMarker', dataset.mapMarkers as Array<Record<string, unknown>>],
+    ['Comment', dataset.comments as Array<Record<string, unknown>>],
+    ['Reply', dataset.replies as Array<Record<string, unknown>>],
+    ['Mention', dataset.mentions as Array<Record<string, unknown>>],
+    ['ContentMetric', dataset.contentMetrics as Array<Record<string, unknown>>],
+    ['ContentReaction', dataset.contentReactions as Array<Record<string, unknown>>],
+    ['ManagementRequest', dataset.managementRequests as Array<Record<string, unknown>>],
+    ['Team', dataset.teams as Array<Record<string, unknown>>],
+    ['QuotaRecord', dataset.quotaRecords as Array<Record<string, unknown>>],
+    ['Notification', dataset.notifications as Array<Record<string, unknown>>],
+    ['NotificationRead', dataset.notificationReads as Array<Record<string, unknown>>],
+    ['ChatConversation', dataset.chatConversations as Array<Record<string, unknown>>],
+    ['ChatConversationMember', dataset.chatConversationMembers as Array<Record<string, unknown>>],
+    ['ChatMessage', dataset.chatMessages as Array<Record<string, unknown>>],
+    ['ChatReadState', dataset.chatReadStates as Array<Record<string, unknown>>],
+    ['ExtractionJob', dataset.extractionJobs as Array<Record<string, unknown>>],
+    ['AuditLog', dataset.auditLogs as Array<Record<string, unknown>>],
+    ['SecurityEvent', dataset.securityEvents as Array<Record<string, unknown>>],
+    ['SecurityBlock', dataset.securityBlocks as Array<Record<string, unknown>>],
+    ['SecurityPolicy', dataset.securityPolicies as Array<Record<string, unknown>>],
+    ['FileScanRecord', dataset.fileScanRecords as Array<Record<string, unknown>>],
+    ['PersonnelReport', dataset.personnelReports as Array<Record<string, unknown>>],
+    ['PasswordResetRequest', dataset.passwordResetRequests as Array<Record<string, unknown>>]
+  ];
+
+  return [
+    '-- Morneven full database backup',
+    `-- Generated at ${new Date().toISOString()}`,
+    '-- Apply migrations before restoring this file.',
+    'BEGIN;',
+    `TRUNCATE TABLE ${tables.map(([table]) => sqlIdent(table)).join(', ')} RESTART IDENTITY CASCADE;`,
+    ...tables.map(([table, rows]) => sqlInsertBlock(table, rows)),
+    'COMMIT;',
+    ''
+  ].join('\n\n');
+};
+
 const buildExtractionFiles = async (
   mode: 'db' | 'images' | 'all',
+  mediaSources: BackupMediaSource[],
   onProgress?: (percent: number, stage: string, message: string) => Promise<void>
 ): Promise<ExtractionBuildResult> => {
   const files: ZipFile[] = [];
   const snapshot = await collectExtractionSnapshot();
-  const rawStoragePaths = Array.from(collectStoragePathsFromValue(snapshot)).sort((left, right) => left.localeCompare(right));
+  const includeMedia = mode === 'images' || mode === 'all';
+  const selectedSources = includeMedia ? Array.from(new Set(mediaSources)) : [];
+  const mediaSelection = includeMedia
+    ? await getSelectedMediaPaths(selectedSources)
+    : {
+        pathSets: Object.fromEntries(defaultBackupMediaSources.map((source) => [source, new Set<string>()])) as Record<BackupMediaSource, Set<string>>,
+        selected: [] as Array<{ objectPath: string; source: BackupMediaSource }>
+      };
+  const { pathSets, selected } = mediaSelection;
   const embeddedAssets = new Map<string, EmbeddedAsset>();
   const failedAssets: Array<{ objectPath: string; error: string }> = [];
 
-  if (mode === 'images' || mode === 'all') {
-    const totalAssets = rawStoragePaths.length;
-    for (let index = 0; index < rawStoragePaths.length; index += 1) {
-      const objectPath = rawStoragePaths[index];
+  if (includeMedia) {
+    const totalAssets = selected.length;
+    for (let index = 0; index < selected.length; index += 1) {
+      const { objectPath, source } = selected[index];
       const progressBase = totalAssets === 0 ? 40 : 10 + Math.round(((index + 1) / totalAssets) * 50);
       await onProgress?.(progressBase, 'collecting-media', `Embedding media ${index + 1} of ${totalAssets}`);
       try {
         const stored = await readFileWithMetadataFromStorage(objectPath);
-        const archivePath = `media/${objectPath}`;
+        const archivePath = `attachments/${objectPath}`;
         embeddedAssets.set(objectPath, {
           objectPath,
           archivePath,
+          source,
           size: stored.contentLength,
           contentType: stored.contentType
         });
@@ -504,11 +744,15 @@ const buildExtractionFiles = async (
   }
 
   const exportedSnapshot =
-    mode === 'images' || mode === 'all'
+    includeMedia
       ? rewriteExportMediaPaths(snapshot, embeddedAssets)
       : snapshot;
 
   if (mode === 'db' || mode === 'all') {
+    await onProgress?.(62, 'building-sql', 'Building database SQL backup');
+    const dataset = await collectMigrationDataset();
+    files.push({ name: 'database/morneven-full-backup.sql', content: buildDatabaseSqlDump(dataset) });
+    files.push({ name: 'db/morneven-full-dataset.json', content: JSON.stringify(dataset, null, 2) });
     files.push({ name: 'db/characters.json', content: JSON.stringify(exportedSnapshot.characters, null, 2) });
     files.push({ name: 'db/creatures.json', content: JSON.stringify(exportedSnapshot.creatures, null, 2) });
     files.push({ name: 'db/places.json', content: JSON.stringify(exportedSnapshot.places, null, 2) });
@@ -526,18 +770,23 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
   }
 
-  if (mode === 'images' || mode === 'all') {
+  if (includeMedia) {
     for (const manifest of buildImageManifests(exportedSnapshot)) {
       files.push({ name: manifest.name, content: JSON.stringify(manifest.value, null, 2) });
     }
 
     files.push({
-      name: 'media/assets.json',
+      name: 'attachments/manifest.json',
       content: JSON.stringify(
         {
+          selectedSources,
+          sourceObjectCounts: Object.fromEntries(
+            Object.entries(pathSets).map(([source, paths]) => [source, paths.size])
+          ),
           embeddedAssets: Array.from(embeddedAssets.values()).map((asset) => ({
             objectPath: asset.objectPath,
             archivePath: asset.archivePath,
+            source: asset.source,
             size: asset.size,
             contentType: asset.contentType
           })),
@@ -547,13 +796,15 @@ const buildExtractionFiles = async (
         2
       )
     });
+    files.push({ name: 'attachments/README.md', content: backupReadme(selectedSources, Array.from(embeddedAssets.values()), failedAssets) });
   }
 
   return {
     files,
     mediaSummary: {
       embeddedCount: embeddedAssets.size,
-      failedCount: failedAssets.length
+      failedCount: failedAssets.length,
+      selectedSources
     }
   };
 };
@@ -568,7 +819,13 @@ const serializeExtractionJob = (job: Awaited<ReturnType<typeof prisma.extraction
   };
 };
 
-const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', actor: string, downloadName: string) => {
+const runExtractionJob = async (
+  jobId: string,
+  mode: 'db' | 'images' | 'all',
+  mediaSources: BackupMediaSource[],
+  actor: string,
+  downloadName: string
+) => {
   try {
     const updateProgress = async (percent: number, stage: string, message: string) => {
       const updated = await prisma.extractionJob.update({
@@ -578,14 +835,14 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
       emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(updated) as Record<string, unknown> });
     };
 
-    await updateProgress(10, 'collecting', 'Collecting export data');
-    const { files, mediaSummary } = await buildExtractionFiles(mode, updateProgress);
+    await updateProgress(10, 'collecting', 'Collecting backup data');
+    const { files, mediaSummary } = await buildExtractionFiles(mode, mediaSources, updateProgress);
 
-    await updateProgress(70, 'compressing', 'Compressing export archive');
+    await updateProgress(70, 'compressing', 'Compressing backup archive');
     const zip = makeZip(files);
 
-    await updateProgress(85, 'uploading', 'Uploading export artifact');
-    const objectPath = `exports/${jobId}/${downloadName}`;
+    await updateProgress(85, 'uploading', 'Uploading backup artifact');
+    const objectPath = `backups/${jobId}/${downloadName}`;
     const stored = await saveFileToStorage({ objectPath, buffer: zip, contentType: 'application/zip' });
 
     const completed = await prisma.extractionJob.update({
@@ -595,7 +852,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
         completedAt: new Date(),
         artifactPath: stored.objectPath,
         artifactUrl: stored.url,
-        progress: extractionProgress(100, 'completed', 'Export ready')
+        progress: extractionProgress(100, 'completed', 'Backup ready')
       }
     });
     emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(completed) as Record<string, unknown> });
@@ -606,6 +863,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
       entityId: completed.id,
       metadata: {
         mode,
+        mediaSources: mediaSummary.selectedSources,
         fileCount: files.length,
         embeddedMedia: mediaSummary.embeddedCount,
         failedMedia: mediaSummary.failedCount
@@ -617,7 +875,7 @@ const runExtractionJob = async (jobId: string, mode: 'db' | 'images' | 'all', ac
       data: {
         status: 'failed',
         error: (error as Error).message,
-        progress: extractionProgress(100, 'failed', 'Export failed')
+        progress: extractionProgress(100, 'failed', 'Backup failed')
       }
     });
     emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(failed) as Record<string, unknown> });
@@ -628,6 +886,7 @@ type MigrationDataset = {
   users: Awaited<ReturnType<typeof prisma.user.findMany>>;
   passwordResetRequests: any[];
   commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
+  securitySessions: Awaited<ReturnType<typeof prisma.securitySession.findMany>>;
   refreshTokens: Awaited<ReturnType<typeof prisma.refreshToken.findMany>>;
   projects: Awaited<ReturnType<typeof prisma.project.findMany>>;
   projectPatches: Awaited<ReturnType<typeof prisma.projectPatch.findMany>>;
@@ -655,6 +914,10 @@ type MigrationDataset = {
   chatReadStates: Awaited<ReturnType<typeof prisma.chatReadState.findMany>>;
   extractionJobs: Awaited<ReturnType<typeof prisma.extractionJob.findMany>>;
   auditLogs: Awaited<ReturnType<typeof prisma.auditLog.findMany>>;
+  securityEvents: Awaited<ReturnType<typeof prisma.securityEvent.findMany>>;
+  securityBlocks: Awaited<ReturnType<typeof prisma.securityBlock.findMany>>;
+  securityPolicies: Awaited<ReturnType<typeof prisma.securityPolicy.findMany>>;
+  fileScanRecords: Awaited<ReturnType<typeof prisma.fileScanRecord.findMany>>;
   personnelReports: Awaited<ReturnType<typeof prisma.personnelReport.findMany>>;
 };
 
@@ -706,6 +969,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     users,
     passwordResetRequests,
     commandCenterSettings,
+    securitySessions,
     refreshTokens,
     projects,
     projectPatches,
@@ -733,11 +997,16 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     chatReadStates,
     extractionJobs,
     auditLogs,
+    securityEvents,
+    securityBlocks,
+    securityPolicies,
+    fileScanRecords,
     personnelReports
   ] = await Promise.all([
     prisma.user.findMany(),
     passwordResetRequestModel.findMany(),
     prisma.commandCenterSettings.findMany(),
+    prisma.securitySession.findMany(),
     prisma.refreshToken.findMany(),
     prisma.project.findMany(),
     prisma.projectPatch.findMany(),
@@ -765,6 +1034,10 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     prisma.chatReadState.findMany(),
     prisma.extractionJob.findMany(),
     prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } }),
+    prisma.securityEvent.findMany(),
+    prisma.securityBlock.findMany(),
+    prisma.securityPolicy.findMany(),
+    prisma.fileScanRecord.findMany(),
     prisma.personnelReport.findMany()
   ]);
 
@@ -772,6 +1045,7 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     users,
     passwordResetRequests,
     commandCenterSettings,
+    securitySessions,
     refreshTokens,
     projects,
     projectPatches,
@@ -799,6 +1073,10 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     chatReadStates,
     extractionJobs,
     auditLogs,
+    securityEvents,
+    securityBlocks,
+    securityPolicies,
+    fileScanRecords,
     personnelReports
   };
 };
@@ -824,6 +1102,7 @@ const countCurrentMigrationState = async () => {
     users,
     passwordResetRequests,
     commandCenterSettings,
+    securitySessions,
     refreshTokens,
     projects,
     projectPatches,
@@ -851,12 +1130,17 @@ const countCurrentMigrationState = async () => {
     chatReadStates,
     extractionJobs,
     auditLogs,
+    securityEvents,
+    securityBlocks,
+    securityPolicies,
+    fileScanRecords,
     personnelReports,
     assets
   ] = await Promise.all([
     prisma.user.count(),
     passwordResetRequestModel.count(),
     prisma.commandCenterSettings.count(),
+    prisma.securitySession.count(),
     prisma.refreshToken.count(),
     prisma.project.count(),
     prisma.projectPatch.count(),
@@ -884,6 +1168,10 @@ const countCurrentMigrationState = async () => {
     prisma.chatReadState.count(),
     prisma.extractionJob.count(),
     prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }),
+    prisma.securityEvent.count(),
+    prisma.securityBlock.count(),
+    prisma.securityPolicy.count(),
+    prisma.fileScanRecord.count(),
     prisma.personnelReport.count(),
     collectReferencedStoragePaths()
   ]);
@@ -893,6 +1181,7 @@ const countCurrentMigrationState = async () => {
       users,
       passwordResetRequests,
       commandCenterSettings,
+      securitySessions,
       refreshTokens,
       projects,
       projectPatches,
@@ -920,6 +1209,10 @@ const countCurrentMigrationState = async () => {
       chatReadStates,
       extractionJobs,
       auditLogs,
+      securityEvents,
+      securityBlocks,
+      securityPolicies,
+      fileScanRecords,
       personnelReports
     },
     assetCount: assets.size
@@ -942,9 +1235,14 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     await tx.chatConversationMember.deleteMany();
     await tx.chatConversation.deleteMany();
     await tx.refreshToken.deleteMany();
+    await tx.securitySession.deleteMany();
     await (tx as any).passwordResetRequest.deleteMany();
     await tx.extractionJob.deleteMany();
     await tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } });
+    await tx.securityEvent.deleteMany();
+    await tx.securityBlock.deleteMany();
+    await tx.securityPolicy.deleteMany();
+    await tx.fileScanRecord.deleteMany();
     await tx.personnelReport.deleteMany();
     await tx.managementRequest.deleteMany();
     await tx.team.deleteMany();
@@ -961,6 +1259,7 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     await tx.user.deleteMany();
 
     if (dataset.users.length) await tx.user.createMany({ data: dataset.users as any });
+    if (dataset.securitySessions.length) await tx.securitySession.createMany({ data: dataset.securitySessions as any });
     if (dataset.passwordResetRequests.length) await (tx as any).passwordResetRequest.createMany({ data: dataset.passwordResetRequests as any });
     if (dataset.commandCenterSettings.length) await tx.commandCenterSettings.createMany({ data: dataset.commandCenterSettings as any });
     if (dataset.refreshTokens.length) await tx.refreshToken.createMany({ data: dataset.refreshTokens as any });
@@ -990,6 +1289,10 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     if (dataset.chatReadStates.length) await tx.chatReadState.createMany({ data: dataset.chatReadStates as any });
     if (dataset.extractionJobs.length) await tx.extractionJob.createMany({ data: dataset.extractionJobs as any });
     if (dataset.auditLogs.length) await tx.auditLog.createMany({ data: dataset.auditLogs as any });
+    if (dataset.securityEvents.length) await tx.securityEvent.createMany({ data: dataset.securityEvents as any });
+    if (dataset.securityBlocks.length) await tx.securityBlock.createMany({ data: dataset.securityBlocks as any });
+    if (dataset.securityPolicies.length) await tx.securityPolicy.createMany({ data: dataset.securityPolicies as any });
+    if (dataset.fileScanRecords.length) await tx.fileScanRecord.createMany({ data: dataset.fileScanRecords as any });
     if (dataset.personnelReports.length) await tx.personnelReport.createMany({ data: dataset.personnelReports as any });
   });
 };
@@ -1199,7 +1502,7 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
 
   const createdAt = new Date();
   const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const downloadName = `morneven-extract-${parsed.data.mode}-${createdAt.toISOString().slice(0, 10)}.zip`;
+  const downloadName = `morneven-backup-${parsed.data.mode}-${createdAt.toISOString().slice(0, 10)}.zip`;
   const job = await prisma.extractionJob.create({
     data: {
       mode: parsed.data.mode,
@@ -1213,7 +1516,7 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
   });
 
   setImmediate(() => {
-    void runExtractionJob(job.id, parsed.data.mode, req.user!.username, downloadName);
+    void runExtractionJob(job.id, parsed.data.mode, parsed.data.mediaSources, req.user!.username, downloadName);
   });
 
   emitToUser(req.user!.username, 'settings.extraction.updated', { job: serializeExtractionJob(job) as Record<string, unknown> });
@@ -1241,7 +1544,7 @@ settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
 
   const file = await readFileFromStorage(job.artifactPath);
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-extract-${job.id}.zip`}"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `morneven-backup-${job.id}.zip`}"`);
   return res.send(file);
 });
 
