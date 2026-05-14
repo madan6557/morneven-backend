@@ -55,6 +55,12 @@ enum EntityType {
   project
 }
 
+enum ContentReactionKind {
+  like
+  dislike
+  star
+}
+
 enum MapStatus {
   safe
   caution
@@ -87,6 +93,7 @@ model User {
   galleryItems  GalleryItem[]
   comments      Comment[]
   replies       Reply[]
+  contentReactions ContentReaction[]
   submittedReports PersonnelReport[] @relation("PersonnelReportReporter")
   receivedReports  PersonnelReport[] @relation("PersonnelReportTarget")
   resolvedReports  PersonnelReport[] @relation("PersonnelReportResolver")
@@ -231,6 +238,39 @@ model GalleryTag {
   galleryItemId String
   tag           String
   galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id], onDelete: Cascade)
+}
+
+model ContentMetric {
+  id         String     @id @default(uuid())
+  entityType EntityType
+  entityId   String
+  views      Int        @default(0)
+  likes      Int        @default(0)
+  dislikes   Int        @default(0)
+  stars      Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType, views])
+  @@index([entityType, likes])
+  @@index([entityType, dislikes])
+  @@index([entityType, stars])
+}
+
+model ContentReaction {
+  id         String              @id @default(uuid())
+  entityType EntityType
+  entityId   String
+  userId     String
+  kind       ContentReactionKind
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId, kind])
+  @@index([entityType, entityId])
+  @@index([userId])
 }
 
 model MapMarker {

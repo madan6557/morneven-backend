@@ -7,6 +7,7 @@ import {
   normalizeSkillItems
 } from './lore-contract.js';
 import { getPresenceSnapshot } from '../modules/presence/service.js';
+import { emptyMetric, type ContentMetricSummary, type ViewerEngagement } from './content-metrics.js';
 
 const ROLE_ADMIN = 'admin' as Role;
 
@@ -109,7 +110,12 @@ export const serializeUser = (user: SerializableUser) => ({
 
 type GalleryWithTags = Prisma.GalleryItemGetPayload<{ include: { tags: true; uploader: true } }>;
 
-export const serializeGalleryItem = (item: GalleryWithTags, comments: unknown[] = []) => ({
+export const serializeGalleryItem = (
+  item: GalleryWithTags,
+  comments: unknown[] = [],
+  metrics: ContentMetricSummary = emptyMetric,
+  viewer?: ViewerEngagement
+) => ({
   id: item.id,
   type: item.type === MediaType.video ? 'video' : 'image',
   title: item.title,
@@ -121,6 +127,10 @@ export const serializeGalleryItem = (item: GalleryWithTags, comments: unknown[] 
   uploadedBy:
     item.uploader?.accountStatus === AccountStatus.deleted ? 'Deleted User' : item.uploader?.username ?? item.uploadedBy,
   uploadedByStatus: item.uploader?.accountStatus ?? undefined,
+  views: metrics.views,
+  likes: metrics.likes,
+  dislikes: metrics.dislikes,
+  viewerReaction: viewer?.reaction ?? null,
   comments
 });
 
@@ -159,7 +169,13 @@ export const serializeDiscussionComments = (comments: DiscussionRecord[]) =>
     }))
   }));
 
-export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = [], discussions?: DiscussionRecord[]) => {
+export const serializeLoreItem = (
+  item: LoreRecord,
+  docs: EntityDocRecord[] = [],
+  discussions?: DiscussionRecord[],
+  metrics: ContentMetricSummary = emptyMetric,
+  viewer?: ViewerEngagement
+) => {
   const metadata = asObject(item.metadata);
   const common = {
     ...metadata,
@@ -171,7 +187,10 @@ export const serializeLoreItem = (item: LoreRecord, docs: EntityDocRecord[] = []
     docs: docs.map(serializeDoc),
     ...(discussions ? { discussions: serializeDiscussionComments(discussions) } : {}),
     contributor: metadata.contributor,
-    meta: metadata.meta
+    meta: metadata.meta,
+    views: metrics.views,
+    stars: metrics.stars,
+    viewerStarred: Boolean(viewer?.starred)
   };
 
   if (item.category === EntityType.creature) {

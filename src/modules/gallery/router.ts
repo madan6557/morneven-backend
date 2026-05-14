@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { EntityType, MediaType, Prisma } from '@prisma/client';
+import { AccountStatus, EntityType, MediaType, Prisma, Role } from '@prisma/client';
 import { z } from 'zod';
 import { auth, allow, canModerateDiscussion, canWriteGallery } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
@@ -8,6 +8,14 @@ import { getSearchQuery, paginated, parseIds, parsePagination } from '../../util
 import { dateOnly, serializeGalleryItem } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { cleanupUnreferencedStoragePaths, collectGalleryStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
+import {
+  engagementFor,
+  incrementContentView,
+  loadContentMetrics,
+  loadViewerEngagement,
+  metricFor,
+  setGalleryReaction
+} from '../../utils/content-metrics.js';
 
 export const galleryRouter = Router();
 
@@ -29,18 +37,37 @@ const serializeComments = (
 ) =>
   comments.map((comment) => ({
     id: comment.id,
-    author: comment.author.username,
+    author: comment.author.accountStatus === AccountStatus.deleted ? 'Deleted User' : comment.author.username,
     text: comment.text,
     date: dateOnly(comment.createdAt),
     mentions: [],
     replies: comment.replies.map((reply) => ({
       id: reply.id,
-      author: reply.author.username,
+      author: reply.author.accountStatus === AccountStatus.deleted ? 'Deleted User' : reply.author.username,
       text: reply.text,
       date: dateOnly(reply.createdAt),
       mentions: []
     }))
   }));
+
+const respondWithGalleryDetail = async (res: Parameters<typeof ok>[0], id: string, viewerId?: string) => {
+  const item = await prisma.galleryItem.findUnique({
+    where: { id },
+    include: { tags: true, uploader: true }
+  });
+  if (!item) return fail(res, 404, 'Gallery item not found', 'NOT_FOUND');
+  const key = { entityType: EntityType.gallery, entityId: item.id };
+  const [comments, metrics, engagement] = await Promise.all([
+    prisma.comment.findMany({
+      where: { entityType: EntityType.gallery, entityId: item.id },
+      include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'desc' } } },
+      orderBy: { createdAt: 'desc' }
+    }),
+    loadContentMetrics([key]),
+    loadViewerEngagement([key], viewerId)
+  ]);
+  return ok(res, serializeGalleryItem(item, serializeComments(comments), metricFor(metrics, key), engagementFor(engagement, key)));
+};
 
 galleryRouter.get('/', auth, async (req, res) => {
   const ids = parseIds(req.query.ids);
@@ -75,7 +102,27 @@ galleryRouter.get('/', auth, async (req, res) => {
     prisma.galleryItem.findMany({ where, include: { tags: true, uploader: true }, orderBy, skip, take }),
     prisma.galleryItem.count({ where })
   ]);
-  return ok(res, paginated(items.map((item) => serializeGalleryItem(item)), page, pageSize, total));
+  const keys = items.map((item) => ({ entityType: EntityType.gallery, entityId: item.id }));
+  const [metrics, engagement] = await Promise.all([
+    loadContentMetrics(keys),
+    loadViewerEngagement(keys, req.user?.id)
+  ]);
+  return ok(
+    res,
+    paginated(
+      items.map((item) =>
+        serializeGalleryItem(
+          item,
+          [],
+          metricFor(metrics, { entityType: EntityType.gallery, entityId: item.id }),
+          engagementFor(engagement, { entityType: EntityType.gallery, entityId: item.id })
+        )
+      ),
+      page,
+      pageSize,
+      total
+    )
+  );
 });
 
 galleryRouter.get('/:id', auth, async (req, res) => {
@@ -84,12 +131,41 @@ galleryRouter.get('/:id', auth, async (req, res) => {
     include: { tags: true, uploader: true }
   });
   if (!item) return fail(res, 404, 'Gallery item not found', 'NOT_FOUND');
-  const comments = await prisma.comment.findMany({
-    where: { entityType: EntityType.gallery, entityId: item.id },
-    include: { author: true, replies: { include: { author: true } } },
-    orderBy: { createdAt: 'asc' }
+  const [metric, comments, engagement] = await Promise.all([
+    incrementContentView(EntityType.gallery, item.id),
+    prisma.comment.findMany({
+      where: { entityType: EntityType.gallery, entityId: item.id },
+      include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'desc' } } },
+      orderBy: { createdAt: 'desc' }
+    }),
+    loadViewerEngagement([{ entityType: EntityType.gallery, entityId: item.id }], req.user?.id)
+  ]);
+  return ok(
+    res,
+    serializeGalleryItem(
+      item,
+      serializeComments(comments),
+      metric,
+      engagementFor(engagement, { entityType: EntityType.gallery, entityId: item.id })
+    )
+  );
+});
+
+galleryRouter.post('/:id/reaction', auth, async (req, res) => {
+  if (req.user!.role === Role.guest) return fail(res, 403, 'Guest users cannot react to gallery content', 'FORBIDDEN');
+  const item = await prisma.galleryItem.findUnique({ where: { id: req.params.id } });
+  if (!item) return fail(res, 404, 'Gallery item not found', 'NOT_FOUND');
+
+  const parsed = z.object({ reaction: z.enum(['like', 'dislike']).nullable() }).safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const metric = await setGalleryReaction(req.user!.id, item.id, parsed.data.reaction);
+  return ok(res, {
+    views: metric.views,
+    likes: metric.likes,
+    dislikes: metric.dislikes,
+    viewerReaction: parsed.data.reaction
   });
-  return ok(res, serializeGalleryItem(item, serializeComments(comments)));
 });
 
 galleryRouter.post('/', auth, allow(canWriteGallery), async (req, res) => {
@@ -108,6 +184,9 @@ galleryRouter.post('/', auth, allow(canWriteGallery), async (req, res) => {
       tags: { create: parsed.data.tags.map((tag) => ({ tag })) }
     },
     include: { tags: true, uploader: true }
+  });
+  await prisma.contentMetric.create({
+    data: { id: `metric-${EntityType.gallery}-${item.id}`, entityType: EntityType.gallery, entityId: item.id }
   });
   await writeAudit(prisma, { actor: req.user!.username, action: 'gallery.create', entity: 'GalleryItem', entityId: item.id });
   return res.status(201).json({ success: true, data: serializeGalleryItem(item) });
@@ -157,6 +236,8 @@ galleryRouter.delete('/:id', auth, async (req, res) => {
   const previousPaths = collectGalleryStoragePathSet(item);
   await prisma.$transaction(async (tx) => {
     await tx.comment.deleteMany({ where: { entityType: EntityType.gallery, entityId: req.params.id } });
+    await tx.contentReaction.deleteMany({ where: { entityType: EntityType.gallery, entityId: req.params.id } });
+    await tx.contentMetric.deleteMany({ where: { entityType: EntityType.gallery, entityId: req.params.id } });
     await tx.galleryItem.delete({ where: { id: req.params.id } });
   });
   await cleanupUnreferencedStoragePaths(previousPaths);
@@ -165,19 +246,29 @@ galleryRouter.delete('/:id', auth, async (req, res) => {
 });
 
 galleryRouter.post('/:id/comments', auth, async (req, res) =>
-  res.status(201).json({
-    success: true,
-    data: await prisma.comment.create({
-      data: { entityType: EntityType.gallery, entityId: req.params.id, authorId: req.user!.id, text: req.body.text }
-    })
-  })
+  {
+    const target = await prisma.galleryItem.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!target) return fail(res, 404, 'Gallery item not found', 'NOT_FOUND');
+    if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
+    await prisma.comment.create({
+      data: { entityType: EntityType.gallery, entityId: req.params.id, authorId: req.user!.id, text: String(req.body.text).trim() }
+    });
+    return respondWithGalleryDetail(res, req.params.id, req.user?.id);
+  }
 );
 
 galleryRouter.post('/:id/comments/:commentId/replies', auth, async (req, res) =>
-  res.status(201).json({
-    success: true,
-    data: await prisma.reply.create({ data: { commentId: req.params.commentId, authorId: req.user!.id, text: req.body.text } })
-  })
+  {
+    const comment = await prisma.comment.findFirst({
+      where: { id: req.params.commentId, entityType: EntityType.gallery, entityId: req.params.id }
+    });
+    if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
+    if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
+    await prisma.reply.create({
+      data: { commentId: req.params.commentId, authorId: req.user!.id, text: String(req.body.text).trim() }
+    });
+    return respondWithGalleryDetail(res, req.params.id, req.user?.id);
+  }
 );
 
 galleryRouter.put('/:id/comments/:commentId', auth, async (req, res) => {

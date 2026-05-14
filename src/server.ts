@@ -22,6 +22,7 @@ import { meRouter } from './modules/me/router.js';
 import { contentStatsRouter } from './modules/content-stats/router.js';
 import { commandCenterRouter } from './modules/command-center/router.js';
 import { securityRouter } from './modules/security/router.js';
+import { activityRouter } from './modules/activity/router.js';
 import { attachRealtimeWebSocket } from './realtime/websocket.js';
 import { securityGateway, securityLimiters } from './security/index.js';
 
@@ -95,6 +96,7 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/chat`, securityLimiters.chat, chatRouter);
   app.use(`${base}/me`, meRouter);
   app.use(`${base}/content-stats`, contentStatsRouter);
+  app.use(`${base}/activity`, securityLimiters.api, activityRouter);
   app.use(`${base}/command-center`, securityLimiters.admin, commandCenterRouter);
   app.use(`${base}/security`, securityLimiters.security, securityRouter);
 };

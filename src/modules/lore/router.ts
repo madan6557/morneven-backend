@@ -1,5 +1,6 @@
-import { EntityType, MediaType, Prisma } from '@prisma/client';
+import { EntityType, MediaType, Prisma, Role } from '@prisma/client';
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../../config/prisma.js';
 import { auth, canModerateDiscussion, canWriteLore } from '../../middleware/auth.js';
 import { writeAudit } from '../../utils/audit.js';
@@ -8,6 +9,14 @@ import { getSearchQuery, paginated, parseIds, parsePagination } from '../../util
 import { fail, ok } from '../../utils/response.js';
 import { categoryToEntityType, serializeDiscussionComments, serializeLoreItem } from '../../utils/serializers.js';
 import { cleanupUnreferencedStoragePaths, collectLoreStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
+import {
+  engagementFor,
+  incrementContentView,
+  loadContentMetrics,
+  loadViewerEngagement,
+  metricFor,
+  setLoreStar
+} from '../../utils/content-metrics.js';
 
 export const loreRouter = Router();
 
@@ -28,8 +37,8 @@ const loadDocs = async (items: Array<{ id: string }>) => {
 const loadDiscussionComments = async (entityType: EntityType, entityId: string) =>
   prisma.comment.findMany({
     where: { entityType, entityId },
-    include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'asc' } } },
-    orderBy: { createdAt: 'asc' }
+    include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'desc' } } },
+    orderBy: { createdAt: 'desc' }
   });
 
 const persistDocs = async (
@@ -62,10 +71,17 @@ const loadLoreDetail = async (entityType: EntityType, id: string) => {
   return { item, docs, discussions };
 };
 
-const respondWithLoreDetail = async (res: Parameters<typeof ok>[0], entityType: EntityType, id: string) => {
+const respondWithLoreDetail = async (
+  res: Parameters<typeof ok>[0],
+  entityType: EntityType,
+  id: string,
+  viewerId?: string
+) => {
   const detail = await loadLoreDetail(entityType, id);
   if (!detail) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
-  return ok(res, serializeLoreItem(detail.item, detail.docs, detail.discussions));
+  const key = { entityType, entityId: id };
+  const [metrics, engagement] = await Promise.all([loadContentMetrics([key]), loadViewerEngagement([key], viewerId)]);
+  return ok(res, serializeLoreItem(detail.item, detail.docs, detail.discussions, metricFor(metrics, key), engagementFor(engagement, key)));
 };
 
 loreRouter.get('/:category', auth, async (req, res) => {
@@ -95,12 +111,25 @@ loreRouter.get('/:category', auth, async (req, res) => {
     prisma.loreItem.findMany({ where, orderBy, skip, take }),
     prisma.loreItem.count({ where })
   ]);
-  const docs = await loadDocs(items);
+  const keys = items.map((item) => ({ entityType: item.category, entityId: item.id }));
+  const [docs, metrics, engagement] = await Promise.all([
+    loadDocs(items),
+    loadContentMetrics(keys),
+    loadViewerEngagement(keys, req.user?.id)
+  ]);
 
   return ok(
     res,
     paginated(
-      items.map((item) => serializeLoreItem(item, docs.get(`${item.category}:${item.id}`) ?? [])),
+      items.map((item) =>
+        serializeLoreItem(
+          item,
+          docs.get(`${item.category}:${item.id}`) ?? [],
+          undefined,
+          metricFor(metrics, { entityType: item.category, entityId: item.id }),
+          engagementFor(engagement, { entityType: item.category, entityId: item.id })
+        )
+      ),
       page,
       pageSize,
       total
@@ -111,7 +140,28 @@ loreRouter.get('/:category', auth, async (req, res) => {
 loreRouter.get('/:category/:id', auth, async (req, res) => {
   const entityType = resolveCategory(req.params.category);
   if (!entityType) return fail(res, 400, 'Unsupported lore category', 'BAD_REQUEST');
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  const target = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType }, select: { id: true } });
+  if (!target) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
+  await incrementContentView(entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
+});
+
+loreRouter.post('/:category/:id/star', auth, async (req, res) => {
+  if (req.user!.role === Role.guest) return fail(res, 403, 'Guest users cannot star lore content', 'FORBIDDEN');
+  const entityType = resolveCategory(req.params.category);
+  if (!entityType) return fail(res, 400, 'Unsupported lore category', 'BAD_REQUEST');
+  const target = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType }, select: { id: true } });
+  if (!target) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
+
+  const parsed = z.object({ starred: z.boolean() }).safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const metric = await setLoreStar(req.user!.id, entityType, req.params.id, parsed.data.starred);
+  return ok(res, {
+    views: metric.views,
+    stars: metric.stars,
+    viewerStarred: parsed.data.starred
+  });
 });
 
 loreRouter.post('/:category', auth, async (req, res) => {
@@ -141,6 +191,9 @@ loreRouter.post('/:category', auth, async (req, res) => {
     });
 
     await persistDocs(tx, entityType, lore.id, docs);
+    await tx.contentMetric.create({
+      data: { id: `metric-${entityType}-${lore.id}`, entityType, entityId: lore.id }
+    });
     await writeAudit(tx, { actor: req.user!.username, action: 'lore.create', entity: 'LoreItem', entityId: lore.id });
     return lore;
   });
@@ -203,6 +256,8 @@ loreRouter.delete('/:category/:id', auth, async (req, res) => {
   await prisma.$transaction(async (tx) => {
     await tx.entityDoc.deleteMany({ where: { entityType, entityId: req.params.id } });
     await tx.comment.deleteMany({ where: { entityType, entityId: req.params.id } });
+    await tx.contentReaction.deleteMany({ where: { entityType, entityId: req.params.id } });
+    await tx.contentMetric.deleteMany({ where: { entityType, entityId: req.params.id } });
     await tx.loreItem.delete({ where: { id: req.params.id } });
   });
   await cleanupUnreferencedStoragePaths(previousPaths);
@@ -222,7 +277,7 @@ loreRouter.post('/:category/:id/comments', auth, async (req, res) => {
     data: { entityType, entityId: req.params.id, authorId: req.user!.id, text: String(req.body.text).trim() }
   });
 
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });
 
 loreRouter.post('/:category/:id/comments/:commentId/replies', auth, async (req, res) => {
@@ -239,7 +294,7 @@ loreRouter.post('/:category/:id/comments/:commentId/replies', auth, async (req, 
     data: { commentId: req.params.commentId, authorId: req.user!.id, text: String(req.body.text).trim() }
   });
 
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });
 
 loreRouter.put('/:category/:id/comments/:commentId', auth, async (req, res) => {
@@ -253,7 +308,7 @@ loreRouter.put('/:category/:id/comments/:commentId', auth, async (req, res) => {
   if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
 
   await prisma.comment.update({ where: { id: comment.id }, data: { text: String(req.body.text).trim() } });
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });
 
 loreRouter.delete('/:category/:id/comments/:commentId', auth, async (req, res) => {
@@ -266,7 +321,7 @@ loreRouter.delete('/:category/:id/comments/:commentId', auth, async (req, res) =
   if (!(canModerateDiscussion(req.user!) || comment.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
 
   await prisma.comment.delete({ where: { id: comment.id } });
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });
 
 loreRouter.put('/:category/:id/comments/:commentId/replies/:replyId', auth, async (req, res) => {
@@ -280,7 +335,7 @@ loreRouter.put('/:category/:id/comments/:commentId/replies/:replyId', auth, asyn
   if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
 
   await prisma.reply.update({ where: { id: reply.id }, data: { text: String(req.body.text).trim() } });
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });
 
 loreRouter.delete('/:category/:id/comments/:commentId/replies/:replyId', auth, async (req, res) => {
@@ -293,5 +348,5 @@ loreRouter.delete('/:category/:id/comments/:commentId/replies/:replyId', auth, a
   if (!(canModerateDiscussion(req.user!) || reply.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
 
   await prisma.reply.delete({ where: { id: reply.id } });
-  return respondWithLoreDetail(res, entityType, req.params.id);
+  return respondWithLoreDetail(res, entityType, req.params.id, req.user?.id);
 });

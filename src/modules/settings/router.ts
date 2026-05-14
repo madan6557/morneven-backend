@@ -266,6 +266,8 @@ type ExportSnapshot = {
     updatedAt: string;
     resolvedAt?: string;
   }>;
+  contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
+  contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
   map: {
     mapImage: string;
     markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
@@ -349,13 +351,28 @@ const serializePersonnelReportForExtraction = (
 });
 
 const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
-  const [projects, gallery, news, personnel, passwordResetRequests, personnelReports, mapMarkers, mapImage, lore, docs] = await Promise.all([
+  const [
+    projects,
+    gallery,
+    news,
+    personnel,
+    passwordResetRequests,
+    personnelReports,
+    contentMetrics,
+    contentReactions,
+    mapMarkers,
+    mapImage,
+    lore,
+    docs
+  ] = await Promise.all([
     prisma.project.findMany({ include: { patches: true } }),
     prisma.galleryItem.findMany({ include: { tags: true, uploader: true } }),
     prisma.news.findMany({ include: { attachments: true } }),
     prisma.user.findMany(),
     passwordResetRequestModel.findMany({ include: { reviewedBy: true } }),
     prisma.personnelReport.findMany({ include: { reporter: true, target: true, resolvedBy: true } }),
+    prisma.contentMetric.findMany(),
+    prisma.contentReaction.findMany(),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
     prisma.loreItem.findMany(),
@@ -386,6 +403,8 @@ const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     personnel: personnel.map(serializeUser),
     passwordResetRequests: passwordResetRequests.map(serializePasswordResetRequestForExtraction),
     personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
+    contentMetrics,
+    contentReactions,
     map: {
       mapImage: mapImage?.imageUrl ?? '',
       markers: mapMarkers
@@ -502,6 +521,8 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/personnel.json', content: JSON.stringify(exportedSnapshot.personnel, null, 2) });
     files.push({ name: 'db/password-reset-requests.json', content: JSON.stringify(exportedSnapshot.passwordResetRequests, null, 2) });
     files.push({ name: 'db/personnel-reports.json', content: JSON.stringify(exportedSnapshot.personnelReports, null, 2) });
+    files.push({ name: 'db/content-metrics.json', content: JSON.stringify(exportedSnapshot.contentMetrics, null, 2) });
+    files.push({ name: 'db/content-reactions.json', content: JSON.stringify(exportedSnapshot.contentReactions, null, 2) });
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
   }
 
@@ -621,6 +642,8 @@ type MigrationDataset = {
   comments: Awaited<ReturnType<typeof prisma.comment.findMany>>;
   replies: Awaited<ReturnType<typeof prisma.reply.findMany>>;
   mentions: Awaited<ReturnType<typeof prisma.mention.findMany>>;
+  contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
+  contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
   managementRequests: Awaited<ReturnType<typeof prisma.managementRequest.findMany>>;
   teams: Awaited<ReturnType<typeof prisma.team.findMany>>;
   quotaRecords: Awaited<ReturnType<typeof prisma.quotaRecord.findMany>>;
@@ -697,6 +720,8 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     comments,
     replies,
     mentions,
+    contentMetrics,
+    contentReactions,
     managementRequests,
     teams,
     quotaRecords,
@@ -727,6 +752,8 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     prisma.comment.findMany(),
     prisma.reply.findMany(),
     prisma.mention.findMany(),
+    prisma.contentMetric.findMany(),
+    prisma.contentReaction.findMany(),
     prisma.managementRequest.findMany(),
     prisma.team.findMany(),
     prisma.quotaRecord.findMany(),
@@ -759,6 +786,8 @@ const collectMigrationDataset = async (): Promise<MigrationDataset> => {
     comments,
     replies,
     mentions,
+    contentMetrics,
+    contentReactions,
     managementRequests,
     teams,
     quotaRecords,
@@ -809,6 +838,8 @@ const countCurrentMigrationState = async () => {
     comments,
     replies,
     mentions,
+    contentMetrics,
+    contentReactions,
     managementRequests,
     teams,
     quotaRecords,
@@ -840,6 +871,8 @@ const countCurrentMigrationState = async () => {
     prisma.comment.count(),
     prisma.reply.count(),
     prisma.mention.count(),
+    prisma.contentMetric.count(),
+    prisma.contentReaction.count(),
     prisma.managementRequest.count(),
     prisma.team.count(),
     prisma.quotaRecord.count(),
@@ -874,6 +907,8 @@ const countCurrentMigrationState = async () => {
       comments,
       replies,
       mentions,
+      contentMetrics,
+      contentReactions,
       managementRequests,
       teams,
       quotaRecords,
@@ -895,6 +930,8 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
   await prisma.$transaction(async (tx) => {
     await tx.notificationRead.deleteMany();
     await tx.mention.deleteMany();
+    await tx.contentReaction.deleteMany();
+    await tx.contentMetric.deleteMany();
     await tx.reply.deleteMany();
     await tx.comment.deleteMany();
     await tx.galleryTag.deleteMany();
@@ -940,6 +977,8 @@ const importMigrationDataset = async (dataset: MigrationDataset) => {
     if (dataset.comments.length) await tx.comment.createMany({ data: dataset.comments as any });
     if (dataset.replies.length) await tx.reply.createMany({ data: dataset.replies as any });
     if (dataset.mentions.length) await tx.mention.createMany({ data: dataset.mentions as any });
+    if (dataset.contentMetrics.length) await tx.contentMetric.createMany({ data: dataset.contentMetrics as any });
+    if (dataset.contentReactions.length) await tx.contentReaction.createMany({ data: dataset.contentReactions as any });
     if (dataset.managementRequests.length) await tx.managementRequest.createMany({ data: dataset.managementRequests as any });
     if (dataset.teams.length) await tx.team.createMany({ data: dataset.teams as any });
     if (dataset.quotaRecords.length) await tx.quotaRecord.createMany({ data: dataset.quotaRecords as any });
