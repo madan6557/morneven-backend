@@ -118,7 +118,7 @@ filesRouter.get('/object', auth, async (req, res) => {
     if (file.lastModified) {
       res.setHeader('Last-Modified', file.lastModified.toUTCString());
     }
-    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.setHeader('Cache-Control', 'private, max-age=3600, stale-while-revalidate=86400');
     if (shouldDownload) {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     }

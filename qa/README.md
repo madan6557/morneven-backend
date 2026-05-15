@@ -15,8 +15,10 @@ The workflow is manual and should be run from the `development` branch.
 Default target:
 
 ```txt
-https://backend.dev.morneven.com
+https://morneven-backend-development.up.railway.app
 ```
+
+Update label: 2026-05-15. The current frontend URL for integration checks is `https://morneven.com`.
 
 Default mode:
 
@@ -83,6 +85,7 @@ npm run qa:dev-api -- --scope full --allow-destructive --include-file-upload --i
 Extraction job test:
 
 ```bash
+QA_EXTRACTION_KEY="<same value as backend EXTRACTION_KEY>" \
 npm run qa:dev-api -- --scope full --allow-destructive --include-extraction
 ```
 

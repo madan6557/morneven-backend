@@ -1,0 +1,2975 @@
+{
+  "summary": {
+    "runId": "QA-20260515-CODEX-STAGING-TARGETED-R2",
+    "startedAt": "2026-05-15T12:00:48.460Z",
+    "endedAt": "2026-05-15T12:00:52.835Z",
+    "baseUrl": "https://morneven-backend-development.up.railway.app",
+    "totals": {
+      "PASS": 45
+    }
+  },
+  "records": [
+    {
+      "status": "PASS",
+      "suite": "Auth prerequisite",
+      "name": "Login author",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED_JWT]",
+          "refreshToken": "[REDACTED_JWT]",
+          "user": {
+            "id": "psn-001",
+            "username": "author",
+            "email": "author@morneven.com",
+            "role": "author",
+            "status": "active",
+            "level": 7,
+            "track": "executive",
+            "note": "Founder · Full Authority",
+            "updatedAt": "2026-05-03",
+            "online": true,
+            "lastSeenAt": "2026-05-15T12:00:48.418Z"
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Auth prerequisite",
+      "name": "Login admin",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED_JWT]",
+          "refreshToken": "[REDACTED_JWT]",
+          "user": {
+            "id": "psn-002",
+            "username": "admin",
+            "email": "admin@morneven.com",
+            "role": "author",
+            "status": "active",
+            "level": 7,
+            "track": "executive",
+            "note": "System administrator",
+            "updatedAt": "2026-05-03",
+            "online": false
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Auth prerequisite",
+      "name": "Login PL6 executive",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED_JWT]",
+          "refreshToken": "[REDACTED_JWT]",
+          "user": {
+            "id": "psn-003",
+            "username": "v.kessler",
+            "email": "v.kessler@morneven.com",
+            "role": "personel",
+            "status": "active",
+            "level": 6,
+            "track": "executive",
+            "note": "Board of Trustees · oversees content + comment moderation",
+            "updatedAt": "2026-05-09",
+            "online": false
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Auth prerequisite",
+      "name": "Login PL6 field",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED_JWT]",
+          "refreshToken": "[REDACTED_JWT]",
+          "user": {
+            "id": "psn-004",
+            "username": "m.varga",
+            "email": "m.varga@morneven.com",
+            "role": "personel",
+            "status": "active",
+            "level": 6,
+            "track": "field",
+            "note": "Global Operative · creature & map intel",
+            "updatedAt": "2026-05-03",
+            "online": false
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Auth",
+      "name": "Guest endpoint issues temporary token",
+      "method": "POST",
+      "endpoint": "/api/auth/guest",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED_JWT]",
+          "refreshToken": null,
+          "user": {
+            "id": "guest",
+            "username": "guest",
+            "email": null,
+            "role": "guest",
+            "status": "active",
+            "level": 0,
+            "track": "executive"
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "RBAC",
+      "name": "Guest token denied management pending count",
+      "method": "GET",
+      "endpoint": "/api/management/requests/pending-count",
+      "expected": "401 or 403",
+      "actual": "HTTP 403 message=Personnel access required",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Personnel access required",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Chat",
+      "name": "PL7 author can run chat reconcile",
+      "method": "POST",
+      "endpoint": "/api/chat/reconcile",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "instituteGroups": 1,
+          "divisionGroups": 4,
+          "teamGroups": 2,
+          "activeMemberships": 57,
+          "removedMemberships": 54,
+          "ranAt": "2026-05-15T12:00:50.443Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Chat",
+      "name": "PL6 executive is denied chat reconcile maintenance",
+      "method": "POST",
+      "endpoint": "/api/chat/reconcile",
+      "expected": "403",
+      "actual": "HTTP 403 message=Forbidden",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Forbidden",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Chat",
+      "name": "PL6 field is denied chat reconcile maintenance",
+      "method": "POST",
+      "endpoint": "/api/chat/reconcile",
+      "expected": "403",
+      "actual": "HTTP 403 message=Forbidden",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Forbidden",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Gallery targeted",
+      "name": "Create gallery item for corrected reply flow",
+      "method": "POST",
+      "endpoint": "/api/gallery",
+      "expected": "200 or 201",
+      "actual": "HTTP 201",
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "ecd123aa-b013-4016-a2f5-73a0a879ac82",
+          "type": "image",
+          "title": "QA-20260515-CODEX-STAGING-TARGETED-R2 Gallery",
+          "thumbnail": "https://example.com/gallery.png",
+          "caption": "Targeted QA gallery caption",
+          "tags": [
+            "qa",
+            "QA-20260515-CODEX-STAGING-TARGETED-R2"
+          ],
+          "date": "2026-05-15",
+          "uploadedBy": "author",
+          "uploadedByStatus": "active",
+          "views": 0,
+          "likes": 0,
+          "dislikes": 0,
+          "viewerReaction": null,
+          "comments": []
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Gallery targeted",
+      "name": "Create gallery comment and extract returned comment ID",
+      "method": "POST",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82/comments",
+      "expected": "200 or 201",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "ecd123aa-b013-4016-a2f5-73a0a879ac82",
+          "type": "image",
+          "title": "QA-20260515-CODEX-STAGING-TARGETED-R2 Gallery",
+          "thumbnail": "https://example.com/gallery.png",
+          "caption": "Targeted QA gallery caption",
+          "tags": [
+            "qa",
+            "QA-20260515-CODEX-STAGING-TARGETED-R2"
+          ],
+          "date": "2026-05-15",
+          "uploadedBy": "author",
+          "uploadedByStatus": "active",
+          "views": 0,
+          "likes": 0,
+          "dislikes": 0,
+          "viewerReaction": null,
+          "comments": [
+            {
+              "id": "f780d37e-973f-4571-abc5-18bf88bc2e13",
+              "author": "author",
+              "text": "QA-20260515-CODEX-STAGING-TARGETED-R2 corrected comment",
+              "date": "2026-05-15",
+              "mentions": [],
+              "replies": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Gallery targeted",
+      "name": "Extract gallery comment ID from detail response",
+      "method": "N/A",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82/comments",
+      "expected": "Returned detail contains new comment id",
+      "actual": "f780d37e-973f-4571-abc5-18bf88bc2e13",
+      "response": {
+        "commentId": "f780d37e-973f-4571-abc5-18bf88bc2e13"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Gallery targeted",
+      "name": "Create gallery reply with correct comment ID",
+      "method": "POST",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82/comments/f780d37e-973f-4571-abc5-18bf88bc2e13/replies",
+      "expected": "200 or 201",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "ecd123aa-b013-4016-a2f5-73a0a879ac82",
+          "type": "image",
+          "title": "QA-20260515-CODEX-STAGING-TARGETED-R2 Gallery",
+          "thumbnail": "https://example.com/gallery.png",
+          "caption": "Targeted QA gallery caption",
+          "tags": [
+            "qa",
+            "QA-20260515-CODEX-STAGING-TARGETED-R2"
+          ],
+          "date": "2026-05-15",
+          "uploadedBy": "author",
+          "uploadedByStatus": "active",
+          "views": 0,
+          "likes": 0,
+          "dislikes": 0,
+          "viewerReaction": null,
+          "comments": [
+            {
+              "id": "f780d37e-973f-4571-abc5-18bf88bc2e13",
+              "author": "author",
+              "text": "QA-20260515-CODEX-STAGING-TARGETED-R2 corrected comment",
+              "date": "2026-05-15",
+              "mentions": [],
+              "replies": [
+                {
+                  "id": "2e02e1a2-eb55-4014-8251-9d5aac6d7848",
+                  "author": "author",
+                  "text": "QA-20260515-CODEX-STAGING-TARGETED-R2 corrected reply",
+                  "date": "2026-05-15",
+                  "mentions": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Gallery targeted",
+      "name": "Extract gallery reply ID from detail response",
+      "method": "N/A",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82/comments/f780d37e-973f-4571-abc5-18bf88bc2e13/replies",
+      "expected": "Returned detail contains new reply id",
+      "actual": "2e02e1a2-eb55-4014-8251-9d5aac6d7848",
+      "response": {
+        "replyId": "2e02e1a2-eb55-4014-8251-9d5aac6d7848"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Delete targeted gallery reply",
+      "method": "DELETE",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82/comments/f780d37e-973f-4571-abc5-18bf88bc2e13/replies/2e02e1a2-eb55-4014-8251-9d5aac6d7848",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "2e02e1a2-eb55-4014-8251-9d5aac6d7848",
+          "commentId": "f780d37e-973f-4571-abc5-18bf88bc2e13",
+          "authorId": "psn-001",
+          "text": "QA-20260515-CODEX-STAGING-TARGETED-R2 corrected reply",
+          "createdAt": "2026-05-15T12:00:50.828Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Delete targeted gallery comment",
+      "method": "DELETE",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82/comments/f780d37e-973f-4571-abc5-18bf88bc2e13",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "f780d37e-973f-4571-abc5-18bf88bc2e13",
+          "entityType": "gallery",
+          "entityId": "ecd123aa-b013-4016-a2f5-73a0a879ac82",
+          "authorId": "psn-001",
+          "text": "QA-20260515-CODEX-STAGING-TARGETED-R2 corrected comment",
+          "createdAt": "2026-05-15T12:00:50.738Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Delete targeted gallery item",
+      "method": "DELETE",
+      "endpoint": "/api/gallery/ecd123aa-b013-4016-a2f5-73a0a879ac82",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "deleted": true
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Reject runner management request residual",
+      "method": "POST",
+      "endpoint": "/api/management/requests/2a22e97e-5ffe-4445-88de-ade2f20acf1a/decide",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "2a22e97e-5ffe-4445-88de-ade2f20acf1a",
+          "kind": "executive_promotion",
+          "requester": "author",
+          "requesterTrack": "executive",
+          "requesterLevel": 7,
+          "payload": {
+            "username": "t.bremmer",
+            "targetLevel": 6
+          },
+          "reason": "QA-20260515-CODEX-STAGING-FULL executive promotion",
+          "status": "rejected",
+          "reviewer": "admin",
+          "reviewNote": "QA-20260515-CODEX-STAGING-TARGETED-R2 cleanup reject",
+          "createdAt": "2026-05-15T11:43:31.573Z",
+          "decidedAt": "2026-05-15T12:00:51.166Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Management targeted",
+      "name": "Create field management request",
+      "method": "POST",
+      "endpoint": "/api/management/requests",
+      "expected": "200 or 201",
+      "actual": "HTTP 201",
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "e072c303-b846-4146-98bf-bf8f928f329c",
+          "kind": "clearance",
+          "requester": "m.varga",
+          "requesterTrack": "field",
+          "requesterLevel": 6,
+          "payload": {
+            "targetLevel": 2
+          },
+          "reason": "QA-20260515-CODEX-STAGING-TARGETED-R2 field clearance request",
+          "status": "pending",
+          "reviewer": null,
+          "reviewNote": null,
+          "createdAt": "2026-05-15T12:00:51.323Z",
+          "decidedAt": null
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Management targeted",
+      "name": "PL7 author rejects field request cleanup",
+      "method": "POST",
+      "endpoint": "/api/management/requests/e072c303-b846-4146-98bf-bf8f928f329c/decide",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "e072c303-b846-4146-98bf-bf8f928f329c",
+          "kind": "clearance",
+          "requester": "m.varga",
+          "requesterTrack": "field",
+          "requesterLevel": 6,
+          "payload": {
+            "targetLevel": 2
+          },
+          "reason": "QA-20260515-CODEX-STAGING-TARGETED-R2 field clearance request",
+          "status": "rejected",
+          "reviewer": "author",
+          "reviewNote": "QA-20260515-CODEX-STAGING-TARGETED-R2 cleanup reject",
+          "createdAt": "2026-05-15T12:00:51.323Z",
+          "decidedAt": "2026-05-15T12:00:51.441Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Files targeted",
+      "name": "Read uploaded file through object proxy",
+      "method": "GET",
+      "endpoint": "/api/files/object?path=uploads%2F1778845412026-8579918a-893c-44c8-99eb-231de4812a4c-QA-20260515-CODEX-STAGING-FULL.txt",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": "morneven qa upload\n"
+    },
+    {
+      "status": "PASS",
+      "suite": "Files targeted",
+      "name": "Reject blocked HTML upload",
+      "method": "POST",
+      "endpoint": "/api/files/upload?folder=uploads",
+      "expected": "400 or 415 or 422",
+      "actual": "HTTP 400 message=Blocked MIME type",
+      "httpStatus": 400,
+      "response": {
+        "success": false,
+        "message": "Blocked MIME type",
+        "errorCode": "FILE_BLOCKED"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "Read command-center defaults",
+      "method": "GET",
+      "endpoint": "/api/settings/command-center/defaults",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "showStats": true,
+          "showProjects": true,
+          "showNews": true,
+          "showCharacters": true,
+          "showPlaces": true,
+          "showTechnology": true,
+          "showGallery": true,
+          "showQuickActions": true,
+          "welcomeMessage": "Here's your operational overview.",
+          "itemLimits": {
+            "projects": 5,
+            "news": 6,
+            "characters": 3,
+            "places": 3,
+            "technology": 3,
+            "gallery": 4
+          },
+          "manualSelections": {
+            "projects": [],
+            "news": [],
+            "characters": [],
+            "places": [],
+            "technology": [],
+            "gallery": []
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "Read command-center current settings",
+      "method": "GET",
+      "endpoint": "/api/settings/command-center",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "showStats": true,
+          "showProjects": true,
+          "showNews": true,
+          "showCharacters": true,
+          "showPlaces": true,
+          "showTechnology": true,
+          "showGallery": true,
+          "showQuickActions": true,
+          "welcomeMessage": "Here's your operational overview.",
+          "itemLimits": {
+            "projects": 5,
+            "news": 6,
+            "characters": 3,
+            "places": 3,
+            "technology": 3,
+            "gallery": 4
+          },
+          "manualSelections": {
+            "projects": [],
+            "news": [],
+            "characters": [
+              "char-008",
+              "char-005",
+              "char-009",
+              "char-007",
+              "char-006"
+            ],
+            "places": [],
+            "technology": [],
+            "gallery": []
+          },
+          "id": "57dc647c-c388-4955-9c04-ffd67d7fcc8e",
+          "presetKey": "miky-s-preset",
+          "presetName": "Miky's Preset",
+          "isActive": true,
+          "updatedBy": "Miky",
+          "createdAt": "2026-05-09T20:10:56.282Z",
+          "updatedAt": "2026-05-09T20:11:03.446Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "Read command-center presets",
+      "method": "GET",
+      "endpoint": "/api/settings/command-center/presets",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "57dc647c-c388-4955-9c04-ffd67d7fcc8e",
+            "presetKey": "miky-s-preset",
+            "presetName": "Miky's Preset",
+            "isActive": true,
+            "updatedBy": "Miky",
+            "updatedAt": "2026-05-09T20:11:03.446Z",
+            "createdAt": "2026-05-09T20:10:56.282Z"
+          },
+          {
+            "id": "926d9576-534d-432f-9379-9ca50ffd49b9",
+            "presetKey": "default",
+            "presetName": "Default System Preset",
+            "isActive": false,
+            "updatedBy": "Miky",
+            "updatedAt": "2026-05-09T20:11:03.446Z",
+            "createdAt": "2026-05-03T08:55:05.943Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "Create command-center QA preset",
+      "method": "POST",
+      "endpoint": "/api/settings/command-center/presets",
+      "expected": "200 or 201",
+      "actual": "HTTP 201",
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "d76d11ac-023f-419f-a8bc-c3f9ada98c78",
+          "presetKey": "qa-mp6v8yfm",
+          "presetName": "QA-20260515-CODEX-STAGING-TARGETED-R2 Preset",
+          "isActive": false,
+          "showStats": true,
+          "showProjects": true,
+          "showNews": true,
+          "showCharacters": true,
+          "showPlaces": true,
+          "showTechnology": true,
+          "showGallery": true,
+          "showQuickActions": true,
+          "welcomeMessage": "QA-20260515-CODEX-STAGING-TARGETED-R2 welcome",
+          "itemLimits": {
+            "news": 6,
+            "places": 3,
+            "gallery": 4,
+            "projects": 5,
+            "characters": 3,
+            "technology": 3
+          },
+          "manualSelections": {
+            "news": [],
+            "places": [],
+            "gallery": [],
+            "projects": [],
+            "characters": [],
+            "technology": []
+          },
+          "updatedBy": "author",
+          "createdAt": "2026-05-15T12:00:51.862Z",
+          "updatedAt": "2026-05-15T12:00:51.862Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "Activate command-center QA preset",
+      "method": "POST",
+      "endpoint": "/api/settings/command-center/presets/d76d11ac-023f-419f-a8bc-c3f9ada98c78/activate",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "d76d11ac-023f-419f-a8bc-c3f9ada98c78",
+          "presetKey": "qa-mp6v8yfm",
+          "presetName": "QA-20260515-CODEX-STAGING-TARGETED-R2 Preset",
+          "isActive": true,
+          "showStats": true,
+          "showProjects": true,
+          "showNews": true,
+          "showCharacters": true,
+          "showPlaces": true,
+          "showTechnology": true,
+          "showGallery": true,
+          "showQuickActions": true,
+          "welcomeMessage": "QA-20260515-CODEX-STAGING-TARGETED-R2 welcome",
+          "itemLimits": {
+            "news": 6,
+            "places": 3,
+            "gallery": 4,
+            "projects": 5,
+            "characters": 3,
+            "technology": 3
+          },
+          "manualSelections": {
+            "news": [],
+            "places": [],
+            "gallery": [],
+            "projects": [],
+            "characters": [],
+            "technology": []
+          },
+          "updatedBy": "author",
+          "createdAt": "2026-05-15T12:00:51.862Z",
+          "updatedAt": "2026-05-15T12:00:51.930Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Restore original command-center preset",
+      "method": "POST",
+      "endpoint": "/api/settings/command-center/presets/57dc647c-c388-4955-9c04-ffd67d7fcc8e/activate",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "57dc647c-c388-4955-9c04-ffd67d7fcc8e",
+          "presetKey": "miky-s-preset",
+          "presetName": "Miky's Preset",
+          "isActive": true,
+          "showStats": true,
+          "showProjects": true,
+          "showNews": true,
+          "showCharacters": true,
+          "showPlaces": true,
+          "showTechnology": true,
+          "showGallery": true,
+          "showQuickActions": true,
+          "welcomeMessage": "Here's your operational overview.",
+          "itemLimits": {
+            "news": 6,
+            "places": 3,
+            "gallery": 4,
+            "projects": 5,
+            "characters": 3,
+            "technology": 3
+          },
+          "manualSelections": {
+            "news": [],
+            "places": [],
+            "gallery": [],
+            "projects": [],
+            "characters": [
+              "char-008",
+              "char-005",
+              "char-009",
+              "char-007",
+              "char-006"
+            ],
+            "technology": []
+          },
+          "updatedBy": "author",
+          "createdAt": "2026-05-09T20:10:56.282Z",
+          "updatedAt": "2026-05-15T12:00:52.003Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Delete command-center QA preset",
+      "method": "DELETE",
+      "endpoint": "/api/settings/command-center/presets/d76d11ac-023f-419f-a8bc-c3f9ada98c78",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "deleted": true,
+          "id": "d76d11ac-023f-419f-a8bc-c3f9ada98c78"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "Read storage cleanup report only",
+      "method": "GET",
+      "endpoint": "/api/settings/storage-cleanup",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "scannedAt": "2026-05-15T12:00:52.154Z",
+          "totalObjects": 39,
+          "totalBytes": 153395378,
+          "referencedObjects": 36,
+          "referencedBytes": 98691711,
+          "orphanedObjects": 3,
+          "orphanedBytes": 54703667,
+          "deletedObjects": 0,
+          "deletedBytes": 0,
+          "folders": [
+            {
+              "folder": "backups",
+              "totalObjects": 1,
+              "referencedObjects": 0,
+              "orphanedObjects": 1,
+              "orphanedBytes": 54703629
+            },
+            {
+              "folder": "chat",
+              "totalObjects": 14,
+              "referencedObjects": 14,
+              "orphanedObjects": 0,
+              "orphanedBytes": 0
+            },
+            {
+              "folder": "exports",
+              "totalObjects": 1,
+              "referencedObjects": 1,
+              "orphanedObjects": 0,
+              "orphanedBytes": 0
+            },
+            {
+              "folder": "gallery",
+              "totalObjects": 2,
+              "referencedObjects": 2,
+              "orphanedObjects": 0,
+              "orphanedBytes": 0
+            },
+            {
+              "folder": "lore",
+              "totalObjects": 19,
+              "referencedObjects": 19,
+              "orphanedObjects": 0,
+              "orphanedBytes": 0
+            },
+            {
+              "folder": "uploads",
+              "totalObjects": 2,
+              "referencedObjects": 0,
+              "orphanedObjects": 2,
+              "orphanedBytes": 38
+            }
+          ],
+          "sampleOrphans": [
+            {
+              "objectPath": "backups/fcf65398-704e-458b-9197-12c153828edc/morneven-backup-all-2026-05-14.zip",
+              "size": 54703629,
+              "lastModified": "2026-05-14T11:04:22.000Z"
+            },
+            {
+              "objectPath": "uploads/1778845412026-8579918a-893c-44c8-99eb-231de4812a4c-QA-20260515-CODEX-STAGING-FULL.txt",
+              "size": 19,
+              "lastModified": "2026-05-15T11:43:32.000Z"
+            },
+            {
+              "objectPath": "uploads/1778845503408-a32f6e12-3201-41a6-a1cf-5b5587ccbfea-QA-20260515-CODEX-STAGING-RERUN.txt",
+              "size": 19,
+              "lastModified": "2026-05-15T11:45:03.000Z"
+            }
+          ],
+          "automaticCleanup": {
+            "enabled": true,
+            "scopes": [
+              "projects",
+              "lore",
+              "news",
+              "gallery",
+              "map",
+              "extraction-history"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings targeted",
+      "name": "PL6 field denied storage cleanup report",
+      "method": "GET",
+      "endpoint": "/api/settings/storage-cleanup",
+      "expected": "403",
+      "actual": "HTTP 403 message=PL7 access required",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "PL7 access required",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Read extraction job list",
+      "method": "GET",
+      "endpoint": "/api/settings/extractions",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "fcf65398-704e-458b-9197-12c153828edc",
+            "mode": "all",
+            "autoDownload": true,
+            "status": "completed",
+            "createdBy": "author",
+            "createdAt": "2026-05-14T11:04:13.691Z",
+            "completedAt": "2026-05-14T11:04:22.140Z",
+            "expiresAt": "2026-06-13T11:04:13.690Z",
+            "downloadName": "morneven-backup-all-2026-05-14.zip",
+            "artifactPath": "backups/fcf65398-704e-458b-9197-12c153828edc/morneven-backup-all-2026-05-14.zip",
+            "artifactUrl": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/backups/fcf65398-704e-458b-9197-12c153828edc/morneven-backup-all-2026-05-14.zip",
+            "error": null,
+            "progress": {
+              "stage": "completed",
+              "message": "Backup ready",
+              "percent": 100
+            }
+          },
+          {
+            "id": "dc720529-b1b8-4fc3-8a7a-c8e5e709cca9",
+            "mode": "all",
+            "autoDownload": true,
+            "status": "completed",
+            "createdBy": "author",
+            "createdAt": "2026-05-09T20:26:41.552Z",
+            "completedAt": "2026-05-09T20:26:50.920Z",
+            "expiresAt": "2026-06-08T20:26:41.551Z",
+            "downloadName": "morneven-extract-all-2026-05-09.zip",
+            "artifactPath": "exports/dc720529-b1b8-4fc3-8a7a-c8e5e709cca9/morneven-extract-all-2026-05-09.zip",
+            "artifactUrl": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/exports/dc720529-b1b8-4fc3-8a7a-c8e5e709cca9/morneven-extract-all-2026-05-09.zip",
+            "error": null,
+            "progress": {
+              "stage": "completed",
+              "message": "Export ready",
+              "percent": 100
+            }
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Missing extraction secret rejected",
+      "method": "POST",
+      "endpoint": "/api/settings/extractions",
+      "expected": "422",
+      "actual": "HTTP 422 message=Validation failed",
+      "httpStatus": 422,
+      "response": {
+        "success": false,
+        "message": "Validation failed",
+        "errorCode": "VALIDATION_ERROR",
+        "errors": {
+          "formErrors": [],
+          "fieldErrors": {
+            "secretKey": [
+              "Required"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Read security status as PL7",
+      "method": "GET",
+      "endpoint": "/api/security/status",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "enabled": true,
+          "level": 5,
+          "maxLevel": 5,
+          "label": "full",
+          "features": {
+            "observe": true,
+            "audit": true,
+            "routeRateLimit": true,
+            "blockHighRiskRequests": true,
+            "activeDefense": true,
+            "full": true
+          },
+          "retentionDays": 90,
+          "fileScanProvider": "none",
+          "authCookieEnabled": true,
+          "stats": {
+            "events24h": 367,
+            "highEvents24h": 40,
+            "activeBlocks": 0,
+            "sessionsActive": 22,
+            "quarantinedFiles": 0
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Read security events as PL7",
+      "method": "GET",
+      "endpoint": "/api/security/events?limit=5",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "6b91404c-aaa3-4c6d-aac4-83187f210386",
+            "requestId": "QA-20260515-CODEX-STAGING-TARGETED-R2-31",
+            "actorId": "psn-004",
+            "actorUsername": "m.varga",
+            "sessionId": "4b522d4d-7fc2-4ec2-a5cc-9379232e4695",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "action": "request.forbidden",
+            "resource": null,
+            "resourceId": null,
+            "severity": "low",
+            "riskScore": 0,
+            "decision": "deny",
+            "metadata": {
+              "path": "/api/settings/storage-cleanup",
+              "method": "GET",
+              "status": 403,
+              "signals": [],
+              "routeGroup": "admin"
+            },
+            "createdAt": "2026-05-15T12:00:52.221Z"
+          },
+          {
+            "id": "8928e580-bdcb-4b2f-84e9-426aa6ac20ca",
+            "requestId": "QA-20260515-CODEX-STAGING-TARGETED-R2-22",
+            "actorId": "psn-001",
+            "actorUsername": "author",
+            "sessionId": "a3155031-4f45-4254-ae53-ce838687071b",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "action": "file.upload.blocked",
+            "resource": "FileUpload",
+            "resourceId": null,
+            "severity": "medium",
+            "riskScore": 0,
+            "decision": "deny",
+            "metadata": {
+              "mime": "text/html",
+              "path": "/api/files/upload?folder=uploads",
+              "size": 38,
+              "method": "POST",
+              "reason": "Blocked MIME type",
+              "sha256": "1e88fe5a73e9700a27597a02ed7ec3c4cc1eb8e0d6ca580cd4473a5e7e6dc194",
+              "signals": [],
+              "verdict": "blocked",
+              "objectPath": "uploads/1778846451629-ade8312c-c597-4cf6-950b-92931a5535f0-QA-20260515-CODEX-STAGING-TARGETED-R2.html",
+              "routeGroup": "files"
+            },
+            "createdAt": "2026-05-15T12:00:51.636Z"
+          },
+          {
+            "id": "fe5212f0-b474-45cb-ad2e-29cd2411be35",
+            "requestId": "QA-20260515-CODEX-STAGING-TARGETED-R2-9",
+            "actorId": "psn-004",
+            "actorUsername": "m.varga",
+            "sessionId": "4b522d4d-7fc2-4ec2-a5cc-9379232e4695",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "action": "request.forbidden",
+            "resource": null,
+            "resourceId": null,
+            "severity": "low",
+            "riskScore": 0,
+            "decision": "deny",
+            "metadata": {
+              "path": "/api/chat/reconcile",
+              "method": "POST",
+              "status": 403,
+              "signals": [],
+              "routeGroup": "chat"
+            },
+            "createdAt": "2026-05-15T12:00:50.570Z"
+          },
+          {
+            "id": "0e1c4002-5883-4e5c-ac80-49fafb55b3fe",
+            "requestId": "QA-20260515-CODEX-STAGING-TARGETED-R2-8",
+            "actorId": "psn-003",
+            "actorUsername": "v.kessler",
+            "sessionId": "5b1d3e8f-c56e-4d33-a0e9-9169a0d9745a",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "action": "request.forbidden",
+            "resource": null,
+            "resourceId": null,
+            "severity": "low",
+            "riskScore": 0,
+            "decision": "deny",
+            "metadata": {
+              "path": "/api/chat/reconcile",
+              "method": "POST",
+              "status": 403,
+              "signals": [],
+              "routeGroup": "chat"
+            },
+            "createdAt": "2026-05-15T12:00:50.503Z"
+          },
+          {
+            "id": "e6400c6e-2ad3-4b9d-9133-5ee2143822fd",
+            "requestId": "QA-20260515-CODEX-STAGING-TARGETED-R2-6",
+            "actorId": "guest",
+            "actorUsername": "guest",
+            "sessionId": null,
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "action": "request.forbidden",
+            "resource": null,
+            "resourceId": null,
+            "severity": "low",
+            "riskScore": 0,
+            "decision": "deny",
+            "metadata": {
+              "path": "/api/management/requests/pending-count",
+              "method": "GET",
+              "status": 403,
+              "signals": [],
+              "routeGroup": "management"
+            },
+            "createdAt": "2026-05-15T12:00:49.712Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Read security blocks as PL7",
+      "method": "GET",
+      "endpoint": "/api/security/blocks",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": []
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Read security sessions as PL7",
+      "method": "GET",
+      "endpoint": "/api/security/sessions",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "a3155031-4f45-4254-ae53-ce838687071b",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T12:00:49.046Z",
+            "lastSeenAt": "2026-05-15T12:00:52.584Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "cc4e11b1-47b2-48ea-8896-7427ad14879d",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "0e98f9a930308b1e6d25fa8611a2a8f8c8988208f77fb0f8fbfb51b8281325be",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:59:56.625Z",
+            "lastSeenAt": "2026-05-15T12:00:52.533Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "4b522d4d-7fc2-4ec2-a5cc-9379232e4695",
+            "userId": "psn-004",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T12:00:49.623Z",
+            "lastSeenAt": "2026-05-15T12:00:52.201Z",
+            "user": {
+              "id": "psn-004",
+              "username": "m.varga",
+              "email": "m.varga@morneven.com",
+              "role": "personel",
+              "level": 6,
+              "track": "field",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "1247b345-18a1-4a60-92e7-05be618efdb5",
+            "userId": "psn-002",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T12:00:49.286Z",
+            "lastSeenAt": "2026-05-15T12:00:51.148Z",
+            "user": {
+              "id": "psn-002",
+              "username": "admin",
+              "email": "admin@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "5b1d3e8f-c56e-4d33-a0e9-9169a0d9745a",
+            "userId": "psn-003",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T12:00:49.461Z",
+            "lastSeenAt": "2026-05-15T12:00:50.494Z",
+            "user": {
+              "id": "psn-003",
+              "username": "v.kessler",
+              "email": "v.kessler@morneven.com",
+              "role": "personel",
+              "level": 6,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "4b337d54-7444-4997-8432-18c86fd4a0a7",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:59:19.835Z",
+            "lastSeenAt": "2026-05-15T11:59:19.850Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "b69032ef-cd1a-4283-9da3-e5342299b9dc",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:44:58.485Z",
+            "lastSeenAt": "2026-05-15T11:52:28.874Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "7bcbdf1d-ee56-4b77-b6ad-301b7347b96f",
+            "userId": "psn-003",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:45:00.364Z",
+            "lastSeenAt": "2026-05-15T11:46:44.623Z",
+            "user": {
+              "id": "psn-003",
+              "username": "v.kessler",
+              "email": "v.kessler@morneven.com",
+              "role": "personel",
+              "level": 6,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "58b16e6b-08bc-41c3-b436-c6bca0643ed8",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:45:00.119Z",
+            "lastSeenAt": "2026-05-15T11:45:03.324Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "5bf3a597-4e4d-4b7c-bd94-0daa3652143a",
+            "userId": "psn-004",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:45:00.514Z",
+            "lastSeenAt": "2026-05-15T11:45:00.606Z",
+            "user": {
+              "id": "psn-004",
+              "username": "m.varga",
+              "email": "m.varga@morneven.com",
+              "role": "personel",
+              "level": 6,
+              "track": "field",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "bd45c001-5b00-446f-980a-9bb2ed14efd3",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:44:36.862Z",
+            "lastSeenAt": "2026-05-15T11:44:38.583Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "82cc42be-0f93-4f12-b813-56637b21f137",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "ed76d1d06464790e842c26d50f112819f043ce9a41ccddf6e4854e859295e8b2",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:44:13.106Z",
+            "lastSeenAt": "2026-05-15T11:44:14.908Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "0c47407f-6ef6-4519-86a0-c2efefb354b6",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "ed76d1d06464790e842c26d50f112819f043ce9a41ccddf6e4854e859295e8b2",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:44:12.912Z",
+            "lastSeenAt": "2026-05-15T11:44:12.920Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "af21e3c9-33f1-4725-b97e-a223208a5956",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:43:28.693Z",
+            "lastSeenAt": "2026-05-15T11:43:32.135Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "97e24366-118c-4da4-ba71-74489ee54fa3",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:43:27.256Z",
+            "lastSeenAt": "2026-05-15T11:43:32.014Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "619feead-0ce2-48a2-b8d3-9f6375b34f16",
+            "userId": "psn-003",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:43:28.959Z",
+            "lastSeenAt": "2026-05-15T11:43:29.356Z",
+            "user": {
+              "id": "psn-003",
+              "username": "v.kessler",
+              "email": "v.kessler@morneven.com",
+              "role": "personel",
+              "level": 6,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "c01f01dc-6695-46fc-8bc6-020184e3d099",
+            "userId": "psn-004",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T11:43:29.109Z",
+            "lastSeenAt": "2026-05-15T11:43:29.303Z",
+            "user": {
+              "id": "psn-004",
+              "username": "m.varga",
+              "email": "m.varga@morneven.com",
+              "role": "personel",
+              "level": 6,
+              "track": "field",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "f48a49b2-0d1c-4b29-9d2e-b3db5c426783",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "81813188a9813608fd5355c71d9155957686579fcef9113c3bd8944cea592d7a",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T10:30:22.404Z",
+            "lastSeenAt": "2026-05-15T10:44:49.702Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "7ea39162-ce41-4c7d-aba7-caaf17c9d506",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T10:30:07.714Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-15T08:32:07.376Z",
+            "lastSeenAt": "2026-05-15T09:08:12.283Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "15dbd71a-fa25-419e-82c4-30228bc13750",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "6848fcd6864ec074528c4f8ed75cee5ce6470de74eb710f84106df94ea016d8b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T08:08:44.104Z",
+            "lastSeenAt": "2026-05-15T08:14:04.851Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "b17f9716-911b-4cff-b270-97cb3ef055b3",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "02e75476078d070623c72c55ea9775a84b7c1dbee25765ecad64e3f4016ef786",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T05:06:21.957Z",
+            "lastSeenAt": "2026-05-15T08:02:06.000Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "497e3ee1-4842-4d8a-9521-ae192c5c748d",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "e5f3620d346b393e07e3c6d1b5237f13eb6d564a23c3aae9414ae16f66a9c319",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T05:03:35.152Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-15T02:11:33.334Z",
+            "lastSeenAt": "2026-05-15T05:03:35.138Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "2bca8312-5bed-433b-9572-ca531b9c5619",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T10:30:07.714Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-15T01:56:35.875Z",
+            "lastSeenAt": "2026-05-15T02:47:05.999Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "aafe8ca1-b8ef-4606-8a16-d972ea0c42cc",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "e5129e0e302685a0083af361cc45a948e209ae3eebd38a2b8ff4170fb0a08073",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T05:03:35.152Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-15T01:54:47.787Z",
+            "lastSeenAt": "2026-05-15T02:11:29.483Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "6f5bf397-5b4f-47c0-9f97-234f1a7f959e",
+            "userId": "213e09d9-067f-4585-b0e4-cc8ff9521cff",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T01:57:46.158Z",
+            "lastSeenAt": "2026-05-15T01:57:46.802Z",
+            "user": {
+              "id": "213e09d9-067f-4585-b0e4-cc8ff9521cff",
+              "username": "Codex Writer",
+              "email": "codex_002@agent.ai",
+              "role": "personel",
+              "level": 6,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "647b9ce6-2559-4d94-bdba-20591d0bc7f1",
+            "userId": "213e09d9-067f-4585-b0e4-cc8ff9521cff",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "a3f9c9ff65fa8a196ed4c6fa499768e56c29eb5c246182386a05f107bf8fc3df",
+            "riskScore": 0,
+            "revokedAt": null,
+            "revokeReason": null,
+            "createdAt": "2026-05-15T01:57:10.026Z",
+            "lastSeenAt": "2026-05-15T01:57:10.166Z",
+            "user": {
+              "id": "213e09d9-067f-4585-b0e4-cc8ff9521cff",
+              "username": "Codex Writer",
+              "email": "codex_002@agent.ai",
+              "role": "personel",
+              "level": 6,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "45daffc4-9a0c-4aa6-87c5-348f62bfed69",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T01:54:27.852Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-15T01:42:08.607Z",
+            "lastSeenAt": "2026-05-15T01:54:15.650Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "1315e52b-968c-4ab2-8f2f-e55ecf6fd6eb",
+            "userId": "213e09d9-067f-4585-b0e4-cc8ff9521cff",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T01:42:05.643Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-15T01:42:03.355Z",
+            "lastSeenAt": "2026-05-15T01:42:05.629Z",
+            "user": {
+              "id": "213e09d9-067f-4585-b0e4-cc8ff9521cff",
+              "username": "Codex Writer",
+              "email": "codex_002@agent.ai",
+              "role": "personel",
+              "level": 6,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "2e26fa8c-aaf2-42e9-9ecc-221dd83d4c8b",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T01:41:29.657Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-15T01:41:20.673Z",
+            "lastSeenAt": "2026-05-15T01:41:29.644Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "429c2a20-ea37-474d-96c4-a7681e7d1b3c",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T01:40:56.742Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-15T01:40:31.777Z",
+            "lastSeenAt": "2026-05-15T01:40:56.725Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "dcceaab6-d698-4d8a-896b-94b8357693ea",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T01:40:23.756Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-15T01:40:12.335Z",
+            "lastSeenAt": "2026-05-15T01:40:23.744Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "dad5eea1-e575-4c56-9c87-f2ff6a427ef0",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T01:40:05.016Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-15T00:19:54.258Z",
+            "lastSeenAt": "2026-05-15T01:40:05.002Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "79535044-560e-4ca1-9f27-b527348d22de",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T00:19:48.967Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-15T00:19:36.866Z",
+            "lastSeenAt": "2026-05-15T00:19:48.957Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "38615777-69b8-4631-bd56-6b45ca4837a3",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T00:18:27.435Z",
+            "revokeReason": "Revoked from security console",
+            "createdAt": "2026-05-15T00:11:48.737Z",
+            "lastSeenAt": "2026-05-15T00:18:27.426Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "79b6e50b-cad0-4ed4-997a-4f7874acbbb6",
+            "userId": "psn-001",
+            "ipHash": "2ac18e6c8afc56b6a8404ba18cde5dace449e9c446545cdb36d96873ca120907",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T00:18:21.421Z",
+            "revokeReason": "Revoked from security console",
+            "createdAt": "2026-05-15T00:17:09.631Z",
+            "lastSeenAt": "2026-05-15T00:18:14.249Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "a40fe16d-ebee-4df0-905d-a0c27fcfd952",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "e5e97cb1c3f1bc8258079ad823519219f444acb06ff4c574047fa1ac6e085d2b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T00:18:24.403Z",
+            "revokeReason": "Revoked from security console",
+            "createdAt": "2026-05-15T00:01:49.059Z",
+            "lastSeenAt": "2026-05-15T00:17:06.538Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "3d4b0b44-3af0-47c0-b1fc-5f7dec1845dd",
+            "userId": "psn-001",
+            "ipHash": "2ac18e6c8afc56b6a8404ba18cde5dace449e9c446545cdb36d96873ca120907",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-15T00:01:06.683Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T23:58:19.910Z",
+            "lastSeenAt": "2026-05-15T00:01:06.668Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "db32b475-97dd-4537-a351-835f99632262",
+            "userId": "psn-001",
+            "ipHash": "5aba7155b20058d24677d9885b80f08f17946b08fcc4fa5322a03513d5d4e81a",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T23:58:16.617Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-14T20:31:17.084Z",
+            "lastSeenAt": "2026-05-14T23:58:16.617Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "c1567ca1-bc6d-4124-b238-0ed324c08de1",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "5aba7155b20058d24677d9885b80f08f17946b08fcc4fa5322a03513d5d4e81a",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T20:30:53.694Z",
+            "lastSeenAt": "2026-05-14T20:31:10.520Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "a9d1b81e-9dab-473d-b624-820c3dc544f2",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "c9c4483aefbc5d6b4dc5403950ad3ab8bfa5a4292ced2bba2320e1df98655775",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T19:33:19.823Z",
+            "lastSeenAt": "2026-05-14T20:30:50.380Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "7f49a628-0056-4238-893a-cd3aa8f1d9ce",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "c9c4483aefbc5d6b4dc5403950ad3ab8bfa5a4292ced2bba2320e1df98655775",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T19:32:53.224Z",
+            "lastSeenAt": "2026-05-14T19:33:13.667Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "2ea70098-6d57-41c1-897a-340ba5355656",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "514363c572d4bad7e8290e65afae2635398ce49fabaa10258e8436d6aafe3564",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T18:01:52.507Z",
+            "lastSeenAt": "2026-05-14T19:27:57.405Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "9376b03f-b139-4cb4-b05d-e34b20b51dad",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "5dff0b6c99fc90b98325157eaa163413769e02989d76dcc6add90144a194d4c8",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T16:50:42.959Z",
+            "lastSeenAt": "2026-05-14T18:01:52.477Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "b2f5915d-0752-454b-affe-3553291d9f13",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T23:58:16.617Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-14T11:01:21.455Z",
+            "lastSeenAt": "2026-05-14T14:27:41.016Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "130a5bbb-31d6-4f0b-a11a-396083824049",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T10:58:40.792Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T10:26:27.904Z",
+            "lastSeenAt": "2026-05-14T10:58:40.770Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "febe5c7d-8a74-4094-8f0e-3904d95a8cc8",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T07:46:44.570Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T06:13:07.837Z",
+            "lastSeenAt": "2026-05-14T07:46:44.555Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "25ca235a-9679-4578-9530-3cc3d46774bf",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "2add0ab199ed415b681983418d57ce2a7e43f23af24c5eafd4c2b4e0d3dedd31",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-14T07:29:38.257Z",
+            "lastSeenAt": "2026-05-14T07:36:15.399Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "04f1a204-d3d1-45d8-b529-c899e8831c70",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "444df8da8489899b06e71ff8b9d40e3c4c053a010a42913e247cceacde3ed7af",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T20:31:10.535Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-13T12:08:00.843Z",
+            "lastSeenAt": "2026-05-14T07:29:30.061Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "25b81caf-7d49-4bfd-86af-94d36f78af13",
+            "userId": "psn-001",
+            "ipHash": "4e35b905b6b8bbd464aad0539b9d11f84c15e590f209908195dc57f79ea8c839",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-14T01:53:10.118Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-13T14:06:07.477Z",
+            "lastSeenAt": "2026-05-14T01:53:09.990Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "4abce937-06b3-462a-8481-1e59cd6d48e8",
+            "userId": "psn-001",
+            "ipHash": "906c5461492e373664cf22535a757b4d33953a924fab5bdf6dbe6e127d46fc9a",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T13:19:51.822Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-13T10:30:28.560Z",
+            "lastSeenAt": "2026-05-13T12:07:57.369Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "9ae115c0-b940-422a-a857-dbb13022f44d",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "906c5461492e373664cf22535a757b4d33953a924fab5bdf6dbe6e127d46fc9a",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T10:30:23.893Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-13T10:29:54.932Z",
+            "lastSeenAt": "2026-05-13T10:30:23.878Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "18dcd830-3911-4766-b054-65ff5a8c6b9f",
+            "userId": "psn-001",
+            "ipHash": "906c5461492e373664cf22535a757b4d33953a924fab5bdf6dbe6e127d46fc9a",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T10:29:50.298Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-13T10:27:43.080Z",
+            "lastSeenAt": "2026-05-13T10:29:50.286Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "f21cc8fb-a192-4378-9b06-26ad64dbac67",
+            "userId": "psn-001",
+            "ipHash": "dd8c808b71ee0d812ba6845516e7c00f320fbc9aff94f3a9f192a040e0db38c9",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T10:29:42.484Z",
+            "revokeReason": "Revoked from security console",
+            "createdAt": "2026-05-13T08:04:00.854Z",
+            "lastSeenAt": "2026-05-13T08:08:21.004Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "61ee5c1f-4a17-4f75-8a56-c06c01e5136b",
+            "userId": "psn-001",
+            "ipHash": "9888a61e23a91a5c8d8c77de77969bec96a36cbd586361ec08c3f9b23f0ba776",
+            "userAgentHash": "ae1a82e61b46f664beacc35d160d23192bc3a8a69f7c61aa4cac26f4dc6baaa3",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T08:03:57.605Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-13T04:03:15.455Z",
+            "lastSeenAt": "2026-05-13T04:26:45.647Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "6df15f86-ec7c-4626-80a6-514f0f9183fe",
+            "userId": "psn-001",
+            "ipHash": "9888a61e23a91a5c8d8c77de77969bec96a36cbd586361ec08c3f9b23f0ba776",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T04:02:24.935Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-13T03:20:43.685Z",
+            "lastSeenAt": "2026-05-13T04:02:24.915Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "6d566ab7-2a1d-4858-8f3e-6f293736a0ed",
+            "userId": "psn-001",
+            "ipHash": "9888a61e23a91a5c8d8c77de77969bec96a36cbd586361ec08c3f9b23f0ba776",
+            "userAgentHash": "25f711fd48886b3e913c7da6be3458156a42125898d8d21cbd3187f84c83613a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T03:12:24.801Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-13T01:11:59.790Z",
+            "lastSeenAt": "2026-05-13T03:12:19.012Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "40ba97c6-1405-4de3-9d2e-3e9d176eb041",
+            "userId": "psn-001",
+            "ipHash": "d92be653f33bfcdbae125a35b6f6bf6e80eda525652aafd89dbf9a9c64cadb14",
+            "userAgentHash": "81813188a9813608fd5355c71d9155957686579fcef9113c3bd8944cea592d7a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T03:12:24.801Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-13T00:53:44.611Z",
+            "lastSeenAt": "2026-05-13T00:53:45.025Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "58a7f32e-145b-4a5a-a63e-2c5efea3579e",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "d92be653f33bfcdbae125a35b6f6bf6e80eda525652aafd89dbf9a9c64cadb14",
+            "userAgentHash": "81813188a9813608fd5355c71d9155957686579fcef9113c3bd8944cea592d7a",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T00:53:41.630Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-13T00:45:01.205Z",
+            "lastSeenAt": "2026-05-13T00:53:41.615Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "ea74a3a3-eb71-4f49-ab9e-245e8dd6293a",
+            "userId": "psn-001",
+            "ipHash": "d92be653f33bfcdbae125a35b6f6bf6e80eda525652aafd89dbf9a9c64cadb14",
+            "userAgentHash": "537997a2fa037a05fb1747ecbcd292898ec25ec80174ebb4e17a655622de7d39",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T00:44:56.228Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-13T00:15:13.381Z",
+            "lastSeenAt": "2026-05-13T00:44:56.214Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "64bd2d68-097f-478b-8514-8fee256d3e51",
+            "userId": "psn-001",
+            "ipHash": "109f1d76e8fe951aedbdeb1d17e11777b2646fea691688154d2ea8ca89c61168",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-13T00:44:56.228Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T23:59:27.794Z",
+            "lastSeenAt": "2026-05-12T23:59:31.877Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "24dbb203-88d6-45d4-8cb0-5b189a4ef9bf",
+            "userId": "psn-001",
+            "ipHash": "109f1d76e8fe951aedbdeb1d17e11777b2646fea691688154d2ea8ca89c61168",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T23:58:34.975Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-12T23:58:21.849Z",
+            "lastSeenAt": "2026-05-12T23:58:27.348Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "e002ea20-efbd-442d-930a-6b735b3d3b8e",
+            "userId": "psn-001",
+            "ipHash": "d92be653f33bfcdbae125a35b6f6bf6e80eda525652aafd89dbf9a9c64cadb14",
+            "userAgentHash": "537997a2fa037a05fb1747ecbcd292898ec25ec80174ebb4e17a655622de7d39",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T23:58:10.566Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-12T23:47:24.854Z",
+            "lastSeenAt": "2026-05-12T23:58:04.865Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "43bb8ec8-c670-489e-8e51-0759e6a86e4a",
+            "userId": "psn-001",
+            "ipHash": "d92be653f33bfcdbae125a35b6f6bf6e80eda525652aafd89dbf9a9c64cadb14",
+            "userAgentHash": "537997a2fa037a05fb1747ecbcd292898ec25ec80174ebb4e17a655622de7d39",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T23:47:21.652Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T23:35:02.772Z",
+            "lastSeenAt": "2026-05-12T23:47:21.638Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "1c60fcca-b468-4d33-af90-43d833abdb73",
+            "userId": "psn-001",
+            "ipHash": "79b39c10ebe14b16ae1b4e7a4d601ce9d647fb9ec36f2f23497bcfb5cd570e39",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T23:47:21.652Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T23:40:05.996Z",
+            "lastSeenAt": "2026-05-12T23:40:53.323Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "93a67b7b-f5c3-452a-9149-ab0a703efeb7",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "01873dfd30f6dce99b978ecb13fffb456bafc856e6bf18a4746f85789e1d3a0b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T23:40:03.303Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-12T22:37:50.258Z",
+            "lastSeenAt": "2026-05-12T22:39:02.969Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "8f8f05ea-c577-4137-804c-871f47bcfabe",
+            "userId": "psn-001",
+            "ipHash": "01873dfd30f6dce99b978ecb13fffb456bafc856e6bf18a4746f85789e1d3a0b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:37:07.868Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T22:36:15.334Z",
+            "lastSeenAt": "2026-05-12T22:37:07.856Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "13fbc748-bad8-4364-97f0-9430bac4e62a",
+            "userId": "psn-001",
+            "ipHash": "01873dfd30f6dce99b978ecb13fffb456bafc856e6bf18a4746f85789e1d3a0b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:37:07.868Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T22:32:40.328Z",
+            "lastSeenAt": "2026-05-12T22:36:10.619Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "b47250f0-73d4-4e3a-8fb1-fcda13b9d84e",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "01873dfd30f6dce99b978ecb13fffb456bafc856e6bf18a4746f85789e1d3a0b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:37:49.701Z",
+            "revokeReason": "Password reset confirmed",
+            "createdAt": "2026-05-12T22:30:37.935Z",
+            "lastSeenAt": "2026-05-12T22:32:35.116Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "dd61c105-51a3-4fea-a0cc-bf4312600e49",
+            "userId": "3905b929-a85a-448f-8a1f-7bbc0b57562b",
+            "ipHash": "d92be653f33bfcdbae125a35b6f6bf6e80eda525652aafd89dbf9a9c64cadb14",
+            "userAgentHash": "9318d23726f4097b96e48bf495cc42d2c6eeb9126309d844aa35c222704246f5",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:32:09.139Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T22:02:23.128Z",
+            "lastSeenAt": "2026-05-12T22:32:09.126Z",
+            "user": {
+              "id": "3905b929-a85a-448f-8a1f-7bbc0b57562b",
+              "username": "zyn",
+              "email": "mzainalmuttaqin6@protonmail.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "f59dad37-48cb-44e4-8fed-7495c6525831",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "01873dfd30f6dce99b978ecb13fffb456bafc856e6bf18a4746f85789e1d3a0b",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:37:49.701Z",
+            "revokeReason": "Password reset confirmed",
+            "createdAt": "2026-05-12T22:30:03.346Z",
+            "lastSeenAt": "2026-05-12T22:30:34.606Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "4a216058-683f-4e8a-918a-d0f323125472",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "45d56cb85cf81f7c02c7b9a30da57ef01875625a12e61a45b278e98abcb9df50",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:37:49.701Z",
+            "revokeReason": "Password reset confirmed",
+            "createdAt": "2026-05-12T22:00:55.309Z",
+            "lastSeenAt": "2026-05-12T22:29:59.427Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "054e1c19-a74d-4b6b-9258-46654721508d",
+            "userId": "psn-001",
+            "ipHash": "45d56cb85cf81f7c02c7b9a30da57ef01875625a12e61a45b278e98abcb9df50",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:00:49.534Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T22:00:26.159Z",
+            "lastSeenAt": "2026-05-12T22:00:49.521Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "ada2b82b-30cb-428e-825e-39df42d15078",
+            "userId": "psn-001",
+            "ipHash": "357132335bf08b350d0f8f0a93e93d7404918947da23c1330a137fcdd6ec3376",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:00:49.534Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T19:32:36.599Z",
+            "lastSeenAt": "2026-05-12T22:00:24.792Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "2b600589-a347-44bc-b1f7-48774591beba",
+            "userId": "psn-001",
+            "ipHash": "5ed76688c8481630dfdac8eb7a8a3e34c4f2258e9f344d81f0e4d5456b014388",
+            "userAgentHash": "87a8c6f51037a7080500d8feaa7913de2c482d7f70622c9ff947c40dcb43e1ca",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:00:49.534Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T19:17:31.588Z",
+            "lastSeenAt": "2026-05-12T19:32:33.167Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "49edcf2c-6dde-48e5-8f90-09184e298ea1",
+            "userId": "psn-001",
+            "ipHash": "9de8b0b87f8b50cb4f8563d69c1626984e3503e2e5e8cc99f1d817bfb05b11ec",
+            "userAgentHash": "537997a2fa037a05fb1747ecbcd292898ec25ec80174ebb4e17a655622de7d39",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T22:00:49.534Z",
+            "revokeReason": "User logout",
+            "createdAt": "2026-05-12T19:25:26.885Z",
+            "lastSeenAt": "2026-05-12T19:28:27.649Z",
+            "user": {
+              "id": "psn-001",
+              "username": "author",
+              "email": "author@morneven.com",
+              "role": "author",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          },
+          {
+            "id": "03dc6289-5b5f-4160-97fa-adfe9f4a0af2",
+            "userId": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+            "ipHash": "e30e6867180e225f972cc74bdc284995579f3bf5f3b94145bd899900f21f36ee",
+            "userAgentHash": "816d6ef52e838ee205ad7ddfb6638cfefb77d35bc7c0dd6af8aed6cc88160045",
+            "riskScore": 0,
+            "revokedAt": "2026-05-12T19:24:58.657Z",
+            "revokeReason": "Refresh token reuse or invalid refresh token",
+            "createdAt": "2026-05-12T19:16:49.020Z",
+            "lastSeenAt": "2026-05-12T19:24:52.574Z",
+            "user": {
+              "id": "0f808cdf-3d96-4cb5-b40b-ffb7bd5ce7ac",
+              "username": "Miky",
+              "email": "miky@morneven.com",
+              "role": "admin",
+              "level": 7,
+              "track": "executive",
+              "accountStatus": "active"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Read file scan records as PL7",
+      "method": "GET",
+      "endpoint": "/api/security/file-scans",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": [
+          {
+            "id": "9bbef6f7-c2d6-4575-85a1-252d586041a8",
+            "objectPath": "uploads/1778846451629-ade8312c-c597-4cf6-950b-92931a5535f0-QA-20260515-CODEX-STAGING-TARGETED-R2.html",
+            "sha256": "1e88fe5a73e9700a27597a02ed7ec3c4cc1eb8e0d6ca580cd4473a5e7e6dc194",
+            "mime": "text/html",
+            "size": 38,
+            "verdict": "blocked",
+            "provider": "none",
+            "metadata": {
+              "reason": "Blocked MIME type"
+            },
+            "createdAt": "2026-05-15T12:00:51.630Z"
+          },
+          {
+            "id": "2a930c2f-79f5-4aab-a00c-15f7423c2f1a",
+            "objectPath": "uploads/1778845503408-a32f6e12-3201-41a6-a1cf-5b5587ccbfea-QA-20260515-CODEX-STAGING-RERUN.txt",
+            "sha256": "339a1deb6ef841965330fcf77f655e77e96d96e647035ba4cf2742b62c546020",
+            "mime": "text/plain",
+            "size": 19,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {},
+            "createdAt": "2026-05-15T11:45:03.408Z"
+          },
+          {
+            "id": "9e5c3353-784d-4cb1-bb5d-b757cd1368cf",
+            "objectPath": "uploads/1778845412026-8579918a-893c-44c8-99eb-231de4812a4c-QA-20260515-CODEX-STAGING-FULL.txt",
+            "sha256": "339a1deb6ef841965330fcf77f655e77e96d96e647035ba4cf2742b62c546020",
+            "mime": "text/plain",
+            "size": 19,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {},
+            "createdAt": "2026-05-15T11:43:32.027Z"
+          },
+          {
+            "id": "a1d02ea7-a69d-4e1f-a6dc-5203f7a8af93",
+            "objectPath": "lore/1778812726338-557a0325-35ab-4621-aad5-8ea6efe67971-08_Shafira3b4.png",
+            "sha256": "b831cacbf22f8629b856ce7444cd358a5f8ff171c7d7d0bcc3f0400587a77e5d",
+            "mime": "image/png",
+            "size": 922389,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {
+              "magic": "image/png"
+            },
+            "createdAt": "2026-05-15T02:38:46.341Z"
+          },
+          {
+            "id": "76a7d09a-40c8-4e08-8d1d-d77d20ed0b0b",
+            "objectPath": "lore/1778810639949-538c46a3-774c-40b1-a908-9c38644f0668-08_ShafiraBanner.png",
+            "sha256": "d6c2c0670152ad6f6c1c510b6fe515b13d3220d076fd954b7edc0442c47cd081",
+            "mime": "image/png",
+            "size": 688974,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {
+              "magic": "image/png"
+            },
+            "createdAt": "2026-05-15T02:03:59.950Z"
+          },
+          {
+            "id": "627c5f6c-9574-44ab-a9ca-4a155f43db3e",
+            "objectPath": "lore/1778810636685-8333082c-5757-4ab2-8f7e-be88a9fde061-08_Shafira3b4.png",
+            "sha256": "7ac0d8710c28edee276b5b48607e8ec624fdacc4a3a8fda0026eea7f3637a42e",
+            "mime": "image/png",
+            "size": 1150138,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {
+              "magic": "image/png"
+            },
+            "createdAt": "2026-05-15T02:03:56.688Z"
+          },
+          {
+            "id": "0dbe3d38-a32e-435a-b427-9bf95ad8f24c",
+            "objectPath": "chat/1778804432565-14188982-aaab-4491-91c9-070a3ced6f35-Screenshot_2026-05-15_082010.png",
+            "sha256": "b28b1b3084bbbdb1ea1189cf8734d8a296ea05f23424dfe26e9330658374407b",
+            "mime": "image/png",
+            "size": 4587,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {
+              "magic": "image/png"
+            },
+            "createdAt": "2026-05-15T00:20:32.566Z"
+          },
+          {
+            "id": "618c395c-2042-48be-b5f5-c696121286f7",
+            "objectPath": "chat/1778744134586-dd52406c-4024-42dc-8ee5-977d3f887e1e-Screenshot_2026-05-14_153246.png",
+            "sha256": "a4225293ca92909b4e95f60ac61b78272db0d447e1ca1f56a34a3e073bf35688",
+            "mime": "image/png",
+            "size": 19269,
+            "verdict": "clean",
+            "provider": "none",
+            "metadata": {
+              "magic": "image/png"
+            },
+            "createdAt": "2026-05-14T07:35:34.587Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Hash helper returns hash",
+      "method": "GET",
+      "endpoint": "/api/security/hash?value=QA-20260515-CODEX-STAGING-TARGETED-R2",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "hash": "154a03b01527170f4ec2592a5257e9ea0ecb2c978f3f25cf72b6fa31c1fa41bc"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "PL6 field denied security status",
+      "method": "GET",
+      "endpoint": "/api/security/status",
+      "expected": "403",
+      "actual": "HTTP 403 message=Forbidden",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Forbidden",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Security targeted",
+      "name": "Create QA custom security block",
+      "method": "POST",
+      "endpoint": "/api/security/blocks",
+      "expected": "200 or 201",
+      "actual": "HTTP 201",
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "784785fc-e10e-42c1-8d91-a2ff26ab85a6",
+          "subjectType": "custom",
+          "subjectHash": "a6d84dec81ee2caad2dabffe568a5221f7fd0c50cc681e8386f8a6b0d487a6e0",
+          "reason": "QA-20260515-CODEX-STAGING-TARGETED-R2 custom block",
+          "severity": "low",
+          "expiresAt": "2026-05-15T12:01:52.831Z",
+          "createdBy": "author",
+          "createdAt": "2026-05-15T12:00:52.831Z",
+          "revokedAt": null,
+          "revokeReason": null
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup",
+      "name": "Revoke QA custom security block",
+      "method": "POST",
+      "endpoint": "/api/security/blocks/784785fc-e10e-42c1-8d91-a2ff26ab85a6/revoke",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "784785fc-e10e-42c1-8d91-a2ff26ab85a6",
+          "subjectType": "custom",
+          "subjectHash": "a6d84dec81ee2caad2dabffe568a5221f7fd0c50cc681e8386f8a6b0d487a6e0",
+          "reason": "QA-20260515-CODEX-STAGING-TARGETED-R2 custom block",
+          "severity": "low",
+          "expiresAt": "2026-05-15T12:01:52.831Z",
+          "createdBy": "author",
+          "createdAt": "2026-05-15T12:00:52.831Z",
+          "revokedAt": "2026-05-15T12:00:52.906Z",
+          "revokeReason": "QA-20260515-CODEX-STAGING-TARGETED-R2 cleanup revoke"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "WebSocket",
+      "name": "Author token opens chat websocket",
+      "method": "WS",
+      "endpoint": "/ws/chat",
+      "expected": "Socket opens and emits first event",
+      "actual": "Opened and received {\"event\":\"socket.ready\",\"payload\":{\"username\":\"author\"}}",
+      "durationMs": 42,
+      "response": {
+        "opened": true,
+        "firstMessage": "{\"event\":\"socket.ready\",\"payload\":{\"username\":\"author\"}}"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "WebSocket",
+      "name": "Guest token rejected by chat websocket",
+      "method": "WS",
+      "endpoint": "/ws/chat",
+      "expected": "Socket is rejected or closed",
+      "actual": "Socket rejected with error event",
+      "durationMs": 82,
+      "response": {
+        "opened": false,
+        "firstMessage": null
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "WebSocket",
+      "name": "Invalid token rejected by chat websocket",
+      "method": "WS",
+      "endpoint": "/ws/chat",
+      "expected": "Socket is rejected or closed",
+      "actual": "Socket rejected with error event",
+      "durationMs": 56,
+      "response": {
+        "opened": false,
+        "firstMessage": null
+      }
+    }
+  ]
+}

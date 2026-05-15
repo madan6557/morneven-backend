@@ -21,7 +21,7 @@ Options:
   --allow-destructive           Allow delete cleanup for QA-owned records
   --include-global-state        Include map/settings update and rollback tests
   --include-file-upload         Include multipart file upload test
-  --include-extraction          Include extraction job test
+  --include-extraction          Include extraction job test. Requires QA_EXTRACTION_KEY or EXTRACTION_KEY
   --output-dir <path>           Report output directory. Default: qa/reports
   --help                        Show this help
 `);
@@ -48,6 +48,8 @@ const config = {
   includeExtraction:
     args.includeExtraction === true ||
     ["true", "1", "yes"].includes(String(process.env.QA_INCLUDE_EXTRACTION ?? "").toLowerCase()),
+  extractionKey: process.env.QA_EXTRACTION_KEY ?? process.env.EXTRACTION_KEY ?? "",
+  guestLoginMode: process.env.QA_GUEST_LOGIN_MODE ?? "endpoint",
   outputDir: args.outputDir ?? process.env.QA_OUTPUT_DIR ?? "qa/reports",
   accounts: {
     author: {
@@ -269,19 +271,32 @@ async function runFullSuite() {
     addBlocked("RBAC", "Field user cannot run chat reconcile", "POST", `${config.apiPrefix}/chat/reconcile`, "Field account login is unavailable.");
   }
 
-  const executiveToken = state.tokens.exec6 ?? state.tokens.exec7;
-  if (executiveToken) {
+  if (exec6LoggedIn) {
     await requestTest({
       suite: "Chat",
-      name: "Executive can run chat reconcile",
+      name: "PL6 executive cannot run chat reconcile maintenance",
       method: "POST",
       path: `${config.apiPrefix}/chat/reconcile`,
-      token: executiveToken,
-      expectedStatuses: [200],
-      expected: "200 for PL6 executive or PL7 user",
+      token: state.tokens.exec6,
+      expectedStatuses: [403],
+      expected: "403 because chat reconcile is PL7 maintenance only",
     });
   } else {
-    addBlocked("Chat", "Executive can run chat reconcile", "POST", `${config.apiPrefix}/chat/reconcile`, "No PL6 executive or PL7 token is available.");
+    addBlocked("Chat", "PL6 executive cannot run chat reconcile maintenance", "POST", `${config.apiPrefix}/chat/reconcile`, "PL6 executive token is unavailable.");
+  }
+
+  if (state.tokens.exec7) {
+    await requestTest({
+      suite: "Chat",
+      name: "PL7 maintenance user can run chat reconcile",
+      method: "POST",
+      path: `${config.apiPrefix}/chat/reconcile`,
+      token: state.tokens.exec7,
+      expectedStatuses: [200],
+      expected: "200 for PL7 author, admin, or security maintenance user",
+    });
+  } else {
+    addBlocked("Chat", "PL7 maintenance user can run chat reconcile", "POST", `${config.apiPrefix}/chat/reconcile`, "PL7 token is unavailable.");
   }
 
   await runReadOnlyFunctionalTests();
@@ -792,6 +807,10 @@ async function runExtractionTest() {
     addBlocked("Extraction", "Start DB extraction job", "POST", `${config.apiPrefix}/settings/extractions`, "PL7 token is unavailable.");
     return;
   }
+  if (!config.extractionKey) {
+    addBlocked("Extraction", "Start DB extraction job", "POST", `${config.apiPrefix}/settings/extractions`, "Set QA_EXTRACTION_KEY or EXTRACTION_KEY before enabling extraction QA.");
+    return;
+  }
 
   await requestTest({
     suite: "Extraction",
@@ -804,6 +823,7 @@ async function runExtractionTest() {
       autoDownload: false,
       confirmText: "CONFIRM",
       password: config.accounts.exec7.password,
+      secretKey: config.extractionKey,
     },
     expectedStatuses: [200, 201, 202],
     expected: "Extraction job is accepted",
@@ -813,6 +833,28 @@ async function runExtractionTest() {
 async function login(accountName, options = {}) {
   const required = options.required ?? true;
   if (state.tokens[accountName]) return true;
+
+  if (accountName === "guest" && config.guestLoginMode !== "credentials") {
+    const result = await requestTest({
+      suite: "Auth",
+      name: "Login as guest via guest endpoint",
+      method: "POST",
+      path: `${config.apiPrefix}/auth/guest`,
+      expectedStatuses: [200],
+      validate: (body) => Boolean(extractToken(body)),
+      expected: "200 and guest access token returned",
+    });
+
+    const token = extractToken(result.body);
+    if (!token) {
+      if (!required) return false;
+      throw new Error("Guest endpoint did not return a token");
+    }
+    state.tokens[accountName] = token;
+    state.users[accountName] = extractData(result.body)?.user ?? result.body?.user ?? null;
+    return true;
+  }
+
   const account = config.accounts[accountName];
   const result = await requestTest({
     suite: "Auth",

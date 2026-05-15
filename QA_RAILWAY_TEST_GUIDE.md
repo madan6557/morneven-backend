@@ -1,6 +1,6 @@
 # Morneven Backend Railway QA Endpoint Test Guide
 
-Last updated: 2026-05-02
+Last updated: 2026-05-15
 
 This guide is written for QA endpoint testing against the deployed Railway backend. It expands the original smoke-test guide with request payloads, response contracts, validation rules, query parameters, negative test ideas, seed IDs, and cleanup guidance.
 
@@ -8,8 +8,10 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 
 | Item | Value |
 | --- | --- |
-| Production URL | `https://morneven-backend-production.up.railway.app` |
-| Development URL | `https://backend.dev.morneven.com` |
+| Current frontend URL | `https://morneven.com` |
+| Current backend development URL | `https://morneven-backend-development.up.railway.app` |
+| Current backend API base | `https://morneven-backend-development.up.railway.app/api` |
+| Current backend WebSocket | `wss://morneven-backend-development.up.railway.app/ws/chat?token=<token>` |
 | Default API prefix | `/api` |
 | Compatibility prefix | `/v1` |
 | Deployment type | Railway deployments for demo and backend integration testing |
@@ -20,27 +22,28 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 
 Important safety rules:
 
-- Use the Development URL for full QA, mutation testing, destructive testing, cleanup verification, extraction testing, and workflow side-effect testing.
-- Use the Production URL only for read-only smoke checks unless the project owner gives separate written approval.
+- Update label: 2026-05-15. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
+- Use the current backend development URL for full QA, mutation testing, destructive testing, cleanup verification, extraction testing, and workflow side-effect testing.
+- Use any production URL only for read-only smoke checks unless the project owner gives separate written approval.
 - Run read-only smoke tests first on the target environment before any mutation.
-- For mutating tests on Development URL, create QA-owned records with a prefix such as `QA-20260502-<initials>-<short-purpose>`.
-- Destructive testing is allowed on the Development URL, including update, delete, request approval or rejection, file upload, extraction job cleanup, chat message deletion, and cleanup validation.
-- Do not update or delete production/demo records on the Production URL.
-- Avoid running extraction jobs repeatedly even on Development URL because they may create downloadable archives and consume storage.
+- For mutating tests on the current backend development URL, create QA-owned records with a prefix such as `QA-20260515-<initials>-<short-purpose>`.
+- Destructive testing is allowed on the current backend development URL, including update, delete, request approval or rejection, file upload, extraction job cleanup, chat message deletion, and cleanup validation.
+- Do not update or delete production/demo records on any production URL.
+- Avoid running extraction jobs repeatedly even on the current backend development URL because they may create downloadable archives and consume storage.
 - Record test date, base URL, API prefix, account used, and response status for every defect.
 
 Environment selection rule:
 
 | Test Type | Required Target |
 | --- | --- |
-| Read-only smoke test | Production URL or Development URL |
-| Auth login and token validation | Production URL or Development URL |
-| RBAC negative checks without mutation | Production URL or Development URL |
-| Create, update, delete, upload, extraction, and cleanup tests | Development URL only |
-| Full functional QA | Development URL only |
-| Destructive testing | Development URL only |
+| Read-only smoke test | Current backend development URL, or a separately approved production URL |
+| Auth login and token validation | Current backend development URL |
+| RBAC negative checks without mutation | Current backend development URL |
+| Create, update, delete, upload, extraction, and cleanup tests | Current backend development URL only |
+| Full functional QA | Current backend development URL only |
+| Destructive testing | Current backend development URL only |
 
-If QA is testing against the Production URL, stop before any create, update, delete, upload, extraction, approval, rejection, or cleanup action.
+If QA is testing against any production URL, stop before any create, update, delete, upload, extraction, approval, rejection, or cleanup action.
 
 ## 2. Health And Readiness
 
@@ -478,7 +481,7 @@ POST /api/chat/reconcile
 
 Access:
 
-- PL7 user, or PL6 executive user.
+- PL7 maintenance user only: author, admin, or security.
 
 Expected:
 
@@ -1804,7 +1807,8 @@ Valid body:
   "mode": "db",
   "autoDownload": false,
   "confirmText": "CONFIRM",
-  "password": "SeedPassword123"
+  "password": "SeedPassword123",
+  "secretKey": "<EXTRACTION_KEY>"
 }
 ```
 
@@ -1816,6 +1820,7 @@ Validation:
 | `autoDownload` | boolean | no | Defaults to `false` |
 | `confirmText` | string | yes | Must be `CONFIRM` |
 | `password` | string | yes | Non-empty current user password |
+| `secretKey` | string | yes | Must match backend `EXTRACTION_KEY` |
 
 Expected:
 
@@ -1898,7 +1903,7 @@ Query params:
 Example curl:
 
 ```bash
-curl -X POST "https://backend.dev.morneven.com/api/files/upload?folder=gallery" \
+curl -X POST "https://morneven-backend-development.up.railway.app/api/files/upload?folder=gallery" \
   -H "Authorization: Bearer <token>" \
   -F "file=@./qa-image.png"
 ```
