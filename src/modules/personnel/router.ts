@@ -41,7 +41,7 @@ const personnelPatchSchema = z.object({
 const personnelCreateSchema = personnelPatchSchema.extend({
   username: z.string().min(3).max(30),
   email: z.string().email(),
-  password: z.string().min(12).max(128).optional()
+  password: z.string().min(12).max(128)
 });
 
 const personnelStatusSchema = z.object({
@@ -466,7 +466,7 @@ personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => 
   const parsed = personnelCreateSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
-  const passwordHash = await bcrypt.hash(parsed.data.password ?? 'SeedPassword123', 12);
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   const level = parsed.data.level ?? 1;
   const nextRole = resolvePersonnelRole(level, parsed.data.role);
 

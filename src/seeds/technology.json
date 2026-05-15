@@ -1173,5 +1173,173 @@
         "date": "2026-04-26"
       }
     ]
+  },
+  {
+    "id": "tech-020",
+    "name": "Sapphire Veil Suit",
+    "category": "Protective Suit",
+    "thumbnail": "",
+    "shortDesc": "Shafira-designed protective suit combining high damage absorption, mobility retention, and wearer-linked custody control.",
+    "fullDesc": "The Sapphire Veil Suit is a protective suit designed and produced under Shafira's authority for Morneven personnel. It is not a conventional armor shell. The suit is built from Shafira-grown Gemweave, a special fabric that absorbs impact, distributes force through layered resonance threads, and preserves enough flexibility for field mobility.\n\nIts design goal is clear in Logistics doctrine: admirable and reliable. The suit must look dignified enough to be worn as institutional attire while remaining dependable under hostile conditions. This balance is why the Sapphire Veil became associated with Shafira rather than Engineering. It behaves like armor, but it is authored like couture.\n\nThe suit has strong damage absorption across most personnel-level threats, but it is not invulnerability. It reduces casualties by preventing lethal transfer and preserving wearer movement after impact. It does not guarantee survival against singular Jewerlian output, catastrophic anomaly force, or Sola. This limitation was confirmed during the Dust Recall Incident review.\n\nThe suit includes a provenance lock tied to Shafira's Gemweave. If the wearer is unauthorized, unsafe, or no longer judged suitable for custody, the suit can disintegrate into inert fabric dust without injuring the wearer. Morneven records avoid claiming direct proof that Shafira triggers every recall event manually, but the behavior is consistent enough that Logistics treats suit integrity as subject to her final authority.\n\n -  THE DUST RECALL INCIDENT - \nA group of personnel once conducted an unauthorized endurance test on active Sapphire Veil suits. They did not use dummies. They wore the suits themselves, escalated the test through several Morneven weapons and technologies, and filed no Executive approval request. Their confidence came from the suit's visible performance: every early impact was absorbed well enough to make the next test feel reasonable.\n\nThe escalation reached a planned final step: asking Sola to strike the suit with her slash, the strongest direct firepower then available inside Morneven records. Before the group could reach Sola, every suit involved disintegrated into dust at once. The personnel were left suitless, exposed, and immediately caught in the middle of an unauthorized hazardous test chain.\n\nInitial disciplinary action recommended removal from the Institute. The stated reason was not only the illegal test. Personnel unable to retain Sapphire Veil custody are considered unsafe to deploy because the suit is a baseline survival layer for many Morneven roles. At that stage, the disintegration looked like proof that the wearers had been rejected.\n\nResearchers then requested a formal continuation of the test under controlled conditions. Executive approval was granted, dummies were used, and Sola was asked to perform the slash. The same personnel were invited to observe the trial as acknowledgment that their illegal test had revealed a real research need: Morneven had to know where suit confidence became overconfidence.\n\nSola's slash penetrated the Sapphire Veil Suit. The result confirmed that the unauthorized group had been close to fatal danger. Consensus after the review was that the earlier disintegration had stopped them before they could turn a suit trial into a casualty event. The group was then asked to wear reissued suits. The suits remained intact, proving they had not been permanently rejected. Their punishment was reduced to seven days cleaning creature containment pens.\n\n -  CURRENT DOCTRINE - \nSapphire Veil trials now require dummies, written approval, and a declared failure boundary before live personnel may enter the test area. PL1 personnel receive suit eligibility only after Shafira's orientation. Corridor jokes still describe the process as being taken by Shafira; Logistics documentation calls it mandatory onboarding.\n\n[L5+ track=logistics]Provenance-lock note: dust recall must be treated as an immediate safety intervention, not equipment failure. Recover dust samples only after wearer clearance is confirmed, and do not attempt reweaving without Shafira's authorization.[/L5+]",
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Sapphire Veil outer-layer pattern"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Dust Recall controlled dummy test record"
+      }
+    ],
+    "features": [
+      {
+        "id": "feat-tech-020-01",
+        "title": "Gemweave Damage Sink",
+        "category": "passive",
+        "summary": "Absorbs incoming force and distributes the load through layered resonance threads.",
+        "details": "Designed for casualty reduction rather than invulnerability. The suit performs best against repeated personnel-level impacts where mobility must be preserved after contact.",
+        "icon": "Shield",
+        "color": "#7cc7d8",
+        "tags": [
+          "absorption",
+          "survivability"
+        ]
+      },
+      {
+        "id": "feat-tech-020-02",
+        "title": "Mobility Preservation Layer",
+        "category": "passive",
+        "summary": "Maintains wearer movement while providing armor-grade protection.",
+        "details": "The fabric pattern flexes under motion and stiffens under hostile force. This lets the wearer keep moving instead of becoming a static armor carrier.",
+        "icon": "Move",
+        "color": "#8bd4e2",
+        "tags": [
+          "mobility",
+          "armor"
+        ]
+      },
+      {
+        "id": "feat-tech-020-03",
+        "title": "Provenance Recall Lock",
+        "category": "active",
+        "restriction": {
+          "key": "Authority",
+          "value": "Shafira"
+        },
+        "summary": "Can reduce the suit to inert dust when custody becomes unsafe or invalid.",
+        "details": "Recall behavior is non-lethal to the wearer and is treated as a safety intervention. The Dust Recall Incident is the primary case study for this function.",
+        "icon": "Sparkles",
+        "color": "#6fd3ad",
+        "tags": [
+          "custody",
+          "recall"
+        ]
+      },
+      {
+        "id": "feat-tech-020-04",
+        "title": "Known Sola Boundary",
+        "category": "general",
+        "summary": "Controlled testing confirms Sola can penetrate the suit with a slash.",
+        "details": "The boundary keeps the suit from being described as absolute defense. It remains one of the strongest personnel protection systems, but it is not rated against Sola-class output.",
+        "icon": "AlertTriangle",
+        "color": "#f0b45b",
+        "tags": [
+          "limit",
+          "test-record"
+        ]
+      },
+      {
+        "id": "feat-tech-020-05",
+        "title": "PL1 Onboarding Issuance",
+        "category": "general",
+        "summary": "Issued after Shafira-led PL1 orientation confirms wearer readiness.",
+        "details": "What began as Shafira personally inviting new personnel for assessment is now mandatory onboarding. Passing the assessment grants suit eligibility.",
+        "icon": "ClipboardCheck",
+        "color": "#b7a7f2",
+        "tags": [
+          "onboarding",
+          "logistics"
+        ]
+      }
+    ],
+    "discussions": [
+      {
+        "id": "dc-tech-020",
+        "author": "research.safety",
+        "text": "The Dust Recall file is now attached to PL1 onboarding. @logistics.audit, please keep the dummy-use warning visible.",
+        "date": "2026-05-15",
+        "mentions": [
+          {
+            "username": "logistics.audit",
+            "start": 55,
+            "end": 71
+          }
+        ],
+        "replies": [
+          {
+            "id": "dr-tech-020",
+            "author": "logistics.audit",
+            "text": "Confirmed. The warning now appears before any live fit test can be scheduled.",
+            "date": "2026-05-15",
+            "mentions": []
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "creator": "Archivist Solen",
+      "owner": "Logistics Division",
+      "designer": "Shafira",
+      "collaborators": [
+        "Logistics Safety Office",
+        "Research Safety Board",
+        "Sola"
+      ],
+      "team": "Logistics Division",
+      "projectName": "Sapphire Veil Program",
+      "startedAt": "Ongoing",
+      "completedAt": "Ongoing",
+      "approvedAt": "2026-05-15",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-05-15",
+          "notes": "Initial technology entry with Dust Recall Incident record."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-tech-020-01",
+        "title": "Damage Absorption Review",
+        "body": "Sapphire Veil performance remains highest when the wearer preserves movement after contact. Standing guidance: do not let early successful impacts justify escalation without approval.",
+        "date": "2026-05-15"
+      },
+      {
+        "id": "fn-tech-020-02",
+        "title": "Recall Lock Handling Directive",
+        "body": "If a suit disintegrates into dust, stop the test, clear the wearer, preserve the dust sample, and notify Logistics Safety. Do not classify the event as simple equipment failure.",
+        "date": "2026-05-15"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-tech-020-01",
+        "title": "Controlled Sola Test Observation",
+        "body": "Dummy-based testing confirmed that Sola can penetrate the Sapphire Veil Suit. The result defines a boundary condition, not a general failure of the suit.",
+        "date": "2026-05-15"
+      },
+      {
+        "id": "ob-tech-020-02",
+        "title": "Reissue Observation",
+        "body": "The suits stayed intact when reissued to the Dust Recall personnel after review. This supports the conclusion that the original recall stopped unsafe testing without permanently invalidating the wearers.",
+        "date": "2026-05-15"
+      }
+    ]
   }
 ]

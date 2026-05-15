@@ -1228,5 +1228,216 @@
         "date": "2026-04-26"
       }
     ]
+  },
+  {
+    "id": "char-014",
+    "name": "Shafira",
+    "race": "Jewerlian",
+    "height": "Unrecorded; her tailoring records contain exact measures, but she does not release them.",
+    "traits": [
+      "Elegant",
+      "Artistic",
+      "Protective"
+    ],
+    "likes": [
+      "Painting",
+      "Fashion design",
+      "Quiet ateliers",
+      "Reliable work"
+    ],
+    "dislikes": [
+      "Reckless testing",
+      "Wasteful materials",
+      "Unfinished stitching",
+      "Overconfidence"
+    ],
+    "accentColor": "#7cc7d8",
+    "thumbnail": "",
+    "shortDesc": "PL5-LOG Jewerlian atelier lead, ranked second after Marine in the personnel charm vote, and creator of the Sapphire Veil Suit.",
+    "fullDesc": "Shafira is one of the most visually admired Jewerlians in Morneven records, ranked second only to Marine in the personnel charm vote tier list. Archive notes consistently describe her presence through elegance rather than spectacle: carefully controlled movement, immaculate attire, and a preference for work that is beautiful before it is announced.\n\nLog Archive classifies Shafira as a non-combat Jewerlian by assignment. That label is often misunderstood. It does not mean she is unable to fight. Like all Jewerlians, she meets the minimum combat capability expected of her kind; she simply chooses not to make combat her function inside Morneven. Her attention stays on art, fashion, material design, architecture, and logistics output.\n\nMost of her recorded work is completed inside Logistic Sector 07, a private workspace assigned to her after repeated contributions to Morneven construction, architecture, and infrastructure planning. Shafira is one of the few personnel whose private room is treated as a production node rather than a personal privilege. Her telekinesis allows her to run multiple stations at once, moving needles, brushes, cutting frames, fabric looms, and drafting tools in parallel without a visible assistant.\n\nHer most important contribution is the Sapphire Veil Suit, a protective suit built from a special fabric only she is confirmed to produce. The suit combines high damage absorption with strong mobility retention, reducing casualties among authorized personnel without turning them into stationary armor carriers. Shafira's design doctrine is repeatedly summarized in two words in Logistics notes: admirable and reliable.\n\nA minor version of the suit's most famous incident is attached to Shafira's file because it changed personnel onboarding. A group once tested the suit on themselves without authorization, escalating toward a trial against Sola's slash before the suits disintegrated and stopped the attempt. The later approved test proved that Sola could cut through the suit, which means the intervention likely prevented deaths. The complete incident record is filed under the Sapphire Veil Suit technology entry.\n\nShafira is also responsible for the current PL1 suit orientation. Older corridor slang claimed she would 'abduct' new PL1 personnel for assessment; the official record uses 'invite.' The practice became frequent enough, and useful enough, that Morneven formalized it into mandatory onboarding. Passing the assessment grants suit eligibility. This program, together with her infrastructure work and suit production authority, is the reason Shafira holds PL5-LOG clearance.\n\n[L5+ track=logistics]Logistics handling note: Shafira's non-combat classification must not be used to bypass her authority over Sapphire Veil issuance. Suit custody, recall behavior, and PL1 onboarding outcomes remain under her final review unless Executive override is recorded in advance.[/L5+]",
+    "stats": {
+      "combat": 68,
+      "intelligence": 94,
+      "charisma": 92,
+      "stealth": 64,
+      "perception": 89,
+      "detail": {
+        "combat": {
+          "strength": 58,
+          "defense": 80,
+          "agility": 68,
+          "endurance": 66,
+          "adaptation": 68
+        },
+        "intelligence": {
+          "iq": 95,
+          "eq": 93,
+          "sq": 94
+        },
+        "charisma": {
+          "persuasion": 96,
+          "intimidation": 82,
+          "manipulation": 98
+        },
+        "stealth": {
+          "presenceControl": 86,
+          "silence": 72,
+          "environmentControl": 58,
+          "visualMasking": 40
+        },
+        "perception": {
+          "acuity": 91,
+          "focus": 92,
+          "intuition": 84
+        }
+      }
+    },
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Logistic Sector 07 atelier layout"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Sapphire Veil Suit pattern draft"
+      }
+    ],
+    "occupation": "Logistics Atelier Lead - PL5-LOG",
+    "contributions": [
+      {
+        "id": "ctr-023",
+        "title": "Sapphire Veil Suit Program",
+        "description": "Designed and produces the protective suit standard that reduced casualties among authorized personnel through damage absorption, mobility retention, and wearer-linked custody controls.",
+        "date": "Ongoing"
+      },
+      {
+        "id": "ctr-024",
+        "title": "Logistic Sector 07 Infrastructure Works",
+        "description": "Contributed architecture and infrastructure designs substantial enough for Morneven to dedicate Logistic Sector 07 as her private production workspace.",
+        "date": "Founding Expansion"
+      },
+      {
+        "id": "ctr-025",
+        "title": "PL1 Suit Orientation Standard",
+        "description": "Converted her recurring new-personnel assessment into a formal Logistics onboarding requirement. Passing the assessment grants Sapphire Veil eligibility.",
+        "date": "Ongoing"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sk-char-014-01",
+        "name": "Thread-Motion Telekinesis",
+        "category": "active",
+        "description": "Fine telekinetic control used to move tools, fabric, and workstations in parallel. The same force can become [[attr:physical-damage|precision force]] if required, but Shafira normally applies it as production support.",
+        "icon": "Hand",
+        "color": "#7cc7d8"
+      },
+      {
+        "id": "sk-char-014-02",
+        "name": "Gemweave Synthesis",
+        "category": "general",
+        "description": "Creates the special fabric used in Sapphire Veil suits, combining [[attr:physical-defense|impact absorption]] with [[attr:magic-defense|resonance buffering]]. No second confirmed producer is listed in Logistics records.",
+        "icon": "Layers",
+        "color": "#8bd4e2"
+      },
+      {
+        "id": "sk-char-014-03",
+        "name": "Parallel Atelier",
+        "category": "passive",
+        "description": "Runs multiple creative and fabrication tasks at once without lowering finish quality. This is the practical reason her output can support institution-scale suit production.",
+        "icon": "Scissors",
+        "color": "#b7a7f2"
+      },
+      {
+        "id": "sk-char-014-04",
+        "name": "Suit Provenance Authority",
+        "category": "passive",
+        "restriction": {
+          "key": "Scope",
+          "value": "Sapphire Veil Suit"
+        },
+        "description": "Can reject or terminate suit integrity when a wearer becomes unsafe, unauthorized, or unfit for custody. Logistics records classify the effect as [[attr:shield|custody control]], not a combat attack.",
+        "icon": "ShieldCheck",
+        "color": "#6fd3ad"
+      }
+    ],
+    "discussions": [
+      {
+        "id": "dc-char-014",
+        "author": "logistics.audit",
+        "text": "PL1 orientation slots for Logistic Sector 07 are full. @safety.office, confirm the dummy inventory before suit handling begins.",
+        "date": "2026-05-15",
+        "mentions": [
+          {
+            "username": "safety.office",
+            "start": 54,
+            "end": 68
+          }
+        ],
+        "replies": [
+          {
+            "id": "dr-char-014",
+            "author": "safety.office",
+            "text": "Confirmed. No live-wearer stress tests are authorized under any condition.",
+            "date": "2026-05-15",
+            "mentions": []
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "creator": "Archivist Solen",
+      "owner": "Logistics Division",
+      "designer": "Concept Artist Mavi",
+      "collaborators": [
+        "Logistics Safety Office",
+        "Analyst Mira"
+      ],
+      "team": "Logistics Division",
+      "projectName": "Sapphire Veil Program",
+      "startedAt": "2026-05-15",
+      "completedAt": "2026-05-15",
+      "approvedAt": "2026-05-15",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-05-15",
+          "notes": "Initial Shafira canon entry and suit linkage."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-char-014-01",
+        "title": "Logistic Sector 07 Access Note",
+        "body": "Sector 07 functions as Shafira's private atelier and active production workspace. Entry requires invitation or Logistics Director approval because telekinetic tool paths may be active without visible warning.",
+        "date": "2026-05-15"
+      },
+      {
+        "id": "fn-char-014-02",
+        "title": "PL1 Orientation Note",
+        "body": "New PL1 personnel are scheduled for Shafira's onboarding assessment before suit issuance. The word \"abduction\" remains unofficial corridor slang and is not accepted in incident forms.",
+        "date": "2026-05-15"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-char-014-01",
+        "title": "Workshop Output Observation",
+        "body": "Multiple stations were active at once during review: paint, stitch, draft, and fabric tensioning. No assistant presence was recorded. Output quality remained within Shafira standard.",
+        "date": "2026-05-15"
+      },
+      {
+        "id": "ob-char-014-02",
+        "title": "Suit Custody Observation",
+        "body": "A Sapphire Veil Suit remained intact after reissue to the formerly suspended test group, supporting the conclusion that the prior disintegration was a temporary intervention rather than permanent rejection.",
+        "date": "2026-05-15"
+      }
+    ]
   }
 ]
