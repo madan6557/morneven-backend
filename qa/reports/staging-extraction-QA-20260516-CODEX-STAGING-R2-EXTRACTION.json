@@ -1,0 +1,189 @@
+{
+  "summary": {
+    "runId": "QA-20260516-CODEX-STAGING-R2-EXTRACTION",
+    "startedAt": "2026-05-15T23:14:40.954Z",
+    "endedAt": "2026-05-15T23:14:40.954Z",
+    "baseUrl": "https://morneven-backend-development.up.railway.app",
+    "totals": {
+      "PASS": 7
+    },
+    "jobId": "c3bf6df8-1dbf-44dc-8212-7339042fcd9e",
+    "secretValuesRedacted": true
+  },
+  "records": [
+    {
+      "status": "PASS",
+      "suite": "Auth targeted",
+      "name": "Login author for extraction",
+      "method": "POST",
+      "endpoint": "/auth/login",
+      "expected": "200 with token",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED]",
+          "refreshToken": "[REDACTED]",
+          "user": {
+            "id": "psn-001",
+            "username": "author",
+            "email": "author@morneven.com",
+            "role": "author",
+            "status": "active",
+            "level": 7,
+            "track": "executive",
+            "note": "Founder · Full Authority",
+            "updatedAt": "2026-05-03",
+            "online": true,
+            "lastSeenAt": "2026-05-15T23:13:39.715Z"
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Start DB extraction job with key",
+      "method": "POST",
+      "endpoint": "/settings/extractions",
+      "expected": "202 with job id",
+      "actual": "HTTP 202",
+      "httpStatus": 202,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "c3bf6df8-1dbf-44dc-8212-7339042fcd9e",
+          "mode": "db",
+          "autoDownload": false,
+          "status": "processing",
+          "createdBy": "author",
+          "createdAt": "2026-05-15T23:14:38.175Z",
+          "completedAt": null,
+          "expiresAt": "2026-06-14T23:14:38.174Z",
+          "downloadName": "morneven-backup-db-2026-05-15.zip",
+          "artifactPath": null,
+          "artifactUrl": null,
+          "error": null,
+          "progress": {
+            "stage": "queued",
+            "message": "Queued",
+            "percent": 0
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Poll extraction job attempt 1",
+      "method": "GET",
+      "endpoint": "/settings/extractions/c3bf6df8-1dbf-44dc-8212-7339042fcd9e",
+      "expected": "200",
+      "actual": "HTTP 200 status=processing",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "c3bf6df8-1dbf-44dc-8212-7339042fcd9e",
+          "mode": "db",
+          "autoDownload": false,
+          "status": "processing",
+          "createdBy": "author",
+          "createdAt": "2026-05-15T23:14:38.175Z",
+          "completedAt": null,
+          "expiresAt": "2026-06-14T23:14:38.174Z",
+          "downloadName": "morneven-backup-db-2026-05-15.zip",
+          "artifactPath": null,
+          "artifactUrl": null,
+          "error": null,
+          "progress": {
+            "stage": "building-sql",
+            "message": "Building database SQL backup",
+            "percent": 62
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Poll extraction job attempt 2",
+      "method": "GET",
+      "endpoint": "/settings/extractions/c3bf6df8-1dbf-44dc-8212-7339042fcd9e",
+      "expected": "200",
+      "actual": "HTTP 200 status=completed",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "c3bf6df8-1dbf-44dc-8212-7339042fcd9e",
+          "mode": "db",
+          "autoDownload": false,
+          "status": "completed",
+          "createdBy": "author",
+          "createdAt": "2026-05-15T23:14:38.175Z",
+          "completedAt": "2026-05-15T23:14:38.560Z",
+          "expiresAt": "2026-06-14T23:14:38.174Z",
+          "downloadName": "morneven-backup-db-2026-05-15.zip",
+          "artifactPath": "backups/c3bf6df8-1dbf-44dc-8212-7339042fcd9e/morneven-backup-db-2026-05-15.zip",
+          "artifactUrl": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/backups/c3bf6df8-1dbf-44dc-8212-7339042fcd9e/morneven-backup-db-2026-05-15.zip",
+          "error": null,
+          "progress": {
+            "stage": "completed",
+            "message": "Backup ready",
+            "percent": 100
+          }
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Create extraction download ticket",
+      "method": "POST",
+      "endpoint": "/settings/extractions/c3bf6df8-1dbf-44dc-8212-7339042fcd9e/download-ticket",
+      "expected": "200 with ticket",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "ticket": "[REDACTED]",
+          "expiresAt": "2026-05-15T23:19:39.843Z"
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Extraction targeted",
+      "name": "Download completed extraction archive",
+      "method": "GET",
+      "endpoint": "/settings/extractions/c3bf6df8-1dbf-44dc-8212-7339042fcd9e/download",
+      "expected": "200 with archive body",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "contentType": "application/zip",
+        "byteLength": 3438437,
+        "sample": "PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000ɕ�\u0012��\u0011\u0000��\u0011\u0000!\u0000\u0000\u0000database/morneven-full-backup.sql-- Morneven full d"
+      }
+    },
+    {
+      "status": "PASS",
+      "suite": "Cleanup targeted",
+      "name": "Delete extraction job",
+      "method": "DELETE",
+      "endpoint": "/settings/extractions",
+      "expected": "200",
+      "actual": "HTTP 200",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "deleted": 1
+        }
+      }
+    }
+  ]
+}
