@@ -673,15 +673,7 @@ async function runChatFlowTests() {
   });
   const groupId = extractId(group.body);
   if (groupId) {
-    addRecord({
-      suite: "Cleanup",
-      name: "Manual group cleanup note",
-      method: "N/A",
-      path: `${config.apiPrefix}/chat/conversations/${groupId}`,
-      expected: "No hard-delete endpoint exists",
-      status: "SKIP",
-      actual: "Manual group left behind with QA prefix.",
-    });
+    await cleanupOne("Manual chat group", groupId, `${config.apiPrefix}/chat/conversations/${groupId}`, token);
   }
 }
 

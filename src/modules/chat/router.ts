@@ -115,6 +115,36 @@ const notifyConversationMembers = async (conversationId: string, sender: string,
 const activeUsernames = (conversation: ConversationWithMembers) =>
   conversation.members.filter((member) => member.status === 'active').map((member) => member.username);
 
+const activeMembersInLine = (conversation: ConversationWithMembers) =>
+  conversation.members
+    .filter((member) => member.status === 'active')
+    .sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
+
+const ensureManualConversationHasAdminOrDelete = async (conversation: ConversationWithMembers) => {
+  const activeMembers = activeMembersInLine(conversation);
+  if (activeMembers.length === 0) {
+    await prisma.chatConversation.delete({ where: { id: conversation.id } });
+    return { deleted: true, conversation: null as ConversationWithMembers | null };
+  }
+
+  const hasManager = activeMembers.some((member) => member.role === 'owner' || member.role === 'admin');
+  if (!hasManager) {
+    await prisma.chatConversationMember.update({ where: { id: activeMembers[0].id }, data: { role: 'admin' } });
+  }
+
+  return { deleted: false, conversation: (await getConversation(conversation.id))! };
+};
+
+const deleteManualConversation = async (conversationId: string, actor: string) => {
+  await prisma.chatConversation.delete({ where: { id: conversationId } });
+  await writeAudit(prisma, {
+    actor,
+    action: 'chat.conversation.delete',
+    entity: 'ChatConversation',
+    entityId: conversationId
+  });
+};
+
 const extractMentionedUsernames = (text: string) =>
   Array.from(text.matchAll(CHAT_MENTION_RE))
     .map((match) => match[1]?.trim().toLowerCase())
@@ -518,7 +548,12 @@ chatRouter.post('/conversations/:id/kick', auth, async (req, res) => {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   }
   await prisma.chatConversationMember.update({ where: { id: target.id }, data: { status: 'removed' } });
-  const updated = (await getConversation(conversation.id))!;
+  const next = await ensureManualConversationHasAdminOrDelete((await getConversation(conversation.id))!);
+  if (next.deleted) {
+    emitToUsers([...activeUsernames(conversation), target.username], 'chat.conversation.deleted', { id: conversation.id });
+    return ok(res, { deleted: true });
+  }
+  const updated = next.conversation!;
   emitToUsers([...activeUsernames(updated), target.username], 'chat.conversation.updated', serializeConversation(updated));
   return ok(res, serializeConversation(updated));
 });
@@ -528,14 +563,28 @@ chatRouter.post('/conversations/:id/leave', auth, async (req, res) => {
   if (!conversation || conversation.systemManaged) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   const member = getActiveMember(conversation, req.user!.username);
   if (!member) return fail(res, 404, 'Membership not found', 'NOT_FOUND');
+  const previousRecipients = activeUsernames(conversation);
   await prisma.chatConversationMember.update({ where: { id: member.id }, data: { status: 'removed' } });
-  if (member.role === 'owner') {
-    const successor = conversation.members.find((item) => item.status === 'active' && item.username !== req.user!.username && item.role === 'admin')
-      ?? conversation.members.find((item) => item.status === 'active' && item.username !== req.user!.username);
-    if (successor) await prisma.chatConversationMember.update({ where: { id: successor.id }, data: { role: 'owner' } });
+  const next = await ensureManualConversationHasAdminOrDelete((await getConversation(conversation.id))!);
+  if (next.deleted) {
+    emitToUsers(previousRecipients, 'chat.conversation.deleted', { id: conversation.id });
+    return ok(res, { left: true, deleted: true });
   }
-  emitToUsers(activeUsernames((await getConversation(conversation.id))!), 'chat.conversation.updated', { conversationId: conversation.id });
-  return ok(res, { left: true });
+  emitToUsers([...activeUsernames(next.conversation!), req.user!.username], 'chat.conversation.updated', serializeConversation(next.conversation!));
+  return ok(res, { left: true, conversation: serializeConversation(next.conversation!) });
+});
+
+chatRouter.delete('/conversations/:id', auth, async (req, res) => {
+  const conversation = await getConversation(req.params.id);
+  if (!conversation || conversation.systemManaged || conversation.kind !== 'group') {
+    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  }
+  if (!canManage(conversation, req.user!.username)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const recipients = activeUsernames(conversation);
+  await deleteManualConversation(conversation.id, req.user!.username);
+  emitToUsers(recipients, 'chat.conversation.deleted', { id: conversation.id });
+  await Promise.all(recipients.map((username) => emitNavigationBadgesUpdated(username)));
+  return ok(res, { deleted: true });
 });
 
 chatRouter.put('/conversations/:id/member-role', auth, async (req, res) => {

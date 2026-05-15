@@ -314,7 +314,7 @@ Cleanup guidance:
 | Gallery comment | `DELETE /api/gallery/:id/comments/:commentId` |
 | Gallery reply | `DELETE /api/gallery/:id/comments/:commentId/replies/:replyId` |
 | Chat message | `DELETE /api/chat/messages/:id` if user is allowed |
-| Chat manual group | No hard-delete endpoint. Use QA prefix and leave it after test. |
+| Chat manual group | `DELETE /api/chat/conversations/:id` with group owner/admin. If testing leave, use `POST /api/chat/conversations/:id/leave` and verify successor handoff. |
 | Management request | No hard-delete endpoint. Decide it if workflow requires, otherwise leave QA prefix. |
 | Notification | `DELETE /api/notifications/:id` |
 | Extraction job | `DELETE /api/settings/extractions` with job IDs |
@@ -734,7 +734,22 @@ POST /api/chat/conversations/:id/leave
 Expected:
 
 - Manual group member can leave.
+- If the leaving member was the only group manager, the next active member by join order becomes `admin`.
+- If no active members remain, the group is deleted.
+- `createdBy` and `createdAt` remain unchanged while the group exists.
 - System-managed group leave should be rejected or reconciled back by backend.
+
+### Delete Manual Group
+
+```http
+DELETE /api/chat/conversations/:id
+```
+
+Expected:
+
+- Manual group owner or admin can delete the group for all members.
+- System-managed groups and non-group conversations reject this endpoint.
+- Realtime event removes the conversation from active members.
 
 ### Update Member Role
 
@@ -1982,8 +1997,8 @@ Run representative negative tests for each module:
 ## 25. Known Constraints
 
 - No dedicated public build or version endpoint exists yet.
-- No API endpoint is confirmed for deleting uploaded files from storage.
-- Chat manual groups do not have a hard-delete endpoint.
+- No direct per-object API endpoint is confirmed for deleting uploaded files from storage. Use storage cleanup for orphaned files.
+- Chat manual groups have a hard-delete endpoint for group owner/admin.
 - Management requests do not have a hard-delete endpoint.
 - Extraction jobs should be tested carefully because they may create archive files.
 - Some payload side effects are workflow-dependent, especially management approvals.
