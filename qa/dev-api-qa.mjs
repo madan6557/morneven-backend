@@ -230,9 +230,12 @@ async function runSmokeSuite() {
 
 async function runFullSuite() {
   const guestLoggedIn = await login("guest", { required: false });
-  await loginWithCredentials("guest", "guestCredentials", {
+  const registeredGuestLoggedIn = await loginWithCredentials("guest", "guestCredentials", {
     required: false,
-    name: "Guest credential login remains supported",
+    allowUnavailable: true,
+    expectedStatuses: [200, 401],
+    name: "Registered guest credential login if seeded",
+    expected: "200 if the PL0 guest account is seeded; 401 is accepted because guest mode uses /auth/guest",
   });
   const exec6LoggedIn = await login("exec6", { required: false });
   const fieldLoggedIn = await login("field5", { required: false });
@@ -257,8 +260,31 @@ async function runFullSuite() {
       expectedStatuses: [401, 403],
       expected: "401 or 403 for low privilege user",
     });
+    await requestTest({
+      suite: "RBAC",
+      name: "Guest mode cannot access Activity analytics",
+      method: "GET",
+      path: `${config.apiPrefix}/activity/overview`,
+      token: state.tokens.guest,
+      expectedStatuses: [403],
+      expected: "403 because guest mode is anonymous",
+    });
   } else {
     addBlocked("RBAC", "Guest cannot access PL7 management pending count", "GET", `${config.apiPrefix}/management/requests/pending-count`, "Guest login is unavailable.");
+  }
+
+  if (registeredGuestLoggedIn) {
+    await requestTest({
+      suite: "Activity",
+      name: "Registered PL0 guest can access Activity analytics",
+      method: "GET",
+      path: `${config.apiPrefix}/activity/overview`,
+      token: state.tokens.guestCredentials,
+      expectedStatuses: [200],
+      expected: "200 because this is a registered account even when role is guest",
+    });
+  } else {
+    addSkip("Activity", "Registered PL0 guest Activity check skipped", "guest@morneven.com is optional and not seeded on this target.");
   }
 
   if (fieldLoggedIn) {
@@ -532,31 +558,43 @@ async function runGalleryDiscussionTests() {
     expected: "Gallery item is updated",
   });
 
+  const commentText = `${config.runId} gallery comment`;
   const comment = await requestTest({
     suite: "Gallery discussions",
     name: "Create gallery comment",
     method: "POST",
     path: `${config.apiPrefix}/gallery/${galleryId}/comments`,
     token,
-    body: { text: `${config.runId} gallery comment` },
+    body: { text: commentText },
     expectedStatuses: [200, 201],
     expected: "Comment is created",
   });
-  const commentId = extractId(comment.body);
+  const commentId = extractGalleryCommentId(comment.body, commentText);
 
   let replyId = null;
   if (commentId) {
+    const replyText = `${config.runId} gallery reply`;
     const reply = await requestTest({
       suite: "Gallery discussions",
       name: "Create gallery reply",
       method: "POST",
       path: `${config.apiPrefix}/gallery/${galleryId}/comments/${commentId}/replies`,
       token,
-      body: { text: `${config.runId} gallery reply` },
+      body: { text: replyText },
       expectedStatuses: [200, 201],
       expected: "Reply is created",
     });
-    replyId = extractId(reply.body);
+    replyId = extractGalleryReplyId(reply.body, commentId, replyText);
+  } else {
+    addRecord({
+      suite: "Gallery discussions",
+      name: "Create gallery comment returned a comment ID",
+      method: "POST",
+      path: `${config.apiPrefix}/gallery/${galleryId}/comments`,
+      expected: "Response includes the created comment ID or refreshed comment list",
+      status: "FAIL",
+      actual: "Could not resolve created gallery comment ID from response.",
+    });
   }
 
   if (replyId) {
@@ -872,9 +910,12 @@ async function loginWithCredentials(accountName, tokenKey = accountName, options
     method: "POST",
     path: `${config.apiPrefix}/auth/login`,
     body: { email: account.email, password: account.password },
-    expectedStatuses: [200],
-    validate: (body) => Boolean(extractToken(body)),
-    expected: "200 and access token returned",
+    expectedStatuses: options.expectedStatuses ?? [200],
+    validate: (body, response) => {
+      if (response.status !== 200) return Boolean(options.allowUnavailable);
+      return Boolean(extractToken(body));
+    },
+    expected: options.expected ?? "200 and access token returned",
   });
 
   const token = extractToken(result.body);
@@ -1123,6 +1164,30 @@ function extractId(body) {
     data?.notification?.id ??
     data?.request?.id ??
     body?.id ??
+    null
+  );
+}
+
+function extractGalleryCommentId(body, text) {
+  const data = extractData(body);
+  return (
+    data?.comment?.id ??
+    data?.comments?.find((comment) => comment?.text === text)?.id ??
+    body?.comment?.id ??
+    body?.comments?.find((comment) => comment?.text === text)?.id ??
+    null
+  );
+}
+
+function extractGalleryReplyId(body, commentId, text) {
+  const data = extractData(body);
+  const comment =
+    data?.comments?.find((entry) => entry?.id === commentId) ??
+    body?.comments?.find((entry) => entry?.id === commentId);
+  return (
+    data?.reply?.id ??
+    comment?.replies?.find((reply) => reply?.text === text)?.id ??
+    body?.reply?.id ??
     null
   );
 }

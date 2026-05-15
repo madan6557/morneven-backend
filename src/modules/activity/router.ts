@@ -1,4 +1,4 @@
-import { EntityType, Role } from '@prisma/client';
+import { EntityType } from '@prisma/client';
 import { Router } from 'express';
 import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
@@ -49,9 +49,15 @@ const sortMetric = (value: unknown) => {
   return 'views';
 };
 
+const normalizeSortForCategory = (sort: string, category: ContentEntityType | 'all') => {
+  if (category === EntityType.gallery && sort === 'stars') return 'views';
+  if (category !== 'all' && category !== EntityType.gallery && (sort === 'likes' || sort === 'dislikes')) return 'views';
+  return sort;
+};
+
 const requireRegistered = (req: Parameters<typeof auth>[0], res: Parameters<typeof fail>[0]) => {
-  if (!req.user || req.user.role === Role.guest) {
-    fail(res, 403, 'Registered personnel access required', 'FORBIDDEN');
+  if (!req.user || req.user.id === 'guest') {
+    fail(res, 403, 'Registered account access required', 'FORBIDDEN');
     return false;
   }
   return true;
@@ -205,7 +211,7 @@ activityRouter.get('/content', auth, async (req, res) => {
   if (!requireRegistered(req, res)) return;
 
   const category = parseCategory(req.query.category);
-  const sort = sortMetric(req.query.sort);
+  const sort = normalizeSortForCategory(sortMetric(req.query.sort), category);
   const order = req.query.order === 'asc' ? 'asc' : 'desc';
   const q = getSearchQuery(req);
   const { page, pageSize } = parsePagination(req, { pageSize: 24, maxPageSize: 100 });

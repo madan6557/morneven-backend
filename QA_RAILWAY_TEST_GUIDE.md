@@ -1,6 +1,7 @@
 # Morneven Backend Railway QA Endpoint Test Guide
 
-Last updated: 2026-05-15
+Document version: `2026-05-16-r2`
+Last updated: 2026-05-16
 
 This guide is written for QA endpoint testing against the deployed Railway backend. It expands the original smoke-test guide with request payloads, response contracts, validation rules, query parameters, negative test ideas, seed IDs, and cleanup guidance.
 
@@ -23,7 +24,7 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 
 Important safety rules:
 
-- Update label: 2026-05-15. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
+- Update label: 2026-05-16-r2. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
 - Use the current backend development URL for full QA, mutation testing, destructive testing, cleanup verification, extraction testing, and workflow side-effect testing.
 - Use any production URL only for read-only smoke checks unless the project owner gives separate written approval.
 - Run read-only smoke tests first on the target environment before any mutation.
@@ -183,7 +184,7 @@ SeedPassword123
 | `psn-006` | `h.kato` | `h.kato@morneven.com` | `personel` | 5 | `logistics` | PL5 logistics reviewer or restricted access checks |
 | `psn-007` | `t.bremmer` | `t.bremmer@morneven.com` | `personel` | 4 | `field` | PL4 field workflow checks |
 | `psn-008` | `r.alves` | `r.alves@morneven.com` | `personel` | 3 | `executive` | PL3 team lead checks |
-| `psn-009` | `guest_visitor` | `guest@morneven.com` | `guest` | 0 | `executive` | Guest and low-privilege checks |
+| `psn-009` | `guest_visitor` | `guest@morneven.com` | `guest` | 0 | `executive` | Optional registered PL0 guest checks, including Activity access |
 | `psn-010` | `j.huang` | `j.huang@morneven.com` | `personel` | 5 | `mechanic` | PL5 mechanic reviewer checks |
 | `psn-011` | `n.osei` | `n.osei@morneven.com` | `personel` | 4 | `logistics` | PL4 logistics workflow checks |
 | `psn-012` | `p.salim` | `p.salim@morneven.com` | `personel` | 3 | `field` | PL3 field team checks |
