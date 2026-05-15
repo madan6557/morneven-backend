@@ -230,6 +230,10 @@ async function runSmokeSuite() {
 
 async function runFullSuite() {
   const guestLoggedIn = await login("guest", { required: false });
+  await loginWithCredentials("guest", "guestCredentials", {
+    required: false,
+    name: "Guest credential login remains supported",
+  });
   const exec6LoggedIn = await login("exec6", { required: false });
   const fieldLoggedIn = await login("field5", { required: false });
 
@@ -855,10 +859,16 @@ async function login(accountName, options = {}) {
     return true;
   }
 
+  return loginWithCredentials(accountName, accountName, { required });
+}
+
+async function loginWithCredentials(accountName, tokenKey = accountName, options = {}) {
+  const required = options.required ?? true;
+  if (state.tokens[tokenKey]) return true;
   const account = config.accounts[accountName];
   const result = await requestTest({
     suite: "Auth",
-    name: `Login as ${accountName}`,
+    name: options.name ?? `Login as ${accountName}`,
     method: "POST",
     path: `${config.apiPrefix}/auth/login`,
     body: { email: account.email, password: account.password },
@@ -874,8 +884,8 @@ async function login(accountName, options = {}) {
     }
     throw new Error(`Login did not return a token for ${accountName}`);
   }
-  state.tokens[accountName] = token;
-  state.users[accountName] = extractData(result.body)?.user ?? result.body?.user ?? null;
+  state.tokens[tokenKey] = token;
+  state.users[tokenKey] = extractData(result.body)?.user ?? result.body?.user ?? null;
   return true;
 }
 

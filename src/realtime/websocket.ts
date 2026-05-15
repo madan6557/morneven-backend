@@ -181,6 +181,7 @@ export const attachRealtimeWebSocket = (server: Server) => {
     writeFrame(socket, { event: 'socket.ready', payload: { username: user.username } });
 
     socket.on('data', (buffer) => {
+      if (!Buffer.isBuffer(buffer)) return;
       const text = decodeTextFrame(buffer);
       if (text === '__close__') {
         socket.end();

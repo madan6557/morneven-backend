@@ -14,6 +14,7 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 | Current backend WebSocket | `wss://morneven-backend-development.up.railway.app/ws/chat?token=<token>` |
 | Default API prefix | `/api` |
 | Compatibility prefix | `/v1` |
+| Node.js runtime | `>=24` |
 | Deployment type | Railway deployments for demo and backend integration testing |
 | Production QA scope | Read-only smoke, readiness, auth, and non-destructive RBAC verification only |
 | Development QA scope | Full functional QA, mutation testing, destructive testing, cleanup verification, and workflow side-effect testing |
