@@ -17,10 +17,9 @@
     "postinstall": "prisma generate",
     "prisma:deploy:safe": "npx prisma migrate deploy || npx prisma db push",
     "start:railway": "npm run prisma:migrate:deploy && node dist/src/server.js",
-    "prisma:migrate:deploy": "npm run prisma:migrate:repair:20260510110000 && prisma migrate deploy",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "qa:dev-api": "node qa/dev-api-qa.mjs",
-    "prisma:setup": "npm run prisma:migrate:deploy && npm run prisma:seed",
-    "prisma:migrate:repair:20260510110000": "prisma migrate resolve --rolled-back 20260510110000_add_admin_role || true"
+    "prisma:setup": "npm run prisma:migrate:deploy && npm run prisma:seed"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
