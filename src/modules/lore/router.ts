@@ -305,7 +305,7 @@ loreRouter.put('/:category/:id/comments/:commentId', auth, async (req, res) => {
     where: { id: req.params.commentId, entityType, entityId: req.params.id }
   });
   if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
-  if (!(canModerateDiscussion(req.user!) || comment.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (comment.authorId !== req.user!.id) return fail(res, 403, 'Only the comment owner can edit this discussion item', 'FORBIDDEN');
   if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
 
   await prisma.comment.update({ where: { id: comment.id }, data: { text: String(req.body.text).trim() } });
@@ -332,7 +332,7 @@ loreRouter.put('/:category/:id/comments/:commentId/replies/:replyId', auth, asyn
   if (!reply || reply.comment.entityType !== entityType || reply.comment.entityId !== req.params.id || reply.commentId !== req.params.commentId) {
     return fail(res, 404, 'Reply not found', 'NOT_FOUND');
   }
-  if (!(canModerateDiscussion(req.user!) || reply.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (reply.authorId !== req.user!.id) return fail(res, 403, 'Only the reply owner can edit this discussion item', 'FORBIDDEN');
   if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
 
   await prisma.reply.update({ where: { id: reply.id }, data: { text: String(req.body.text).trim() } });

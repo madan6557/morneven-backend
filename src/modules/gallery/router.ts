@@ -276,29 +276,43 @@ galleryRouter.post('/:id/comments/:commentId/replies', auth, async (req, res) =>
 );
 
 galleryRouter.put('/:id/comments/:commentId', auth, async (req, res) => {
-  const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
-  if (!comment) return fail(res, 404, 'Not found', 'NOT_FOUND');
-  if (!(canModerateDiscussion(req.user!) || comment.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  return ok(res, await prisma.comment.update({ where: { id: comment.id }, data: { text: req.body.text } }));
+  const comment = await prisma.comment.findFirst({
+    where: { id: req.params.commentId, entityType: EntityType.gallery, entityId: req.params.id }
+  });
+  if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
+  if (comment.authorId !== req.user!.id) return fail(res, 403, 'Only the comment owner can edit this discussion item', 'FORBIDDEN');
+  if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
+  await prisma.comment.update({ where: { id: comment.id }, data: { text: String(req.body.text).trim() } });
+  return respondWithGalleryDetail(res, req.params.id, req.user?.id);
 });
 
 galleryRouter.delete('/:id/comments/:commentId', auth, async (req, res) => {
-  const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
-  if (!comment) return fail(res, 404, 'Not found', 'NOT_FOUND');
+  const comment = await prisma.comment.findFirst({
+    where: { id: req.params.commentId, entityType: EntityType.gallery, entityId: req.params.id }
+  });
+  if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
   if (!(canModerateDiscussion(req.user!) || comment.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  return ok(res, await prisma.comment.delete({ where: { id: comment.id } }));
+  await prisma.comment.delete({ where: { id: comment.id } });
+  return respondWithGalleryDetail(res, req.params.id, req.user?.id);
 });
 
 galleryRouter.put('/:id/comments/:commentId/replies/:replyId', auth, async (req, res) => {
-  const reply = await prisma.reply.findUnique({ where: { id: req.params.replyId } });
-  if (!reply) return fail(res, 404, 'Not found', 'NOT_FOUND');
-  if (!(canModerateDiscussion(req.user!) || reply.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  return ok(res, await prisma.reply.update({ where: { id: reply.id }, data: { text: req.body.text } }));
+  const reply = await prisma.reply.findUnique({ where: { id: req.params.replyId }, include: { comment: true } });
+  if (!reply || reply.comment.entityType !== EntityType.gallery || reply.comment.entityId !== req.params.id || reply.commentId !== req.params.commentId) {
+    return fail(res, 404, 'Reply not found', 'NOT_FOUND');
+  }
+  if (reply.authorId !== req.user!.id) return fail(res, 403, 'Only the reply owner can edit this discussion item', 'FORBIDDEN');
+  if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
+  await prisma.reply.update({ where: { id: reply.id }, data: { text: String(req.body.text).trim() } });
+  return respondWithGalleryDetail(res, req.params.id, req.user?.id);
 });
 
 galleryRouter.delete('/:id/comments/:commentId/replies/:replyId', auth, async (req, res) => {
-  const reply = await prisma.reply.findUnique({ where: { id: req.params.replyId } });
-  if (!reply) return fail(res, 404, 'Not found', 'NOT_FOUND');
+  const reply = await prisma.reply.findUnique({ where: { id: req.params.replyId }, include: { comment: true } });
+  if (!reply || reply.comment.entityType !== EntityType.gallery || reply.comment.entityId !== req.params.id || reply.commentId !== req.params.commentId) {
+    return fail(res, 404, 'Reply not found', 'NOT_FOUND');
+  }
   if (!(canModerateDiscussion(req.user!) || reply.authorId === req.user!.id)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
-  return ok(res, await prisma.reply.delete({ where: { id: reply.id } }));
+  await prisma.reply.delete({ where: { id: reply.id } });
+  return respondWithGalleryDetail(res, req.params.id, req.user?.id);
 });

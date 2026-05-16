@@ -115,5 +115,5 @@ export const canWriteLore = (u: AuthUser, category: string) => {
   return false;
 };
 
-export const canModerateDiscussion = (u: AuthUser) => u.level === 7 || (u.level === 6 && u.track === Track.executive);
+export const canModerateDiscussion = (u: AuthUser) => u.level >= 6;
 export const canWriteGallery = (u: AuthUser) => u.level >= 6 && u.role !== Role.guest;

@@ -234,8 +234,8 @@ projectsRouter.put('/:id/comments/:commentId', auth, async (req, res) => {
     where: { id: req.params.commentId, entityType: EntityType.project, entityId: req.params.id }
   });
   if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
-  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || comment.authorId === req.user!.id)) {
-    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (comment.authorId !== req.user!.id) {
+    return fail(res, 403, 'Only the comment owner can edit this discussion item', 'FORBIDDEN');
   }
   if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Comment text is required', 'VALIDATION_ERROR');
 
@@ -248,7 +248,7 @@ projectsRouter.delete('/:id/comments/:commentId', auth, async (req, res) => {
     where: { id: req.params.commentId, entityType: EntityType.project, entityId: req.params.id }
   });
   if (!comment) return fail(res, 404, 'Comment not found', 'NOT_FOUND');
-  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || comment.authorId === req.user!.id)) {
+  if (!(req.user!.level >= 6 || comment.authorId === req.user!.id)) {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   }
 
@@ -266,8 +266,8 @@ projectsRouter.put('/:id/comments/:commentId/replies/:replyId', auth, async (req
   ) {
     return fail(res, 404, 'Reply not found', 'NOT_FOUND');
   }
-  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || reply.authorId === req.user!.id)) {
-    return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  if (reply.authorId !== req.user!.id) {
+    return fail(res, 403, 'Only the reply owner can edit this discussion item', 'FORBIDDEN');
   }
   if (!String(req.body.text ?? '').trim()) return fail(res, 422, 'Reply text is required', 'VALIDATION_ERROR');
 
@@ -285,7 +285,7 @@ projectsRouter.delete('/:id/comments/:commentId/replies/:replyId', auth, async (
   ) {
     return fail(res, 404, 'Reply not found', 'NOT_FOUND');
   }
-  if (!(req.user!.level === 7 || (req.user!.level === 6 && req.user!.track === 'executive') || reply.authorId === req.user!.id)) {
+  if (!(req.user!.level >= 6 || reply.authorId === req.user!.id)) {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   }
 
