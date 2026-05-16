@@ -1,6 +1,6 @@
 # Morneven Backend Railway QA Endpoint Test Guide
 
-Document version: `2026-05-16-r2`
+Document version: `2026-05-16-r3-handoff`
 Last updated: 2026-05-16
 
 This guide is written for QA endpoint testing against the deployed Railway backend. It expands the original smoke-test guide with request payloads, response contracts, validation rules, query parameters, negative test ideas, seed IDs, and cleanup guidance.
@@ -10,40 +10,43 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 | Item | Value |
 | --- | --- |
 | Current frontend URL | `https://morneven.com` |
-| Current backend development URL | `https://morneven-backend-development.up.railway.app` |
+| Active backend staging URL | `https://morneven-backend-development.up.railway.app` |
 | Current backend API base | `https://morneven-backend-development.up.railway.app/api` |
 | Current backend WebSocket | `wss://morneven-backend-development.up.railway.app/ws/chat?token=<token>` |
+| Migration target backend URL | `https://morneven-backend-staging.up.railway.app` |
 | Default API prefix | `/api` |
 | Compatibility prefix | `/v1` |
 | Node.js runtime | `>=24` |
 | Deployment type | Railway deployments for demo and backend integration testing |
 | Production QA scope | Read-only smoke, readiness, auth, and non-destructive RBAC verification only |
-| Development QA scope | Full functional QA, mutation testing, destructive testing, cleanup verification, and workflow side-effect testing |
+| Staging QA scope | Full functional QA, mutation testing, destructive testing, cleanup verification, and workflow side-effect testing |
 | Backend version known from repository | `package.json` version `0.1.0` |
-| Build identifier endpoint | Not available yet |
+| Build identifier endpoint | `/version` and `/api/version` |
 
 Important safety rules:
 
-- Update label: 2026-05-16-r2. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
-- Use the current backend development URL for full QA, mutation testing, destructive testing, cleanup verification, extraction testing, and workflow side-effect testing.
+- Update label: 2026-05-16-r3-handoff. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
+- Owner has confirmed all relevant instances now use `NODE_ENV=production`. Rerun must verify this through `/version` and `/api/version`.
+- Use the active backend staging URL for full QA, mutation testing, destructive testing, cleanup verification, extraction testing, and workflow side-effect testing.
+- Use `https://morneven-backend-staging.up.railway.app` as the migration target only when QA has explicit approval to overwrite that target data.
 - Use any production URL only for read-only smoke checks unless the project owner gives separate written approval.
 - Run read-only smoke tests first on the target environment before any mutation.
-- For mutating tests on the current backend development URL, create QA-owned records with a prefix such as `QA-20260515-<initials>-<short-purpose>`.
-- Destructive testing is allowed on the current backend development URL, including update, delete, request approval or rejection, file upload, extraction job cleanup, chat message deletion, and cleanup validation.
+- For mutating tests on the active backend staging URL, create QA-owned records with a prefix such as `QA-20260516-R3-<initials>-<short-purpose>`.
+- Destructive testing is allowed on the active backend staging URL, including update, delete, request approval or rejection, file upload, extraction job cleanup, chat message deletion, manual chat group deletion, and cleanup validation.
 - Do not update or delete production/demo records on any production URL.
-- Avoid running extraction jobs repeatedly even on the current backend development URL because they may create downloadable archives and consume storage.
+- Avoid running extraction jobs repeatedly even on the active backend staging URL because they may create downloadable archives and consume storage.
 - Record test date, base URL, API prefix, account used, and response status for every defect.
 
 Environment selection rule:
 
 | Test Type | Required Target |
 | --- | --- |
-| Read-only smoke test | Current backend development URL, or a separately approved production URL |
-| Auth login and token validation | Current backend development URL |
-| RBAC negative checks without mutation | Current backend development URL |
-| Create, update, delete, upload, extraction, and cleanup tests | Current backend development URL only |
-| Full functional QA | Current backend development URL only |
-| Destructive testing | Current backend development URL only |
+| Read-only smoke test | Active backend staging URL, migration target URL, or a separately approved production URL |
+| Auth login and token validation | Active backend staging URL |
+| RBAC negative checks without mutation | Active backend staging URL |
+| Create, update, delete, upload, extraction, and cleanup tests | Active backend staging URL only |
+| Full functional QA | Active backend staging URL only |
+| Destructive testing | Active backend staging URL only |
 
 If QA is testing against any production URL, stop before any create, update, delete, upload, extraction, approval, rejection, or cleanup action.
 
@@ -67,7 +70,7 @@ Expected health response shape:
   "success": true,
   "data": {
     "status": "ok",
-    "env": "production-or-development"
+    "env": "production"
   }
 }
 ```
