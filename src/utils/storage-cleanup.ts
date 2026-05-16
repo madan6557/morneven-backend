@@ -48,6 +48,7 @@ type LoreAssetRecord = {
 const STORAGE_URL_RE = /https?:\/\/(?:[^/]+\.)?storageapi\.dev\/[^/]+\/(.+)/i;
 const S3_URL_RE = /https?:\/\/[^/]+\.s3\.(?:amazonaws\.com|[^/]+)\/(.+)/i;
 const S3_PROTOCOL_RE = /s3:\/\/[^/]+\/(.+)/i;
+const APP_ROUTE_RE = /^(?:lore\/(?:characters\/char-|creatures\/creature-|places\/place-|technology\/tech-|events\/(?:evt-|event-)|other\/other-)|projects\/proj-|gallery\/gal-|news\/news-|maps?|chat)(?:[a-z0-9_-]+)?$/i;
 
 const asObject = (value: unknown): JsonRecord => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -60,6 +61,8 @@ const addPath = (set: Set<string>, rawValue: unknown) => {
   const objectPath = extractStorageObjectPath(rawValue);
   if (objectPath) set.add(objectPath);
 };
+
+const isApplicationRoutePath = (value: string) => APP_ROUTE_RE.test(normalizeObjectPath(value));
 
 export const extractStorageObjectPath = (rawValue: unknown): string | null => {
   if (typeof rawValue !== 'string') return null;
@@ -118,6 +121,7 @@ export const extractStorageObjectPath = (rawValue: unknown): string | null => {
   }
 
   const normalized = normalizeObjectPath(value);
+  if (isApplicationRoutePath(normalized)) return null;
   return isReadableObjectPath(normalized) ? normalized : null;
 };
 

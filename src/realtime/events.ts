@@ -10,6 +10,10 @@ type RealtimeClient = {
 };
 
 const clientsByUsername = new Map<string, Set<RealtimeClient>>();
+type RealtimeSessionSelector = string | {
+  username?: string;
+  sessionId?: string;
+};
 
 export const registerRealtimeClient = (client: RealtimeClient) => {
   const clients = clientsByUsername.get(client.user.username) ?? new Set<RealtimeClient>();
@@ -32,10 +36,17 @@ export const emitToUsers = (usernames: Iterable<string>, event: string, payload:
   for (const username of usernames) emitToUser(username, event, payload);
 };
 
-export const invalidateRealtimeSessions = (username: string, payload: RealtimePayload) => {
-  for (const client of [...(clientsByUsername.get(username) ?? [])]) {
-    client.send('auth.session.invalidated', payload);
-    client.close?.();
+export const invalidateRealtimeSessions = (selector: RealtimeSessionSelector, payload: RealtimePayload) => {
+  const username = typeof selector === 'string' ? selector : selector.username;
+  const sessionId = typeof selector === 'string' ? undefined : selector.sessionId;
+  const clientSets = username ? [clientsByUsername.get(username)] : [...clientsByUsername.values()];
+
+  for (const clients of clientSets) {
+    for (const client of [...(clients ?? [])]) {
+      if (sessionId && client.user.sessionId !== sessionId) continue;
+      client.send('auth.session.invalidated', payload);
+      client.close?.();
+    }
   }
 };
 

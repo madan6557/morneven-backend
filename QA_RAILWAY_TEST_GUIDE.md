@@ -1,6 +1,6 @@
 # Morneven Backend Railway QA Endpoint Test Guide
 
-Document version: `2026-05-16-r3-handoff`
+Document version: `2026-05-16-post-r3-fix`
 Last updated: 2026-05-16
 
 This guide is written for QA endpoint testing against the deployed Railway backend. It expands the original smoke-test guide with request payloads, response contracts, validation rules, query parameters, negative test ideas, seed IDs, and cleanup guidance.
@@ -25,13 +25,14 @@ This guide is written for QA endpoint testing against the deployed Railway backe
 
 Important safety rules:
 
-- Update label: 2026-05-16-r3-handoff. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
+- Update label: 2026-05-16-post-r3-fix. Use `https://morneven-backend-development.up.railway.app` as the active backend target for this QA cycle.
+- R3 P1 fixes included backend migration asset filtering for internal route links and session-specific WebSocket invalidation after security session revoke.
 - Owner has confirmed all relevant instances now use `NODE_ENV=production`. Rerun must verify this through `/version` and `/api/version`.
 - Use the active backend staging URL for full QA, mutation testing, destructive testing, cleanup verification, extraction testing, and workflow side-effect testing.
 - Use `https://morneven-backend-staging.up.railway.app` as the migration target only when QA has explicit approval to overwrite that target data.
 - Use any production URL only for read-only smoke checks unless the project owner gives separate written approval.
 - Run read-only smoke tests first on the target environment before any mutation.
-- For mutating tests on the active backend staging URL, create QA-owned records with a prefix such as `QA-20260516-R3-<initials>-<short-purpose>`.
+- For mutating tests on the active backend staging URL, create QA-owned records with a prefix such as `QA-20260516-R4-<initials>-<short-purpose>`.
 - Destructive testing is allowed on the active backend staging URL, including update, delete, request approval or rejection, file upload, extraction job cleanup, chat message deletion, manual chat group deletion, and cleanup validation.
 - Do not update or delete production/demo records on any production URL.
 - Avoid running extraction jobs repeatedly even on the active backend staging URL because they may create downloadable archives and consume storage.

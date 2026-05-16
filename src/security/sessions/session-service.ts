@@ -3,6 +3,7 @@ import { prisma } from '../../config/prisma.js';
 import { securityFeatures } from '../config.js';
 import { createSecurityContext } from '../context.js';
 import { recordSecurityEvent } from '../audit/events.js';
+import { invalidateRealtimeSessions } from '../../realtime/events.js';
 
 export const createSecuritySession = async (
   userId: string,
@@ -35,10 +36,24 @@ export const touchSecuritySession = async (sessionId?: string, riskScore?: numbe
 
 export const revokeSecuritySessions = async (input: { userId?: string; sessionId?: string; reason: string }) => {
   if (!securityFeatures.audit) return { count: 0 };
-  return prisma.securitySession.updateMany({
+  const sessions = await prisma.securitySession.findMany({
     where: {
       ...(input.userId ? { userId: input.userId } : {}),
       ...(input.sessionId ? { id: input.sessionId } : {}),
+      revokedAt: null
+    },
+    include: {
+      user: {
+        select: {
+          username: true
+        }
+      }
+    }
+  });
+
+  const result = await prisma.securitySession.updateMany({
+    where: {
+      id: { in: sessions.map((session) => session.id) },
       revokedAt: null
     },
     data: {
@@ -46,6 +61,18 @@ export const revokeSecuritySessions = async (input: { userId?: string; sessionId
       revokeReason: input.reason
     }
   });
+
+  for (const session of sessions) {
+    invalidateRealtimeSessions(
+      { username: session.user.username, sessionId: session.id },
+      {
+        reason: input.reason,
+        sessionId: session.id
+      }
+    );
+  }
+
+  return result;
 };
 
 export const ensureSessionAllowed = async (req: Request, sessionId?: string) => {
