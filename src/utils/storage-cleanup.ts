@@ -173,9 +173,10 @@ const collectNewsStoragePaths = (item: { thumbnail: string | null; attachments: 
   return paths;
 };
 
-const collectGalleryStoragePaths = (item: { thumbnail: string | null; videoUrl: string | null }) => {
+const collectGalleryStoragePaths = (item: { thumbnail: string | null; mediaUrl?: string | null; videoUrl: string | null }) => {
   const paths = new Set<string>();
   addPath(paths, item.thumbnail);
+  addPath(paths, item.mediaUrl ?? null);
   addPath(paths, item.videoUrl);
   return paths;
 };
@@ -207,7 +208,7 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     prisma.loreItem.findMany({ select: { id: true, category: true, thumbnail: true, metadata: true } }),
     prisma.entityDoc.findMany({ select: { entityId: true, entityType: true, url: true } }),
     prisma.news.findMany({ select: { thumbnail: true, attachments: { select: { url: true } } } }),
-    prisma.galleryItem.findMany({ select: { thumbnail: true, videoUrl: true } }),
+    prisma.galleryItem.findMany({ select: { thumbnail: true, mediaUrl: true, videoUrl: true } }),
     prisma.mapImage.findUnique({ where: { id: 'main' }, select: { imageUrl: true } }),
     prisma.chatMessage.findMany({ select: { attachments: true } }),
     prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } })

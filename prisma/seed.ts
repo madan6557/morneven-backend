@@ -421,12 +421,14 @@ async function main() {
   for (const item of gallery) {
     galleryOrdinal += 1;
     const uploader = usersByUsername.get(normalizeUsername(item.uploadedBy)) ?? fallbackAuthorId;
+    const mediaType = toMediaType(item.type);
     const createdGallery = await prisma.galleryItem.create({
       data: {
         id: item.id,
-        type: toMediaType(item.type),
+        type: mediaType,
         title: item.title,
         thumbnail: item.thumbnail || '',
+        mediaUrl: item.mediaUrl || (mediaType === MediaType.image ? item.videoUrl || null : null),
         caption: item.caption,
         videoUrl: item.videoUrl || null,
         uploadDate: item.date ? new Date(item.date) : new Date(),

@@ -24,6 +24,7 @@ const gallerySchema = z.object({
   type: z.enum(['image', 'video']).default('image'),
   title: z.string().min(1).max(160),
   thumbnail: z.string().optional().default(''),
+  mediaUrl: z.string().optional().nullable(),
   videoUrl: z.string().optional(),
   caption: z.string().min(1),
   tags: z.array(z.string()).optional().default([]),
@@ -178,6 +179,7 @@ galleryRouter.post('/', auth, allow(canWriteGallery), async (req, res) => {
       type: parsed.data.type === 'video' ? MediaType.video : MediaType.image,
       title: parsed.data.title,
       thumbnail: parsed.data.thumbnail,
+      mediaUrl: parsed.data.mediaUrl || null,
       videoUrl: parsed.data.videoUrl,
       caption: parsed.data.caption,
       uploadDate: parsed.data.date ? new Date(parsed.data.date) : new Date(),
@@ -216,6 +218,7 @@ galleryRouter.put('/:id', auth, async (req, res) => {
         ...(parsed.data.type ? { type: parsed.data.type === 'video' ? MediaType.video : MediaType.image } : {}),
         ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
         ...(parsed.data.thumbnail !== undefined ? { thumbnail: parsed.data.thumbnail } : {}),
+        ...(parsed.data.mediaUrl !== undefined ? { mediaUrl: parsed.data.mediaUrl || null } : {}),
         ...(parsed.data.videoUrl !== undefined ? { videoUrl: parsed.data.videoUrl } : {}),
         ...(parsed.data.caption !== undefined ? { caption: parsed.data.caption } : {}),
         ...(parsed.data.date !== undefined ? { uploadDate: new Date(parsed.data.date) } : {})

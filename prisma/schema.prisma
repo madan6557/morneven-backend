@@ -225,6 +225,7 @@ model GalleryItem {
   type       MediaType
   title      String
   thumbnail  String    @default("")
+  mediaUrl   String?
   caption    String
   videoUrl   String?
   uploadDate DateTime  @default(now())

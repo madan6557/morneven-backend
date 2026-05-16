@@ -120,6 +120,7 @@ export const serializeGalleryItem = (
   type: item.type === MediaType.video ? 'video' : 'image',
   title: item.title,
   thumbnail: item.thumbnail ?? '',
+  mediaUrl: item.mediaUrl ?? undefined,
   videoUrl: item.videoUrl ?? undefined,
   caption: item.caption,
   tags: item.tags.map((tag) => tag.tag),

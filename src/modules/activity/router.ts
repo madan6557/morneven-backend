@@ -105,7 +105,7 @@ const loadContentRows = async (category: ContentEntityType | 'all', q: string) =
             ]
           }
         : undefined,
-      select: { id: true, title: true, thumbnail: true, caption: true, uploadDate: true }
+      select: { id: true, title: true, thumbnail: true, mediaUrl: true, caption: true, uploadDate: true }
     });
     rows.push(
       ...gallery.map((item) => ({
@@ -113,7 +113,7 @@ const loadContentRows = async (category: ContentEntityType | 'all', q: string) =
         entityType: EntityType.gallery,
         category: categoryLabels.gallery,
         title: item.title,
-        thumbnail: item.thumbnail ?? '',
+        thumbnail: item.thumbnail || item.mediaUrl || '',
         subtitle: item.caption,
         date: dateOnly(item.uploadDate),
         url: contentUrl(EntityType.gallery, item.id)
