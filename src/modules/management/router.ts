@@ -150,6 +150,56 @@ managementRouter.post('/requests', auth, async (req, res) => {
   return res.status(201).json({ success: true, data: created });
 });
 
+managementRouter.delete('/requests/mine/history', auth, async (req, res) => {
+  if (req.user!.level < 1) return fail(res, 403, 'Personnel access required', 'FORBIDDEN');
+
+  const deleted = await prisma.managementRequest.deleteMany({
+    where: {
+      requester: req.user!.username,
+      status: { not: 'pending' }
+    }
+  });
+
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'mgmt.request.history.clear',
+    entity: 'ManagementRequest',
+    metadata: { count: deleted.count }
+  });
+  await emitNavigationBadgesUpdated(req.user!);
+  emitToMatchingClients(
+    (viewer) => viewer.username === req.user!.username || viewer.level >= 4,
+    'management.updated',
+    { entity: 'request', action: 'deleted', count: deleted.count }
+  );
+  return ok(res, { deleted: deleted.count });
+});
+
+managementRouter.delete('/requests/:id', auth, async (req, res) => {
+  if (req.user!.level < 1) return fail(res, 403, 'Personnel access required', 'FORBIDDEN');
+
+  const request = await prisma.managementRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return fail(res, 404, 'Request not found', 'NOT_FOUND');
+  if (request.requester !== req.user!.username) return fail(res, 403, 'Only the requester can delete their own history item', 'FORBIDDEN');
+  if (request.status === 'pending') return fail(res, 409, 'Pending management requests cannot be deleted from history', 'CONFLICT');
+
+  await prisma.managementRequest.delete({ where: { id: request.id } });
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'mgmt.request.delete',
+    entity: 'ManagementRequest',
+    entityId: request.id,
+    metadata: { kind: request.kind, status: request.status }
+  });
+  await emitNavigationBadgesUpdated(req.user!);
+  emitToMatchingClients(
+    (viewer) => viewer.username === request.requester || viewer.level >= 4,
+    'management.updated',
+    { entity: 'request', id: request.id, action: 'deleted' }
+  );
+  return ok(res, { id: request.id, deleted: true });
+});
+
 managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
   const parsed = decisionSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());

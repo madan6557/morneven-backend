@@ -680,6 +680,7 @@ async function runChatFlowTests() {
 async function runManagementAndNotificationTests() {
   const execToken = state.tokens.exec7;
   const authorToken = state.tokens.author;
+  const requesterToken = state.tokens.exec6 ?? authorToken;
 
   if (!execToken) {
     addBlocked(
@@ -697,7 +698,7 @@ async function runManagementAndNotificationTests() {
     name: "Create QA management request",
     method: "POST",
     path: `${config.apiPrefix}/management/requests`,
-    token: authorToken,
+    token: requesterToken,
     body: {
       kind: "executive_promotion",
       payload: {
@@ -710,15 +711,30 @@ async function runManagementAndNotificationTests() {
     expected: "Management request is created",
   });
   const requestId = extractId(request.body);
-  if (requestId) {
+  if (requestId && requesterToken !== authorToken) {
+    await requestTest({
+      suite: "Management",
+      name: "Reject QA management request before cleanup",
+      method: "POST",
+      path: `${config.apiPrefix}/management/requests/${requestId}/decide`,
+      token: authorToken,
+      body: {
+        decision: "rejected",
+        reviewNote: `${config.runId} cleanup rejection`,
+      },
+      expectedStatuses: [200],
+      expected: "Management request is resolved before requester cleanup",
+    });
+    await cleanupOne("Management request", requestId, `${config.apiPrefix}/management/requests/${requestId}`, requesterToken);
+  } else if (requestId) {
     addRecord({
       suite: "Cleanup",
-      name: "Management request cleanup note",
-      method: "N/A",
+      name: "Management request cleanup skipped",
+      method: "DELETE",
       path: `${config.apiPrefix}/management/requests/${requestId}`,
-      expected: "No hard-delete endpoint exists",
+      expected: "Separate requester and reviewer accounts are required",
       status: "SKIP",
-      actual: "Management request left behind or decided by workflow.",
+      actual: "QA_EXEC6_EMAIL login is unavailable, so the pending request cannot be safely resolved by another user.",
     });
   }
 
