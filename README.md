@@ -67,9 +67,9 @@ PORT=3000
 NODE_ENV="development"
 CORS_ORIGIN="http://localhost:3000"
 RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=200
+RATE_LIMIT_MAX=1200
 AUTH_RATE_LIMIT_WINDOW_MS=900000
-AUTH_RATE_LIMIT_MAX=10
+AUTH_RATE_LIMIT_MAX=100
 SECURITY_LEVEL=5
 SECURITY_BLOCK_TTL_MS=900000
 SECURITY_RETENTION_DAYS=90
@@ -120,6 +120,7 @@ Before going live, validate these items:
 - Helmet security headers enabled.
 - CORS policy constrained by `CORS_ORIGIN`.
 - Global rate limiting enabled (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`) plus stricter auth endpoint limiter.
+- Recommended production launch values are `RATE_LIMIT_WINDOW_MS=900000`, `RATE_LIMIT_MAX=1200`, `AUTH_RATE_LIMIT_WINDOW_MS=900000`, and `AUTH_RATE_LIMIT_MAX=100`.
 - Modular security layer controlled by `SECURITY_LEVEL`, where `0` disables the module and `5` enables the full security posture.
 - Security event, session, temporary block, and file scan records are available through `/api/security/*` for authorized security operators.
 - Uploads are checked with MIME allowlist, file signature validation, SHA-256 hashing, and provider-ready scan abstraction.

@@ -1,0 +1,94 @@
+{
+  "summary": {
+    "runId": "QA-20260516-CODEX-STAGING-R4-BROWSER-SMOKE",
+    "startedAt": "2026-05-16T06:41:35.278Z",
+    "endedAt": "2026-05-16T06:42:08.150Z",
+    "frontend": "https://morneven.com",
+    "account": "author@morneven.com",
+    "routeCount": 3,
+    "viewportCount": 2,
+    "totals": {
+      "PASS": 6
+    }
+  },
+  "records": [
+    {
+      "timestamp": "2026-05-16T06:41:40.204Z",
+      "suite": "Browser smoke",
+      "status": "PASS",
+      "name": "desktop /chat renders without crash",
+      "viewport": "desktop",
+      "viewportSize": "1366x768",
+      "route": "/chat",
+      "expected": "Route renders with content and no blocking console errors",
+      "actual": "url=https://morneven.com/chat; contentLength=500; consoleErrors=0; crash=false",
+      "sample": "- region \"Notifications (F8)\": - list - region \"Notifications alt+T\" - complementary: - img \"Morneven\" - generic: Morneven - paragraph: author - paragraph: author - generic: Clearance - combobox \"Personnel Level clearance switcher\": - option \"L0\" - option \"L1\" - option \"L2\" - option \"L3\" - option \"L4\" - option \"L5\" - option \"L6\" - option \"L7 (Full)\" [selected] - generic: Track - img \"Executive\" - combobox \"Personnel Track switcher\": - option \"GOV\" [selected] - option \"OPS\" - option \"ENG\" - optio",
+      "consoleErrors": []
+    },
+    {
+      "timestamp": "2026-05-16T06:41:45.518Z",
+      "suite": "Browser smoke",
+      "status": "PASS",
+      "name": "desktop /settings renders without crash",
+      "viewport": "desktop",
+      "viewportSize": "1366x768",
+      "route": "/settings",
+      "expected": "Route renders with content and no blocking console errors",
+      "actual": "url=https://morneven.com/settings; contentLength=500; consoleErrors=0; crash=false",
+      "sample": "- region \"Notifications (F8)\": - list - region \"Notifications alt+T\" - complementary: - img \"Morneven\" - generic: Morneven - paragraph: author - paragraph: author - generic: Clearance - combobox \"Personnel Level clearance switcher\": - option \"L0\" - option \"L1\" - option \"L2\" - option \"L3\" - option \"L4\" - option \"L5\" - option \"L6\" - option \"L7 (Full)\" [selected] - generic: Track - img \"Executive\" - combobox \"Personnel Track switcher\": - option \"GOV\" [selected] - option \"OPS\" - option \"ENG\" - optio",
+      "consoleErrors": []
+    },
+    {
+      "timestamp": "2026-05-16T06:41:49.967Z",
+      "suite": "Browser smoke",
+      "status": "PASS",
+      "name": "desktop /security renders without crash",
+      "viewport": "desktop",
+      "viewportSize": "1366x768",
+      "route": "/security",
+      "expected": "Route renders with content and no blocking console errors",
+      "actual": "url=https://morneven.com/security; contentLength=500; consoleErrors=0; crash=false",
+      "sample": "- region \"Notifications (F8)\": - list - region \"Notifications alt+T\" - complementary: - img \"Morneven\" - generic: Morneven - paragraph: author - paragraph: author - generic: Clearance - combobox \"Personnel Level clearance switcher\": - option \"L0\" - option \"L1\" - option \"L2\" - option \"L3\" - option \"L4\" - option \"L5\" - option \"L6\" - option \"L7 (Full)\" [selected] - generic: Track - img \"Executive\" - combobox \"Personnel Track switcher\": - option \"GOV\" [selected] - option \"OPS\" - option \"ENG\" - optio",
+      "consoleErrors": []
+    },
+    {
+      "timestamp": "2026-05-16T06:41:57.839Z",
+      "suite": "Browser smoke",
+      "status": "PASS",
+      "name": "mobile /chat renders without crash",
+      "viewport": "mobile",
+      "viewportSize": "390x844",
+      "route": "/chat",
+      "expected": "Route renders with content and no blocking console errors",
+      "actual": "url=https://morneven.com/chat; contentLength=500; consoleErrors=0; crash=false",
+      "sample": "- region \"Notifications (F8)\": - list - region \"Notifications alt+T\" - main: - button \"Open navigation\": - generic: Morneven - button \"Notifications\": - generic: \"8\" - paragraph: CHAT - paragraph: 12 channels active - button \"INVITES\": - text: INVITES - button \"DM\": - text: DM - button \"GROUP\": - text: GROUP - textbox \"Search channels\" - button \"QA-20260516-CODEX-STAGING-FULL Group Manual Group\": - generic: QA-20260516-CODEX-STAGING-FULL Group - generic: Manual Group - button \"QA-20260516-CODEX-",
+      "consoleErrors": []
+    },
+    {
+      "timestamp": "2026-05-16T06:42:02.596Z",
+      "suite": "Browser smoke",
+      "status": "PASS",
+      "name": "mobile /settings renders without crash",
+      "viewport": "mobile",
+      "viewportSize": "390x844",
+      "route": "/settings",
+      "expected": "Route renders with content and no blocking console errors",
+      "actual": "url=https://morneven.com/settings; contentLength=500; consoleErrors=0; crash=false",
+      "sample": "- region \"Notifications (F8)\": - list - region \"Notifications alt+T\" - main: - button \"Open navigation\": - generic: Morneven - button \"Notifications\": - generic: \"8\" - heading \"SETTINGS\" [level=1] - paragraph: Control appearance, account security, clearance obligations, and high-risk maintenance actions from one operational page. - generic: Clearance - paragraph: L7 - paragraph: Full Authority - generic: Track - paragraph: GOV - paragraph: Executive - generic: Role - paragraph: AUTHOR - paragrap",
+      "consoleErrors": []
+    },
+    {
+      "timestamp": "2026-05-16T06:42:08.148Z",
+      "suite": "Browser smoke",
+      "status": "PASS",
+      "name": "mobile /security renders without crash",
+      "viewport": "mobile",
+      "viewportSize": "390x844",
+      "route": "/security",
+      "expected": "Route renders with content and no blocking console errors",
+      "actual": "url=https://morneven.com/security; contentLength=500; consoleErrors=0; crash=false",
+      "sample": "- region \"Notifications (F8)\": - list - region \"Notifications alt+T\" - main: - button \"Open navigation\": - generic: Morneven - button \"Notifications\": - generic: \"8\" - paragraph: Security Manager Console - heading \"Security\" [level=1] - paragraph: Global security posture, event evidence, session control, block control, and upload scan visibility. - button \"Refresh\": - text: Refresh - paragraph: Security level - paragraph: 5/5 - paragraph: full - paragraph: Events 24h - paragraph: \"1048\" - paragr",
+      "consoleErrors": []
+    }
+  ]
+}

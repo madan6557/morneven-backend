@@ -61,9 +61,9 @@ JWT_ACCESS_SECRET=<32+ char random secret>
 JWT_REFRESH_SECRET=<32+ char random secret>
 CORS_ORIGIN=https://<frontend-domain>
 RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=200
+RATE_LIMIT_MAX=1200
 AUTH_RATE_LIMIT_WINDOW_MS=900000
-AUTH_RATE_LIMIT_MAX=10
+AUTH_RATE_LIMIT_MAX=100
 MAX_UPLOAD_MB=20
 STORAGE_DRIVER=local
 LOCAL_STORAGE_PATH=/data/storage
@@ -202,7 +202,10 @@ Before switching FE services from localStorage to REST:
 ## 9. Operational Notes
 
 - Do not set `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` to sample values.
-- Keep `AUTH_RATE_LIMIT_MAX` strict in production.
+- Recommended production launch rate limits are `RATE_LIMIT_WINDOW_MS=900000`, `RATE_LIMIT_MAX=1200`, `AUTH_RATE_LIMIT_WINDOW_MS=900000`, and `AUTH_RATE_LIMIT_MAX=100`.
+- This balanced profile matches the staging values that passed R4 and leaves headroom for protected file proxy, responsive image loading, chat, and token refresh traffic.
+- If abuse appears after launch, tighten to `RATE_LIMIT_MAX=600` and `AUTH_RATE_LIMIT_MAX=50` only after confirming normal users are not hitting `429`.
+- Keep auth rate limiting stricter than global API limiting in production.
 - Use a persistent storage driver before enabling uploads for real users.
 - Back up PostgreSQL before running seed or destructive maintenance commands.
 - Treat a passing Railway deploy as smoke status only. Functional QA must still run with the frontend connected to this backend.
