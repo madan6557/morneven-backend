@@ -2,8 +2,3 @@ node_modules/
 dist/
 .env
 prisma/dev.db
-
-
-# Local archive
-Backup/
-

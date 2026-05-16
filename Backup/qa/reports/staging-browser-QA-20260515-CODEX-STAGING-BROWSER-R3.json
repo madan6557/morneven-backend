@@ -1,0 +1,333 @@
+{
+  "summary": {
+    "runId": "QA-20260515-CODEX-STAGING-BROWSER-R3",
+    "frontend": "https://morneven.com",
+    "backend": "https://morneven-backend-development.up.railway.app",
+    "browser": "chromium",
+    "authMeFulfilledFromValidatedToken": true,
+    "totals": {
+      "FAIL": 4,
+      "PASS": 8
+    },
+    "apiTargets": [
+      "https://morneven-backend-development.up.railway.app"
+    ],
+    "badApiTargets": []
+  },
+  "records": [
+    {
+      "status": "FAIL",
+      "viewport": "desktop-1366x768",
+      "route": "/gallery",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Issue title=Morneven Institute textLength=815",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 815,
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+        ],
+        "pageErrors": [],
+        "responseFailures": [
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=gallery%2F1778356636470-20eb93b1-5f59-4c81-956e-a3a21ba7ddb5-WhatsApp_Image_2023-11-23_at_13.22.48.jpeg"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=gallery%2F1778356545629-f25724a9-14f4-4084-bd93-d8d4f144b6c7-Untitled26__1_.png"
+          }
+        ]
+      }
+    },
+    {
+      "status": "FAIL",
+      "viewport": "desktop-1366x768",
+      "route": "/lore",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Issue title=Morneven Institute textLength=1372",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 1372,
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+        ],
+        "pageErrors": [],
+        "responseFailures": [
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355647450-48dba50d-83b2-4be3-b8a1-7794b0b8a91f-Ameth_23by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355299145-87dd2951-fa56-4145-83a6-50f400476168-Marine_3by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778812726338-557a0325-35ab-4621-aad5-8ea6efe67971-08_Shafira3b4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778266080949-87664077-81f4-4726-8d5e-f8bede30ffe4-Sora_3by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778264862534-66ac92e0-ae6b-4aef-9a63-e3651f55a460-Sola_Delight.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355507654-07bc606e-1c57-4f26-9187-0e3900f4eb95-Garnet_233by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355917156-9b1e59f3-55f9-494d-99f2-76fa9a46e7a0-04_Diana3by4.png"
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1366x768",
+      "route": "/author",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=1453",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 1453,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1366x768",
+      "route": "/personnel",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=2514",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 2514,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1366x768",
+      "route": "/management",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=722",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 722,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1366x768",
+      "route": "/chat",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=974",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 974,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "FAIL",
+      "viewport": "desktop-1920x1080",
+      "route": "/gallery",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Issue title=Morneven Institute textLength=815",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 815,
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+        ],
+        "pageErrors": [],
+        "responseFailures": [
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=gallery%2F1778356545629-f25724a9-14f4-4084-bd93-d8d4f144b6c7-Untitled26__1_.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=gallery%2F1778356636470-20eb93b1-5f59-4c81-956e-a3a21ba7ddb5-WhatsApp_Image_2023-11-23_at_13.22.48.jpeg"
+          }
+        ]
+      }
+    },
+    {
+      "status": "FAIL",
+      "viewport": "desktop-1920x1080",
+      "route": "/lore",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Issue title=Morneven Institute textLength=1372",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 1372,
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: the server responded with a status of 429 ()",
+          "❌ Failed to fetch file from proxy: 429 {\"success\":false,\"message\":\"Too many requests, please try again later.\",\"errorCode\":\"RATE_LIMITED\"}",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin",
+          "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+        ],
+        "pageErrors": [],
+        "responseFailures": [
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355917156-9b1e59f3-55f9-494d-99f2-76fa9a46e7a0-04_Diana3by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355507654-07bc606e-1c57-4f26-9187-0e3900f4eb95-Garnet_233by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355647450-48dba50d-83b2-4be3-b8a1-7794b0b8a91f-Ameth_23by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778355299145-87dd2951-fa56-4145-83a6-50f400476168-Marine_3by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778812726338-557a0325-35ab-4621-aad5-8ea6efe67971-08_Shafira3b4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778266080949-87664077-81f4-4726-8d5e-f8bede30ffe4-Sora_3by4.png"
+          },
+          {
+            "status": 429,
+            "url": "https://morneven-backend-development.up.railway.app/api/files/object?path=lore%2F1778264862534-66ac92e0-ae6b-4aef-9a63-e3651f55a460-Sola_Delight.png"
+          }
+        ]
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1920x1080",
+      "route": "/author",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=1453",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 1453,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1920x1080",
+      "route": "/personnel",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=2514",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 2514,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1920x1080",
+      "route": "/management",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=722",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 722,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    },
+    {
+      "status": "PASS",
+      "viewport": "desktop-1920x1080",
+      "route": "/chat",
+      "expected": "Route renders after rate-limit reset without blank screen, page error, 429, or 5xx",
+      "actual": "Rendered title=Morneven Institute textLength=974",
+      "evidence": {
+        "httpStatus": 200,
+        "title": "Morneven Institute",
+        "bodyTextLength": 974,
+        "consoleErrors": [],
+        "pageErrors": [],
+        "responseFailures": []
+      }
+    }
+  ]
+}

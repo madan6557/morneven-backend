@@ -1,0 +1,45 @@
+﻿{
+    "summary":  {
+                    "runId":  "QA-20260516-CODEX-STAGING-MIGRATION",
+                    "startedAt":  "2026-05-15T17:45:41.7860323Z",
+                    "endedAt":  "2026-05-15T17:45:41.7871137Z",
+                    "baseUrl":  "https://morneven-backend-development.up.railway.app",
+                    "totals":  {
+                                   "PASS":  2,
+                                   "FAIL":  0
+                               },
+                    "secretValueRedacted":  true
+                },
+    "records":  [
+                    {
+                        "status":  "PASS",
+                        "suite":  "Migration targeted",
+                        "name":  "Migration key accepted before object validation",
+                        "method":  "GET",
+                        "endpoint":  "/api/settings/migration/assets?path=missing-qa-object",
+                        "expected":  "422 invalid object path when key is accepted",
+                        "actual":  "HTTP 422 message=Invalid object path errorCode=VALIDATION_ERROR",
+                        "httpStatus":  422,
+                        "response":  {
+                                         "success":  false,
+                                         "message":  "Invalid object path",
+                                         "errorCode":  "VALIDATION_ERROR"
+                                     }
+                    },
+                    {
+                        "status":  "PASS",
+                        "suite":  "Migration targeted",
+                        "name":  "Invalid migration key rejected",
+                        "method":  "GET",
+                        "endpoint":  "/api/settings/migration/assets?path=missing-qa-object",
+                        "expected":  "403 invalid migration key",
+                        "actual":  "HTTP 403 message=Invalid migration key errorCode=FORBIDDEN",
+                        "httpStatus":  403,
+                        "response":  {
+                                         "success":  false,
+                                         "message":  "Invalid migration key",
+                                         "errorCode":  "FORBIDDEN"
+                                     }
+                    }
+                ]
+}

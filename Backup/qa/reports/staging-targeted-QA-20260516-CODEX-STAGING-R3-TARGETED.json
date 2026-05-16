@@ -1,0 +1,533 @@
+{
+  "summary": {
+    "runId": "QA-20260516-CODEX-STAGING-R3-TARGETED",
+    "startedAt": "2026-05-16T05:36:22.343Z",
+    "baseUrl": "https://morneven-backend-development.up.railway.app",
+    "migrationTarget": "https://morneven-backend-staging.up.railway.app",
+    "secretValuesRedacted": true,
+    "endedAt": "2026-05-16T05:36:23.973Z",
+    "totals": {
+      "PASS": 14
+    },
+    "managementRequestId": "81897818-9243-436f-9510-3ca241fc6897",
+    "uploadedPath": "uploads/1778909588828-b76de07c-c3b6-4b1b-908f-e89e692dbbb8-QA-20260516-CODEX-STAGING-R3-FULL.txt"
+  },
+  "records": [
+    {
+      "timestamp": "2026-05-16T05:36:22.664Z",
+      "status": "PASS",
+      "suite": "Auth targeted",
+      "name": "Login author",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED]",
+          "refreshToken": "[REDACTED]",
+          "user": {
+            "id": "psn-001",
+            "username": "author",
+            "email": "author@morneven.com",
+            "role": "author",
+            "status": "active",
+            "level": 7,
+            "track": "executive",
+            "note": "Founder · Full Authority",
+            "updatedAt": "2026-05-03",
+            "online": false
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:22.865Z",
+      "status": "PASS",
+      "suite": "Auth targeted",
+      "name": "Login admin",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED]",
+          "refreshToken": "[REDACTED]",
+          "user": {
+            "id": "psn-002",
+            "username": "admin",
+            "email": "admin@morneven.com",
+            "role": "author",
+            "status": "active",
+            "level": 7,
+            "track": "executive",
+            "note": "System administrator",
+            "updatedAt": "2026-05-03",
+            "online": false
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.277Z",
+      "status": "PASS",
+      "suite": "Auth targeted",
+      "name": "Login registered PL0 guest",
+      "method": "POST",
+      "endpoint": "/api/auth/login",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED]",
+          "refreshToken": "[REDACTED]",
+          "user": {
+            "id": "d91dea39-14f3-428d-8b1f-b40ebd5b0e02",
+            "username": "Guest",
+            "email": "guest@morneven.com",
+            "role": "guest",
+            "status": "active",
+            "level": 0,
+            "track": "executive",
+            "note": "Escort is mandatory",
+            "updatedAt": "2026-05-15",
+            "online": false
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.313Z",
+      "status": "PASS",
+      "suite": "Auth targeted",
+      "name": "Login anonymous guest mode",
+      "method": "POST",
+      "endpoint": "/api/auth/guest",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "token": "[REDACTED]",
+          "refreshToken": "[REDACTED]",
+          "user": {
+            "id": "guest",
+            "username": "guest",
+            "email": null,
+            "role": "guest",
+            "status": "active",
+            "level": 0,
+            "track": "executive"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.417Z",
+      "status": "PASS",
+      "suite": "Activity targeted",
+      "name": "Registered PL0 guest can access Activity overview",
+      "method": "GET",
+      "endpoint": "/api/activity/overview",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "totals": {
+            "content": 83,
+            "gallery": 11,
+            "lore": 72,
+            "comments": 7,
+            "views": 53,
+            "likes": 2,
+            "dislikes": 0,
+            "stars": 9
+          },
+          "leaders": [
+            {
+              "id": "char-011",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Marine",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778355299145-87dd2951-fa56-4145-83a6-50f400476168-Marine_3by4.png",
+              "subtitle": "Jewerlian Core Figure. Liquid manipulator and steward of Gemora's coastlines. No PL clearance.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-011",
+              "views": 13,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 2,
+              "comments": 0
+            },
+            {
+              "id": "da3b7f6a-e9e8-473f-92ad-15383e12d2fd",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Shafira",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778812726338-557a0325-35ab-4621-aad5-8ea6efe67971-08_Shafira3b4.png",
+              "subtitle": "PL5-LOG Jewerlian atelier lead, ranked second after Marine in the personnel charm vote, and creator of the Sapphire Veil Suit.",
+              "date": "2026-05-15",
+              "url": "/lore/characters/da3b7f6a-e9e8-473f-92ad-15383e12d2fd",
+              "views": 7,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 1,
+              "comments": 0
+            },
+            {
+              "id": "char-005",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Sola",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778264862534-66ac92e0-ae6b-4aef-9a63-e3651f55a460-Sola_Delight.png",
+              "subtitle": "Sole holder of the Stellar Pass and the only certified operator of Solar's Lens. Officially reports to no one.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-005",
+              "views": 6,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 2,
+              "comments": 0
+            },
+            {
+              "id": "char-007",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Ameth",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778355647450-48dba50d-83b2-4be3-b8a1-7794b0b8a91f-Ameth_23by4.png",
+              "subtitle": "Jewerlian Core Figure. Founding 'President' of Morneven turned Advisor. PL6-GOV.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-007",
+              "views": 4,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 1,
+              "comments": 0
+            },
+            {
+              "id": "char-008",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Diana",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778355917156-9b1e59f3-55f9-494d-99f2-76fa9a46e7a0-04_Diana3by4.png",
+              "subtitle": "Jewerlian Core Figure. Telepathic Hub of the Jewerlian Chamber. The Embodiment of Immovable.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-008",
+              "views": 4,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 1,
+              "comments": 0
+            },
+            {
+              "id": "char-001",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Kael Vorthane",
+              "thumbnail": "",
+              "subtitle": "Shadow Operative and Chief Tactician of Morneven Institute's Field Division.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-001",
+              "views": 4,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 0,
+              "comments": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.450Z",
+      "status": "PASS",
+      "suite": "Activity targeted",
+      "name": "Anonymous guest mode cannot access Activity overview",
+      "method": "GET",
+      "endpoint": "/api/activity/overview",
+      "httpStatus": 403,
+      "expected": "403 and validation passes",
+      "actual": "HTTP 403 message=Registered account access required",
+      "response": {
+        "success": false,
+        "message": "Registered account access required",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.494Z",
+      "status": "PASS",
+      "suite": "RBAC targeted",
+      "name": "Registered guest cannot access management pending count",
+      "method": "GET",
+      "endpoint": "/api/management/requests/pending-count",
+      "httpStatus": 403,
+      "expected": "403 and validation passes",
+      "actual": "HTTP 403 message=Personnel access required",
+      "response": {
+        "success": false,
+        "message": "Personnel access required",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.545Z",
+      "status": "PASS",
+      "suite": "Cleanup targeted",
+      "name": "Reject full runner management request residual",
+      "method": "POST",
+      "endpoint": "/api/management/requests/81897818-9243-436f-9510-3ca241fc6897/decide",
+      "httpStatus": 403,
+      "expected": "200/403/404 and validation passes",
+      "actual": "HTTP 403 message=Forbidden",
+      "response": {
+        "success": false,
+        "message": "Forbidden",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.600Z",
+      "status": "PASS",
+      "suite": "Cleanup targeted",
+      "name": "Full runner management request final state is not pending",
+      "method": "GET",
+      "endpoint": "/api/management/requests?requester=author&pageSize=100",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "id": "81897818-9243-436f-9510-3ca241fc6897",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260516-CODEX-STAGING-R3-FULL executive promotion",
+              "status": "rejected",
+              "reviewer": "admin",
+              "reviewNote": "QA-20260516-CODEX-STAGING-R3-TARGETED cleanup rejection",
+              "createdAt": "2026-05-16T05:33:08.408Z",
+              "decidedAt": "2026-05-16T05:34:38.016Z"
+            },
+            {
+              "id": "2ab52a09-ffc7-4db7-9144-cd8fe1f3030c",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260516-CODEX-STAGING-R3-FULL executive promotion",
+              "status": "pending",
+              "reviewer": null,
+              "reviewNote": null,
+              "createdAt": "2026-05-16T05:32:59.816Z",
+              "decidedAt": null
+            },
+            {
+              "id": "46efd105-a8cd-4545-b745-9e046739776c",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260516-CODEX-STAGING-R2-FULL executive promotion",
+              "status": "rejected",
+              "reviewer": "admin",
+              "reviewNote": "QA-20260516-CODEX-STAGING-R2-TARGETED cleanup rejection",
+              "createdAt": "2026-05-15T23:12:02.879Z",
+              "decidedAt": "2026-05-15T23:13:54.004Z"
+            },
+            {
+              "id": "a1873c9d-bddd-4e40-90dc-e9ef044a5c97",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260516-CODEX-STAGING-FULL executive promotion",
+              "status": "rejected",
+              "reviewer": "admin",
+              "reviewNote": "QA-20260516-CODEX-STAGING-TARGETED cleanup reject",
+              "createdAt": "2026-05-15T17:40:46.458Z",
+              "decidedAt": "2026-05-15T17:42:12.855Z"
+            },
+            {
+              "id": "1ec19def-f879-4363-85ab-857066c14893",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260516-CODEX-STAGING-RERUN executive promotion",
+              "status": "rejected",
+              "reviewer": "admin",
+              "reviewNote": "QA cleanup after staging rerun",
+              "createdAt": "2026-05-15T17:40:34.141Z",
+              "decidedAt": "2026-05-15T17:45:16.386Z"
+            },
+            {
+              "id": "506ce72c-f5f3-4dd9-a86b-a37ca06f80aa",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260515-CODEX-STAGING-RERUN executive promotion",
+              "status": "rejected",
+              "reviewer": "admin",
+              "reviewNote": "QA cleanup reject for staging rerun residual",
+              "createdAt": "2026-05-15T11:45:02.786Z",
+              "decidedAt": "2026-05-15T12:30:27.728Z"
+            },
+            {
+              "id": "2a22e97e-5ffe-4445-88de-ade2f20acf1a",
+              "kind": "executive_promotion",
+              "requester": "author",
+              "requesterTrack": "executive",
+              "requesterLevel": 7,
+              "payload": {
+                "username": "t.bremmer",
+                "targetLevel": 6
+              },
+              "reason": "QA-20260515-CODEX-STAGING-FULL executive promotion",
+              "status": "rejected",
+              "reviewer": "admin",
+              "reviewNote": "QA-20260515-CODEX-STAGING-TARGETED-R2 cleanup reject",
+              "createdAt": "2026-05-15T11:43:31.573Z",
+              "decidedAt": "2026-05-15T12:00:51.166Z"
+            }
+          ],
+          "page": 1,
+          "pageSize": 100,
+          "total": 7,
+          "totalPages": 1,
+          "hasNextPage": false,
+          "nextCursor": null,
+          "pageInfo": {
+            "page": 1,
+            "pageSize": 100,
+            "total": 7,
+            "totalPages": 1,
+            "hasNextPage": false,
+            "nextCursor": null
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.699Z",
+      "status": "PASS",
+      "suite": "Files targeted",
+      "name": "Read full runner uploaded file through object proxy",
+      "method": "GET",
+      "endpoint": "/api/files/object?path=uploads%2F1778909588828-b76de07c-c3b6-4b1b-908f-e89e692dbbb8-QA-20260516-CODEX-STAGING-R3-FULL.txt",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": "morneven qa upload\n"
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.763Z",
+      "status": "PASS",
+      "suite": "Files targeted",
+      "name": "Reject blocked HTML upload",
+      "method": "POST",
+      "endpoint": "/api/files/upload?folder=uploads",
+      "httpStatus": 400,
+      "expected": "400 blocked MIME type",
+      "actual": "HTTP 400 message=Blocked MIME type",
+      "response": {
+        "success": false,
+        "message": "Blocked MIME type",
+        "errorCode": "FILE_BLOCKED"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.895Z",
+      "status": "PASS",
+      "suite": "Migration targeted",
+      "name": "Migration target version is production",
+      "method": "GET",
+      "endpoint": "/version",
+      "httpStatus": 200,
+      "expected": "200 and validation passes",
+      "actual": "HTTP 200",
+      "response": {
+        "success": true,
+        "data": {
+          "service": "morneven-backend",
+          "version": "0.1.0",
+          "buildVersion": "0.1.0",
+          "commitSha": "fa5eef7117890d27cd2eb9634e59ce7234a617f4",
+          "env": "production",
+          "startedAt": "2026-05-16T00:05:42.534Z"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.938Z",
+      "status": "PASS",
+      "suite": "Migration targeted",
+      "name": "Migration asset endpoint accepts valid key before object validation",
+      "method": "GET",
+      "endpoint": "/api/settings/migration/assets?path=missing-qa-object",
+      "httpStatus": 422,
+      "expected": "422 and validation passes",
+      "actual": "HTTP 422 message=Invalid object path",
+      "response": {
+        "success": false,
+        "message": "Invalid object path",
+        "errorCode": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T05:36:23.973Z",
+      "status": "PASS",
+      "suite": "Migration targeted",
+      "name": "Migration asset endpoint rejects invalid key",
+      "method": "GET",
+      "endpoint": "/api/settings/migration/assets?path=missing-qa-object",
+      "httpStatus": 403,
+      "expected": "403 and validation passes",
+      "actual": "HTTP 403 message=Invalid migration key",
+      "response": {
+        "success": false,
+        "message": "Invalid migration key",
+        "errorCode": "FORBIDDEN"
+      }
+    }
+  ]
+}

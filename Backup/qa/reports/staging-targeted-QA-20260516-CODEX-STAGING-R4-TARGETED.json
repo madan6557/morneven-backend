@@ -1,0 +1,347 @@
+{
+  "summary": {
+    "runId": "QA-20260516-CODEX-STAGING-R4-TARGETED",
+    "startedAt": "2026-05-16T06:34:34.655Z",
+    "endedAt": "2026-05-16T06:34:36.580Z",
+    "baseUrl": "https://morneven-backend-development.up.railway.app",
+    "uploadedPath": "uploads/1778913134761-40794421-5b03-4a4b-a84e-7eb0dcd38f12-QA-20260516-CODEX-STAGING-R4-FULL.txt",
+    "totals": {
+      "PASS": 14
+    }
+  },
+  "records": [
+    {
+      "timestamp": "2026-05-16T06:34:34.986Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Login author",
+      "expected": "200 with token",
+      "actual": "HTTP 200 token returned",
+      "method": "POST",
+      "endpoint": "/auth/login"
+    },
+    {
+      "timestamp": "2026-05-16T06:34:35.236Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Login admin",
+      "expected": "200 with token",
+      "actual": "HTTP 200 token returned",
+      "method": "POST",
+      "endpoint": "/auth/login"
+    },
+    {
+      "timestamp": "2026-05-16T06:34:35.700Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Login registered PL0 guest",
+      "expected": "200 with token if seeded",
+      "actual": "HTTP 200 token returned",
+      "method": "POST",
+      "endpoint": "/auth/login"
+    },
+    {
+      "timestamp": "2026-05-16T06:34:35.785Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Login anonymous guest mode",
+      "expected": "200 with guest token",
+      "actual": "HTTP 200 token returned",
+      "method": "POST",
+      "endpoint": "/auth/guest"
+    },
+    {
+      "timestamp": "2026-05-16T06:34:35.905Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Registered PL0 guest can access Activity overview",
+      "expected": "HTTP 200",
+      "actual": "HTTP 200",
+      "method": "GET",
+      "endpoint": "/activity/overview",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "totals": {
+            "content": 83,
+            "gallery": 11,
+            "lore": 72,
+            "comments": 7,
+            "views": 57,
+            "likes": 2,
+            "dislikes": 0,
+            "stars": 9
+          },
+          "leaders": [
+            {
+              "id": "char-011",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Marine",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778355299145-87dd2951-fa56-4145-83a6-50f400476168-Marine_3by4.png",
+              "subtitle": "Jewerlian Core Figure. Liquid manipulator and steward of Gemora's coastlines. No PL clearance.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-011",
+              "views": 13,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 2,
+              "comments": 0
+            },
+            {
+              "id": "char-005",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Sola",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778264862534-66ac92e0-ae6b-4aef-9a63-e3651f55a460-Sola_Delight.png",
+              "subtitle": "Sole holder of the Stellar Pass and the only certified operator of Solar's Lens. Officially reports to no one.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-005",
+              "views": 7,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 2,
+              "comments": 0
+            },
+            {
+              "id": "da3b7f6a-e9e8-473f-92ad-15383e12d2fd",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Shafira",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778812726338-557a0325-35ab-4621-aad5-8ea6efe67971-08_Shafira3b4.png",
+              "subtitle": "PL5-LOG Jewerlian atelier lead, ranked second after Marine in the personnel charm vote, and creator of the Sapphire Veil Suit.",
+              "date": "2026-05-15",
+              "url": "/lore/characters/da3b7f6a-e9e8-473f-92ad-15383e12d2fd",
+              "views": 7,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 1,
+              "comments": 0
+            },
+            {
+              "id": "char-008",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Diana",
+              "thumbnail": "https://t3.storageapi.dev/preserved-pail-dirun1xm4m/lore/1778355917156-9b1e59f3-55f9-494d-99f2-76fa9a46e7a0-04_Diana3by4.png",
+              "subtitle": "Jewerlian Core Figure. Telepathic Hub of the Jewerlian Chamber. The Embodiment of Immovable.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-008",
+              "views": 5,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 1,
+              "comments": 0
+            },
+            {
+              "id": "char-001",
+              "entityType": "character",
+              "category": "Character",
+              "title": "Kael Vorthane",
+              "thumbnail": "",
+              "subtitle": "Shadow Operative and Chief Tactician of Morneven Institute's Field Division.",
+              "date": "2026-05-03",
+              "url": "/lore/characters/char-001",
+              "views": 5,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 0,
+              "comments": 0
+            },
+            {
+              "id": "gal-001",
+              "entityType": "gallery",
+              "category": "Gallery",
+              "title": "Kael Vorthane - Character Concept",
+              "thumbnail": "",
+              "subtitle": "Official character concept art for Kael Vorthane, Shadow Operative. Featuring his signature dark armor and dual-blade configuration.",
+              "date": "2026-04-12",
+              "url": "/gallery/gal-001",
+              "views": 5,
+              "likes": 0,
+              "dislikes": 0,
+              "stars": 0,
+              "comments": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:35.949Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Anonymous guest mode cannot access Activity overview",
+      "expected": "HTTP 403",
+      "actual": "HTTP 403",
+      "method": "GET",
+      "endpoint": "/activity/overview",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Registered account access required",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.003Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Registered guest cannot access management pending count",
+      "expected": "HTTP 403",
+      "actual": "HTTP 403",
+      "method": "GET",
+      "endpoint": "/management/requests/pending-count",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Personnel access required",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.064Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Registered guest cannot access security status",
+      "expected": "HTTP 403",
+      "actual": "HTTP 403",
+      "method": "GET",
+      "endpoint": "/security/status",
+      "httpStatus": 403,
+      "response": {
+        "success": false,
+        "message": "Forbidden",
+        "errorCode": "FORBIDDEN"
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.127Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Author can access security status",
+      "expected": "HTTP 200",
+      "actual": "HTTP 200",
+      "method": "GET",
+      "endpoint": "/security/status",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "enabled": true,
+          "level": 5,
+          "maxLevel": 5,
+          "label": "full",
+          "features": {
+            "observe": true,
+            "audit": true,
+            "routeRateLimit": true,
+            "blockHighRiskRequests": true,
+            "activeDefense": true,
+            "full": true
+          },
+          "retentionDays": 90,
+          "fileScanProvider": "none",
+          "authCookieEnabled": true,
+          "stats": {
+            "events24h": 1002,
+            "highEvents24h": 21,
+            "activeBlocks": 0,
+            "sessionsActive": 60,
+            "quarantinedFiles": 0
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.215Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Create QA security block",
+      "expected": "200 or 201 with created block",
+      "actual": "HTTP 201",
+      "method": "POST",
+      "endpoint": "/security/blocks",
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "1b7b0714-5567-47f3-b1d9-a941890763a9",
+          "subjectType": "custom",
+          "subjectHash": "4bac40a162bc3d3f134cc65eee801efdc67a01079589ef99695e225d70272758",
+          "reason": "QA-20260516-CODEX-STAGING-R4-TARGETED security block",
+          "severity": "low",
+          "expiresAt": "2026-05-16T06:35:36.839Z",
+          "createdBy": "author",
+          "createdAt": "2026-05-16T06:34:36.840Z",
+          "revokedAt": null,
+          "revokeReason": null
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.303Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Revoke QA security block",
+      "expected": "HTTP 200",
+      "actual": "HTTP 200",
+      "method": "POST",
+      "endpoint": "/security/blocks/1b7b0714-5567-47f3-b1d9-a941890763a9/revoke",
+      "httpStatus": 200,
+      "response": {
+        "success": true,
+        "data": {
+          "id": "1b7b0714-5567-47f3-b1d9-a941890763a9",
+          "subjectType": "custom",
+          "subjectHash": "4bac40a162bc3d3f134cc65eee801efdc67a01079589ef99695e225d70272758",
+          "reason": "QA-20260516-CODEX-STAGING-R4-TARGETED security block",
+          "severity": "low",
+          "expiresAt": "2026-05-16T06:35:36.839Z",
+          "createdBy": "author",
+          "createdAt": "2026-05-16T06:34:36.840Z",
+          "revokedAt": "2026-05-16T06:34:36.914Z",
+          "revokeReason": "QA-20260516-CODEX-STAGING-R4-TARGETED cleanup revoke"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.429Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "No pending QA R3/R4 management requests remain",
+      "expected": "0 pending QA R3/R4 management requests",
+      "actual": "0 pending",
+      "pendingIds": []
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.503Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Read R4 uploaded file through object proxy",
+      "expected": "HTTP 200",
+      "actual": "HTTP 200",
+      "method": "GET",
+      "endpoint": "/files/object?path=uploads%2F1778913134761-40794421-5b03-4a4b-a84e-7eb0dcd38f12-QA-20260516-CODEX-STAGING-R4-FULL.txt",
+      "httpStatus": 200,
+      "response": "morneven qa upload\n"
+    },
+    {
+      "timestamp": "2026-05-16T06:34:36.580Z",
+      "status": "PASS",
+      "suite": "Targeted role and security regression",
+      "name": "Reject blocked HTML upload",
+      "expected": "HTTP 400",
+      "actual": "HTTP 400",
+      "method": "POST",
+      "endpoint": "/files/upload?folder=uploads",
+      "httpStatus": 400,
+      "response": {
+        "success": false,
+        "message": "Blocked MIME type",
+        "errorCode": "FILE_BLOCKED"
+      }
+    }
+  ]
+}
