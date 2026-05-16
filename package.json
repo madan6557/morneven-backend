@@ -16,13 +16,10 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
     "prisma:deploy:safe": "npx prisma migrate deploy || npx prisma db push",
-    "start:railway": "npm run prisma:migrate:deploy && node dist/src/server.js",
+    "start:railway": "prisma migrate deploy && node dist/src/server.js",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "qa:dev-api": "node qa/dev-api-qa.mjs",
     "prisma:setup": "npm run prisma:migrate:deploy && npm run prisma:seed"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1047.0",
