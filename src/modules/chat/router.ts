@@ -59,6 +59,10 @@ const readSchema = z.object({
   lastReadAt: z.string().optional()
 });
 
+const chatResetSchema = z.object({
+  scopes: z.array(z.enum(['conversations', 'personnel_groups', 'system_groups', 'team_groups'])).min(1)
+});
+
 const conversationInclude = {
   members: true
 } satisfies Prisma.ChatConversationInclude;
@@ -115,10 +119,53 @@ const notifyConversationMembers = async (conversationId: string, sender: string,
 const activeUsernames = (conversation: ConversationWithMembers) =>
   conversation.members.filter((member) => member.status === 'active').map((member) => member.username);
 
+const visibleUsernames = (conversation: ConversationWithMembers) =>
+  conversation.members.filter((member) => member.status === 'active' || member.status === 'invited').map((member) => member.username);
+
 const activeMembersInLine = (conversation: ConversationWithMembers) =>
   conversation.members
     .filter((member) => member.status === 'active')
     .sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
+
+const chatResetWhere = (scopes: string[]): Prisma.ChatConversationWhereInput => {
+  const OR: Prisma.ChatConversationWhereInput[] = [];
+  if (scopes.includes('conversations')) OR.push({ kind: 'dm' });
+  if (scopes.includes('personnel_groups')) OR.push({ kind: 'group', systemManaged: false });
+  if (scopes.includes('system_groups')) OR.push({ systemManaged: true, kind: { in: ['institute', 'division'] } });
+  if (scopes.includes('team_groups')) OR.push({ systemManaged: true, kind: 'team' });
+  return { OR };
+};
+
+const getChatMaintenanceReport = async (ranAt = new Date().toISOString()) => {
+  const [
+    directConversations,
+    personnelGroups,
+    instituteGroups,
+    divisionGroups,
+    teamGroups,
+    activeMemberships,
+    removedMemberships
+  ] = await Promise.all([
+    prisma.chatConversation.count({ where: { kind: 'dm' } }),
+    prisma.chatConversation.count({ where: { kind: 'group', systemManaged: false } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'institute' } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'division' } }),
+    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'team' } }),
+    prisma.chatConversationMember.count({ where: { status: 'active' } }),
+    prisma.chatConversationMember.count({ where: { status: 'removed' } })
+  ]);
+
+  return {
+    directConversations,
+    personnelGroups,
+    instituteGroups,
+    divisionGroups,
+    teamGroups,
+    activeMemberships,
+    removedMemberships,
+    ranAt
+  };
+};
 
 const ensureManualConversationHasAdminOrDelete = async (conversation: ConversationWithMembers) => {
   const activeMembers = activeMembersInLine(conversation);
@@ -231,25 +278,7 @@ chatRouter.get('/conversations', auth, async (req, res) => {
 
 chatRouter.post('/reconcile', auth, allow(hasPl7MaintenanceAccess), async (_req, res) => {
   await reconcileAutoMemberships();
-  const [instituteGroups, divisionGroups, teamGroups, activeMemberships, removedMemberships] = await Promise.all([
-    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'institute' } }),
-    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'division' } }),
-    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'team' } }),
-    prisma.chatConversationMember.count({
-      where: { conversation: { systemManaged: true }, status: 'active' }
-    }),
-    prisma.chatConversationMember.count({
-      where: { conversation: { systemManaged: true }, status: 'removed' }
-    })
-  ]);
-  const report = {
-    instituteGroups,
-    divisionGroups,
-    teamGroups,
-    activeMemberships,
-    removedMemberships,
-    ranAt: new Date().toISOString()
-  };
+  const report = await getChatMaintenanceReport();
   await writeAudit(prisma, {
     actor: _req.user?.username ?? 'system',
     action: 'chat.reconcile',
@@ -259,42 +288,57 @@ chatRouter.post('/reconcile', auth, allow(hasPl7MaintenanceAccess), async (_req,
   return ok(res, report);
 });
 
+chatRouter.post('/reset', auth, allow(hasPl7MaintenanceAccess), async (req, res) => {
+  const parsed = chatResetSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  const scopes = [...new Set(parsed.data.scopes)];
+  const targets = await prisma.chatConversation.findMany({
+    where: chatResetWhere(scopes),
+    include: conversationInclude
+  });
+  const targetIds = targets.map((conversation) => conversation.id);
+  const recipients = [...new Set(targets.flatMap(visibleUsernames))];
+  const deletedByScope = {
+    conversations: targets.filter((conversation) => conversation.kind === 'dm').length,
+    personnelGroups: targets.filter((conversation) => conversation.kind === 'group' && !conversation.systemManaged).length,
+    systemGroups: targets.filter((conversation) => conversation.systemManaged && ['institute', 'division'].includes(conversation.kind)).length,
+    teamGroups: targets.filter((conversation) => conversation.systemManaged && conversation.kind === 'team').length
+  };
+
+  if (targetIds.length) {
+    await prisma.chatConversation.deleteMany({ where: { id: { in: targetIds } } });
+  }
+
+  const report = await getChatMaintenanceReport();
+  await writeAudit(prisma, {
+    actor: req.user?.username ?? 'system',
+    action: 'chat.reset',
+    entity: 'ChatConversation',
+    metadata: {
+      scopes,
+      deleted: targetIds.length,
+      deletedByScope
+    }
+  });
+
+  for (const conversation of targets) {
+    emitToUsers(visibleUsernames(conversation), 'chat.conversation.deleted', { id: conversation.id, reset: true, scopes });
+  }
+  await Promise.all(recipients.map((username) => emitNavigationBadgesUpdated(username)));
+  return ok(res, { deleted: targetIds.length, deletedByScope, report });
+});
+
 chatRouter.get('/reconcile/status', auth, allow(hasPl7MaintenanceAccess), async (_req, res) => {
   const latest = await prisma.auditLog.findFirst({
-    where: { action: 'chat.reconcile' },
+    where: { action: { in: ['chat.reconcile', 'chat.reset'] } },
     orderBy: { createdAt: 'desc' }
   });
   if (latest?.metadata && typeof latest.metadata === 'object') {
-    const meta = latest.metadata as Record<string, unknown>;
-    return ok(res, {
-      instituteGroups: Number(meta.instituteGroups ?? 0),
-      divisionGroups: Number(meta.divisionGroups ?? 0),
-      teamGroups: Number(meta.teamGroups ?? 0),
-      activeMemberships: Number(meta.activeMemberships ?? 0),
-      removedMemberships: Number(meta.removedMemberships ?? 0),
-      ranAt: String(meta.ranAt ?? latest.createdAt.toISOString())
-    });
+    return ok(res, await getChatMaintenanceReport(latest.createdAt.toISOString()));
   }
 
-  const [instituteGroups, divisionGroups, teamGroups, activeMemberships, removedMemberships] = await Promise.all([
-    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'institute' } }),
-    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'division' } }),
-    prisma.chatConversation.count({ where: { systemManaged: true, kind: 'team' } }),
-    prisma.chatConversationMember.count({
-      where: { conversation: { systemManaged: true }, status: 'active' }
-    }),
-    prisma.chatConversationMember.count({
-      where: { conversation: { systemManaged: true }, status: 'removed' }
-    })
-  ]);
-  return ok(res, {
-    instituteGroups,
-    divisionGroups,
-    teamGroups,
-    activeMemberships,
-    removedMemberships,
-    ranAt: latest?.createdAt.toISOString() ?? new Date(0).toISOString()
-  });
+  return ok(res, await getChatMaintenanceReport(latest?.createdAt.toISOString() ?? new Date(0).toISOString()));
 });
 
 chatRouter.get('/invites', auth, async (req, res) => {
