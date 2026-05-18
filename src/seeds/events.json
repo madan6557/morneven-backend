@@ -981,5 +981,176 @@
         "date": "2026-04-26"
       }
     ]
+  },
+  {
+    "id": "evt-013",
+    "title": "Sapphire Veil - Dust Recall Incident",
+    "category": "Incident",
+    "era": "Modern",
+    "dateLabel": "Modern era - unauthorized live-wearer suit trial",
+    "scope": "Institutional",
+    "impactLevel": "High - safety doctrine",
+    "thumbnail": "",
+    "shortDesc": "Unauthorized Sapphire Veil live-wearer testing stopped by dust recall before a planned Sola slash trial.",
+    "fullDesc": "The Dust Recall Incident is the formal event record for the unauthorized Sapphire Veil Suit stress test that reshaped Morneven suit safety doctrine. The incident began when a group of personnel chose to test active Sapphire Veil suits while wearing them, without dummies, without a written failure boundary, and without Executive approval.\n\nThe early stages appeared successful. The suits absorbed several Morneven-grade impacts well enough that the group escalated from a reckless trial into a dangerous confidence loop. Their final planned step was to ask Sola to strike the suit with her slash, which was treated at the time as the strongest direct firepower available inside Morneven records.\n\n -  DUST RECALL - \nBefore the group could reach Sola, every involved suit disintegrated into inert fabric dust at the same time. The personnel were left suitless and exposed in the middle of an unauthorized hazardous test chain. Security caught them shortly afterward, and the first disciplinary recommendation was removal from the Institute.\n\nThe proposed removal was based on two findings. First, the group had conducted a severe safety violation. Second, anyone unable to retain Sapphire Veil custody is considered unsafe for deployment because the suit is a baseline survival layer for many Institute roles. At that stage, the recall looked like possible wearer rejection.\n\n -  FORMAL REVIEW - \nResearch Safety requested a controlled continuation of the test because the illegal trial had revealed a valid unknown: Morneven needed to know where Sapphire Veil confidence became overconfidence. Executive approval was granted. The second trial used dummies, defined boundaries, and direct supervision. Sola was asked to perform the slash under controlled conditions.\n\nSola's slash penetrated the Sapphire Veil Suit. The result confirmed that the original group had been one step away from a likely fatal test. The group was invited to observe the controlled trial as acknowledgment that their reckless behavior had exposed a research gap, even though their method remained unacceptable.\n\n -  FINAL RULING - \nAfter the controlled trial, the same personnel were asked to wear reissued suits. The suits remained intact. This proved they had not been permanently rejected by the Sapphire Veil custody system. The standing conclusion is that the dust recall was a temporary intervention, most likely by Shafira, to stop the unauthorized escalation before Sola became involved.\n\nThe expulsion recommendation was withdrawn. Their punishment was reduced to seven days cleaning creature containment pens. The incident now appears in suit training, PL1 orientation, and Research Safety briefings as the clearest example of why armor performance must never be mistaken for invulnerability.\n\n[L5+ track=logistics]Archive conclusion: do not record dust recall as equipment failure unless Logistics Safety and Shafira both sign the classification. In Sapphire Veil doctrine, synchronized dust recall is treated first as a safety intervention and second as a custody signal.[/L5+]",
+    "consequences": [
+      "Live-wearer Sapphire Veil stress testing banned without Executive approval",
+      "Dummy use and declared failure boundary required for all suit trials",
+      "Sola-class testing formally recorded as outside Sapphire Veil survivability rating",
+      "Dust recall classified as a safety intervention before equipment failure",
+      "PL1 suit onboarding strengthened under Shafira's Logistics authority"
+    ],
+    "relatedLinks": [
+      {
+        "label": "Shafira",
+        "url": "/lore/characters/char-014"
+      },
+      {
+        "label": "Sapphire Veil Suit",
+        "url": "/lore/tech/tech-020"
+      },
+      {
+        "label": "Sola",
+        "url": "/lore/characters/char-005"
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Dust Recall incident review board record"
+      },
+      {
+        "type": "image",
+        "url": "",
+        "caption": "Controlled dummy trial after Sola slash"
+      }
+    ],
+    "features": [
+      {
+        "id": "feat-evt-013-01",
+        "title": "Unauthorized Live-Wearer Trial",
+        "category": "general",
+        "summary": "Personnel escalated Sapphire Veil testing while wearing the suits themselves.",
+        "details": "The absence of dummies and approval is the core safety breach. The suit's early success created overconfidence instead of ending the test.",
+        "icon": "AlertTriangle",
+        "color": "#f0b45b",
+        "tags": [
+          "safety",
+          "unauthorized"
+        ]
+      },
+      {
+        "id": "feat-evt-013-02",
+        "title": "Probable Shafira Intervention",
+        "category": "general",
+        "summary": "Synchronized dust recall stopped the group before Sola became involved.",
+        "details": "The archive avoids claiming direct proof, but the event is treated as probable Shafira intervention because the suits disintegrated without harming the wearers.",
+        "icon": "Sparkles",
+        "color": "#7cc7d8",
+        "tags": [
+          "recall",
+          "custody"
+        ]
+      },
+      {
+        "id": "feat-evt-013-03",
+        "title": "Confirmed Sola Boundary",
+        "category": "general",
+        "summary": "Controlled dummy testing confirmed Sola can cut through the suit.",
+        "details": "This resolved the central plot risk: Sapphire Veil is extremely protective, but it is not invincible and is not rated against Sola-class output.",
+        "icon": "Slash",
+        "color": "#d87878",
+        "tags": [
+          "test-record",
+          "limit"
+        ]
+      },
+      {
+        "id": "feat-evt-013-04",
+        "title": "Doctrine Revision",
+        "category": "general",
+        "summary": "The event became a standing warning against overconfidence in protective systems.",
+        "details": "Suit trials now require approval, dummies, boundaries, and Logistics Safety oversight before live personnel are allowed near the test area.",
+        "icon": "ClipboardCheck",
+        "color": "#6fd3ad",
+        "tags": [
+          "doctrine",
+          "training"
+        ]
+      }
+    ],
+    "discussions": [
+      {
+        "id": "dc-evt-013",
+        "author": "research.safety",
+        "text": "Dust Recall is now mandatory reading before any Sapphire Veil test window. No exception for confident wearers.",
+        "date": "2026-05-17",
+        "replies": [
+          {
+            "id": "dr-evt-013-1",
+            "author": "logistics.audit",
+            "text": "Approved. The short version is simple: use dummies first.",
+            "date": "2026-05-17"
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "creator": "Archivist Solen",
+      "owner": "Archives Division",
+      "designer": "Writer Solen",
+      "collaborators": [
+        "Logistics Safety Office",
+        "Research Safety Board",
+        "Analyst Mira"
+      ],
+      "team": [
+        "Historian Cell",
+        "Logistics Safety Office"
+      ],
+      "projectName": "Sapphire Veil Program",
+      "startedAt": "2026-05-17",
+      "completedAt": "2026-05-17",
+      "approvedAt": "2026-05-17",
+      "approvedBy": "Director Morneven",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "1.0",
+          "date": "2026-05-17",
+          "notes": "Initial event entry for the Dust Recall Incident."
+        }
+      ]
+    },
+    "fieldNotes": [
+      {
+        "id": "fn-evt-013-01",
+        "title": "Safety Board Note",
+        "body": "All Sapphire Veil stress trials require dummy-first validation, a declared failure boundary, and written authorization before any live wearer can enter the test area.",
+        "date": "2026-05-17"
+      },
+      {
+        "id": "fn-evt-013-02",
+        "title": "Archive Classification Note",
+        "body": "The incident is classified as an intervention event, not an equipment failure event. The recall prevented a likely casualty and did not permanently invalidate the wearers.",
+        "date": "2026-05-17"
+      }
+    ],
+    "observations": [
+      {
+        "id": "ob-evt-013-01",
+        "title": "Sola Boundary Observation",
+        "body": "Sola's controlled slash penetrated the suit during dummy testing, confirming that Sapphire Veil cannot be treated as absolute defense.",
+        "date": "2026-05-17"
+      },
+      {
+        "id": "ob-evt-013-02",
+        "title": "Reissue Observation",
+        "body": "Reissued suits remained intact on the original personnel after review, supporting the conclusion that the dust recall was a temporary stop signal.",
+        "date": "2026-05-17"
+      }
+    ]
   }
 ]

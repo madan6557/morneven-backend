@@ -81,6 +81,14 @@ const loadCommentCounts = async (keys: Array<{ entityType: EntityType; entityId:
   return counts;
 };
 
+const countDiscussionItems = async () => {
+  const [comments, replies] = await Promise.all([
+    prisma.comment.count({ where: { entityType: { in: [...contentEntityTypes] } } }),
+    prisma.reply.count({ where: { comment: { entityType: { in: [...contentEntityTypes] } } } })
+  ]);
+  return comments + replies;
+};
+
 const loadContentRows = async (category: ContentEntityType | 'all', q: string) => {
   const entityTypes = category === 'all' ? contentEntityTypes : [category];
   const rows: Array<{
@@ -163,7 +171,7 @@ activityRouter.get('/overview', auth, async (req, res) => {
     prisma.galleryItem.count(),
     prisma.loreItem.count(),
     prisma.contentMetric.findMany({ where: { entityType: { in: [...contentEntityTypes] } } }),
-    prisma.comment.count({ where: { entityType: { in: [...contentEntityTypes] } } })
+    countDiscussionItems()
   ]);
 
   const totals = metrics.reduce(
