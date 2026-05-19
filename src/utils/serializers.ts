@@ -53,6 +53,23 @@ export const projectStatusFromApi = (status: unknown): ProjectStatus => {
 };
 
 type ProjectWithPatches = Prisma.ProjectGetPayload<{ include: { patches: true } }>;
+type ProjectDocJson = { type?: string; url?: string; caption?: string; date?: string };
+
+const docDateValue = (value?: string | null) => {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
+
+const sortDocsByDateDesc = <T extends { date?: string | null }>(docs: T[]) =>
+  [...docs].sort((a, b) => docDateValue(b.date) - docDateValue(a.date));
+
+const serializeProjectDoc = (doc: ProjectDocJson) => ({
+  type: doc.type === 'video' ? 'video' : doc.type === 'file' ? 'file' : 'image',
+  url: doc.url ?? '',
+  caption: doc.caption ?? '',
+  ...(doc.date ? { date: doc.date } : {})
+});
 
 export const serializeProject = (project: ProjectWithPatches) => {
   const meta = jsonObject(project.meta);
@@ -71,7 +88,7 @@ export const serializeProject = (project: ProjectWithPatches) => {
       notes: patch.notes
     }))
     .sort((a, b) => b.date.localeCompare(a.date)),
-  docs: jsonArray(project.docs),
+  docs: sortDocsByDateDesc(jsonArray<ProjectDocJson>(project.docs).map(serializeProjectDoc)),
   archived: project.archived,
   contributor: project.contributor ?? undefined,
   meta: project.meta ?? undefined,
@@ -142,7 +159,8 @@ type DiscussionRecord = Prisma.CommentGetPayload<{ include: { author: true; repl
 export const serializeDoc = (doc: EntityDocRecord) => ({
   type: doc.type === MediaType.video ? 'video' : doc.type === MediaType.file ? 'file' : 'image',
   url: doc.url,
-  caption: doc.caption ?? ''
+  caption: doc.caption ?? '',
+  ...(doc.date ? { date: doc.date } : {})
 });
 
 const extractTextMentions = (text: string) =>
@@ -185,7 +203,7 @@ export const serializeLoreItem = (
     headerImage: typeof metadata.headerImage === 'string' ? metadata.headerImage : undefined,
     shortDesc: item.shortDesc,
     fullDesc: item.fullDesc,
-    docs: docs.map(serializeDoc),
+    docs: sortDocsByDateDesc(docs.map(serializeDoc)),
     ...(discussions ? { discussions: serializeDiscussionComments(discussions) } : {}),
     contributor: metadata.contributor,
     meta: metadata.meta,

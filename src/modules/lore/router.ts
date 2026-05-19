@@ -21,7 +21,7 @@ import {
 
 export const loreRouter = Router();
 
-type LoreDocInput = { type?: string; url?: string; caption?: string };
+type LoreDocInput = { type?: string; url?: string; caption?: string; date?: string };
 
 const resolveCategory = (category: string) => categoryToEntityType(category);
 
@@ -57,7 +57,8 @@ const persistDocs = async (
       entityId,
       type: doc.type === 'video' ? MediaType.video : doc.type === 'file' ? MediaType.file : MediaType.image,
       url: doc.url ?? '',
-      caption: doc.caption ?? ''
+      caption: doc.caption ?? '',
+      date: doc.date ?? null
     }))
   });
 };

@@ -16,7 +16,8 @@ export const projectsRouter = Router();
 const docSchema = z.object({
   type: z.enum(['image', 'video', 'file']),
   url: z.string().optional().default(''),
-  caption: z.string().optional().default('')
+  caption: z.string().optional().default(''),
+  date: z.string().optional()
 });
 
 const patchSchema = z.object({

@@ -218,6 +218,7 @@ model EntityDoc {
   type       MediaType
   url        String
   caption    String?
+  date       String?
 }
 
 model GalleryItem {
