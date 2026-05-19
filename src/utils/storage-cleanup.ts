@@ -130,7 +130,9 @@ const collectProjectStoragePaths = (project: ProjectAssetRecord) => {
   addPath(paths, project.thumbnail);
 
   for (const doc of asArray(project.docs)) {
-    addPath(paths, asObject(doc).url);
+    const entry = asObject(doc);
+    addPath(paths, entry.url);
+    addPath(paths, entry.thumbnail);
   }
 
   const meta = asObject(project.meta);
@@ -142,7 +144,7 @@ const collectProjectStoragePaths = (project: ProjectAssetRecord) => {
   return paths;
 };
 
-const collectLoreStoragePaths = (item: LoreAssetRecord, docs: Array<{ url: string }>) => {
+const collectLoreStoragePaths = (item: LoreAssetRecord, docs: Array<{ url: string; thumbnail?: string | null }>) => {
   const paths = new Set<string>();
   addPath(paths, item.thumbnail);
 
@@ -159,6 +161,7 @@ const collectLoreStoragePaths = (item: LoreAssetRecord, docs: Array<{ url: strin
 
   for (const doc of docs) {
     addPath(paths, doc.url);
+    addPath(paths, doc.thumbnail);
   }
 
   return paths;
@@ -206,7 +209,7 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
   ] = await Promise.all([
     prisma.project.findMany({ select: { thumbnail: true, docs: true, meta: true } }),
     prisma.loreItem.findMany({ select: { id: true, category: true, thumbnail: true, metadata: true } }),
-    prisma.entityDoc.findMany({ select: { entityId: true, entityType: true, url: true } }),
+    prisma.entityDoc.findMany({ select: { entityId: true, entityType: true, url: true, thumbnail: true } }),
     prisma.news.findMany({ select: { thumbnail: true, attachments: { select: { url: true } } } }),
     prisma.galleryItem.findMany({ select: { thumbnail: true, mediaUrl: true, videoUrl: true } }),
     prisma.mapImage.findUnique({ where: { id: 'main' }, select: { imageUrl: true } }),
@@ -214,10 +217,10 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } })
   ]);
 
-  const docsByEntity = new Map<string, Array<{ url: string }>>();
+  const docsByEntity = new Map<string, Array<{ url: string; thumbnail?: string | null }>>();
   for (const doc of loreDocs) {
     const key = `${doc.entityType}:${doc.entityId}`;
-    docsByEntity.set(key, [...(docsByEntity.get(key) ?? []), { url: doc.url }]);
+    docsByEntity.set(key, [...(docsByEntity.get(key) ?? []), { url: doc.url, thumbnail: doc.thumbnail }]);
   }
 
   const paths = new Set<string>();

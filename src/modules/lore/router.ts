@@ -21,7 +21,7 @@ import {
 
 export const loreRouter = Router();
 
-type LoreDocInput = { type?: string; url?: string; caption?: string; date?: string };
+type LoreDocInput = { type?: string; url?: string; thumbnail?: string; caption?: string; date?: string };
 
 const resolveCategory = (category: string) => categoryToEntityType(category);
 
@@ -57,6 +57,7 @@ const persistDocs = async (
       entityId,
       type: doc.type === 'video' ? MediaType.video : doc.type === 'file' ? MediaType.file : MediaType.image,
       url: doc.url ?? '',
+      thumbnail: doc.thumbnail ?? null,
       caption: doc.caption ?? '',
       date: doc.date ?? null
     }))
@@ -211,7 +212,7 @@ loreRouter.put('/:category/:id', auth, async (req, res) => {
 
   const existing = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType } });
   if (!existing) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
-  const existingDocs = await prisma.entityDoc.findMany({ where: { entityType, entityId: req.params.id }, select: { url: true } });
+  const existingDocs = await prisma.entityDoc.findMany({ where: { entityType, entityId: req.params.id }, select: { url: true, thumbnail: true } });
   const previousPaths = collectLoreStoragePathSet(existing, existingDocs);
   const docs = Array.isArray(req.body.docs) ? (req.body.docs as LoreDocInput[]) : undefined;
 
@@ -252,7 +253,7 @@ loreRouter.delete('/:category/:id', auth, async (req, res) => {
 
   const existing = await prisma.loreItem.findFirst({ where: { id: req.params.id, category: entityType } });
   if (!existing) return fail(res, 404, 'Lore item not found', 'NOT_FOUND');
-  const existingDocs = await prisma.entityDoc.findMany({ where: { entityType, entityId: req.params.id }, select: { url: true } });
+  const existingDocs = await prisma.entityDoc.findMany({ where: { entityType, entityId: req.params.id }, select: { url: true, thumbnail: true } });
   const previousPaths = collectLoreStoragePathSet(existing, existingDocs);
 
   await prisma.$transaction(async (tx) => {

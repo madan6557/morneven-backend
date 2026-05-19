@@ -473,6 +473,7 @@ async function main() {
             entityId: createdLore.id,
             type: toMediaType(doc.type),
             url: doc.url || 'https://placeholder.local/doc.jpg',
+            thumbnail: doc.thumbnail || null,
             caption: doc.caption || null
           }
         });

@@ -1,0 +1,2 @@
+ALTER TABLE "EntityDoc"
+  ADD COLUMN IF NOT EXISTS "thumbnail" TEXT;

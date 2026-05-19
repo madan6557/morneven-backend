@@ -217,6 +217,7 @@ model EntityDoc {
   entityId   String
   type       MediaType
   url        String
+  thumbnail  String?
   caption    String?
   date       String?
 }

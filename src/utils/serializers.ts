@@ -53,7 +53,7 @@ export const projectStatusFromApi = (status: unknown): ProjectStatus => {
 };
 
 type ProjectWithPatches = Prisma.ProjectGetPayload<{ include: { patches: true } }>;
-type ProjectDocJson = { type?: string; url?: string; caption?: string; date?: string };
+type ProjectDocJson = { type?: string; url?: string; thumbnail?: string; caption?: string; date?: string };
 
 const docDateValue = (value?: string | null) => {
   if (!value) return 0;
@@ -67,6 +67,7 @@ const sortDocsByDateDesc = <T extends { date?: string | null }>(docs: T[]) =>
 const serializeProjectDoc = (doc: ProjectDocJson) => ({
   type: doc.type === 'video' ? 'video' : doc.type === 'file' ? 'file' : 'image',
   url: doc.url ?? '',
+  thumbnail: doc.thumbnail ?? '',
   caption: doc.caption ?? '',
   ...(doc.date ? { date: doc.date } : {})
 });
@@ -159,6 +160,7 @@ type DiscussionRecord = Prisma.CommentGetPayload<{ include: { author: true; repl
 export const serializeDoc = (doc: EntityDocRecord) => ({
   type: doc.type === MediaType.video ? 'video' : doc.type === MediaType.file ? 'file' : 'image',
   url: doc.url,
+  thumbnail: doc.thumbnail ?? '',
   caption: doc.caption ?? '',
   ...(doc.date ? { date: doc.date } : {})
 });
