@@ -109,22 +109,28 @@ type SerializableUser = {
   statusReason?: string | null;
   statusExpiresAt?: Date | string | null;
   updatedAt: Date | string;
+  securitySessions?: Array<{ lastSeenAt: Date | string }>;
 };
 
-export const serializeUser = (user: SerializableUser) => ({
-  id: user.id,
-  username: user.username,
-  email: user.email,
-  role: normalizeUserRole(user.role, user.level),
-  status: user.accountStatus,
-  level: user.level,
-  track: user.track,
-  note: user.note ?? '',
-  statusReason: user.statusReason ?? undefined,
-  statusExpiresAt: user.statusExpiresAt ? new Date(user.statusExpiresAt).toISOString() : undefined,
-  updatedAt: dateOnly(user.updatedAt),
-  ...getPresenceSnapshot(user.username)
-});
+export const serializeUser = (user: SerializableUser) => {
+  const presence = getPresenceSnapshot(user.username);
+  const latestSessionSeenAt = user.securitySessions?.[0]?.lastSeenAt;
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: normalizeUserRole(user.role, user.level),
+    status: user.accountStatus,
+    level: user.level,
+    track: user.track,
+    note: user.note ?? '',
+    statusReason: user.statusReason ?? undefined,
+    statusExpiresAt: user.statusExpiresAt ? new Date(user.statusExpiresAt).toISOString() : undefined,
+    updatedAt: dateOnly(user.updatedAt),
+    online: presence.online,
+    lastSeenAt: presence.lastSeenAt ?? (latestSessionSeenAt ? new Date(latestSessionSeenAt).toISOString() : undefined)
+  };
+};
 
 type GalleryWithTags = Prisma.GalleryItemGetPayload<{ include: { tags: true; uploader: true } }>;
 

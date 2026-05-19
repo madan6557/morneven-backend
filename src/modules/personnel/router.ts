@@ -186,7 +186,18 @@ personnelRouter.get('/', auth, async (req, res) => {
       : {})
   };
 
-  const users = await prisma.user.findMany({ where, orderBy: [{ level: 'desc' }, { username: 'asc' }] });
+  const users = await prisma.user.findMany({
+    where,
+    include: {
+      securitySessions: {
+        select: { lastSeenAt: true },
+        where: { revokedAt: null },
+        orderBy: { lastSeenAt: 'desc' },
+        take: 1
+      }
+    },
+    orderBy: [{ level: 'desc' }, { username: 'asc' }]
+  });
   return ok(res, users.map(serializeUser));
 });
 
@@ -212,7 +223,13 @@ personnelRouter.get('/lookup', auth, async (req, res) => {
       note: true,
       statusReason: true,
       statusExpiresAt: true,
-      updatedAt: true
+      updatedAt: true,
+      securitySessions: {
+        select: { lastSeenAt: true },
+        where: { revokedAt: null },
+        orderBy: { lastSeenAt: 'desc' },
+        take: 1
+      }
     }
   });
   const deduped = Array.from(new Map(users.map((user) => [user.username.toLowerCase(), user])).values());
@@ -456,10 +473,20 @@ personnelRouter.get('/:id', auth, async (req, res) => {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   }
 
-  let user = await prisma.user.findUnique({ where: { id: req.params.id } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.params.id },
+    include: {
+      securitySessions: {
+        select: { lastSeenAt: true },
+        where: { revokedAt: null },
+        orderBy: { lastSeenAt: 'desc' },
+        take: 1
+      }
+    }
+  });
   if (!user) return fail(res, 404, 'Personnel not found', 'NOT_FOUND');
-  user = await restoreExpiredAccountStatus(prisma, user);
-  return ok(res, serializeUser(user));
+  const restored = await restoreExpiredAccountStatus(prisma, user);
+  return ok(res, serializeUser({ ...restored, securitySessions: user.securitySessions }));
 });
 
 personnelRouter.post('/', auth, allow((u) => u.level >= 6), async (req, res) => {

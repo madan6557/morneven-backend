@@ -1,10 +1,10 @@
-import { EntityType } from '@prisma/client';
+import { AccountStatus, ContentReactionKind, EntityType } from '@prisma/client';
 import { Router } from 'express';
 import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parsePagination } from '../../utils/pagination.js';
-import { dateOnly, entityTypeToCategory } from '../../utils/serializers.js';
+import { dateOnly, entityTypeToCategory, serializeDiscussionComments } from '../../utils/serializers.js';
 import { emptyMetric, loadContentMetrics, metricFor } from '../../utils/content-metrics.js';
 
 export const activityRouter = Router();
@@ -79,6 +79,88 @@ const loadCommentCounts = async (keys: Array<{ entityType: EntityType; entityId:
     counts.set(key, (counts.get(key) ?? 0) + 1 + comment._count.replies);
   }
   return counts;
+};
+
+const displayUserLabel = (user?: { username: string; accountStatus: AccountStatus } | null) => {
+  if (!user || user.accountStatus === AccountStatus.deleted) return 'Deleted User';
+  return user.username;
+};
+
+const summarizeViewers = async (entityType: EntityType, entityId: string) => {
+  const events = await prisma.contentViewEvent.findMany({
+    where: { entityType, entityId },
+    orderBy: { createdAt: 'desc' }
+  });
+  const userIds = [
+    ...new Set(
+      events
+        .map((event) => (event.viewerKey.startsWith('user:') ? event.viewerKey.slice(5) : null))
+        .filter((value): value is string => Boolean(value))
+    )
+  ];
+  const users = userIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, username: true, accountStatus: true }
+      })
+    : [];
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const viewerMap = new Map<string, { label: string; count: number; kind: string }>();
+
+  for (const event of events) {
+    const userId = event.viewerKey.startsWith('user:') ? event.viewerKey.slice(5) : null;
+    const label = userId ? displayUserLabel(userById.get(userId)) : event.viewerKind === 'guest' ? 'Guest' : 'Anonymous';
+    const key = `${event.viewerKind}:${label}:${event.viewerKey}`;
+    const current = viewerMap.get(key) ?? { label, count: 0, kind: event.viewerKind };
+    current.count += 1;
+    viewerMap.set(key, current);
+  }
+
+  return Array.from(viewerMap.values()).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+};
+
+const loadContentDetail = async (entityType: ContentEntityType, entityId: string) => {
+  const rows = await loadContentRows(entityType, '');
+  const row = rows.find((item) => item.id === entityId);
+  if (!row) return null;
+
+  const key = { entityType, entityId };
+  const [metricMap, comments, reactions, viewers] = await Promise.all([
+    loadContentMetrics([key]),
+    prisma.comment.findMany({
+      where: { entityType, entityId },
+      include: { author: true, replies: { include: { author: true }, orderBy: { createdAt: 'desc' } } },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.contentReaction.findMany({
+      where: { entityType, entityId },
+      include: { user: { select: { username: true, accountStatus: true } } },
+      orderBy: { createdAt: 'desc' }
+    }),
+    summarizeViewers(entityType, entityId)
+  ]);
+  const metric = metricFor(metricMap, key);
+  const byKind = (kind: ContentReactionKind) =>
+    reactions
+      .filter((reaction) => reaction.kind === kind)
+      .map((reaction) => ({
+        username: displayUserLabel(reaction.user),
+        date: dateOnly(reaction.createdAt)
+      }));
+
+  return {
+    ...row,
+    views: metric.views,
+    likes: metric.likes,
+    dislikes: metric.dislikes,
+    stars: metric.stars,
+    comments: comments.reduce((total, comment) => total + 1 + comment.replies.length, 0),
+    viewers,
+    likedBy: byKind(ContentReactionKind.like),
+    dislikedBy: byKind(ContentReactionKind.dislike),
+    starredBy: byKind(ContentReactionKind.star),
+    discussion: serializeDiscussionComments(comments)
+  };
 };
 
 const countDiscussionItems = async () => {
@@ -249,4 +331,17 @@ activityRouter.get('/content', auth, async (req, res) => {
 
   const start = (page - 1) * pageSize;
   return ok(res, paginated(enriched.slice(start, start + pageSize), page, pageSize, enriched.length));
+});
+
+activityRouter.get('/content/:entityType/:entityId', auth, async (req, res) => {
+  if (!requireRegistered(req, res)) return;
+
+  const entityType = contentEntityTypes.includes(req.params.entityType as ContentEntityType)
+    ? (req.params.entityType as ContentEntityType)
+    : null;
+  if (!entityType) return fail(res, 422, 'Invalid activity content type', 'VALIDATION_ERROR');
+
+  const detail = await loadContentDetail(entityType, req.params.entityId);
+  if (!detail) return fail(res, 404, 'Activity content not found', 'NOT_FOUND');
+  return ok(res, detail);
 });
