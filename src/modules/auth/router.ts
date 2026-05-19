@@ -10,6 +10,7 @@ import { allow, auth, hasPl7MaintenanceAccess } from '../../middleware/auth.js';
 import { authRateLimiter } from '../../middleware/security.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
+import { paginated, parsePagination } from '../../utils/pagination.js';
 import { normalizeUserRole, serializeUser } from '../../utils/serializers.js';
 import { ensureInstituteMembership, syncDivisionMembership } from '../chat/service.js';
 import { createNotification } from '../notifications/service.js';
@@ -26,6 +27,8 @@ const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
   findUnique: (args: Record<string, unknown>) => Promise<any>;
   create: (args: Record<string, unknown>) => Promise<any>;
   update: (args: Record<string, unknown>) => Promise<any>;
+  count: (args: Record<string, unknown>) => Promise<number>;
+  deleteMany: (args: Record<string, unknown>) => Promise<{ count: number }>;
 };
 
 const registerSchema = z.object({
@@ -380,15 +383,51 @@ authRouter.post('/password-reset/request', authRateLimiter, validateBody(passwor
   return res.status(201).json({ success: true, data: serializePasswordResetRequest(created) });
 });
 
-authRouter.get('/password-reset/requests', auth, allow(hasPl7MaintenanceAccess), async (_req, res) => {
-  const requests = await passwordResetRequestModel.findMany({
-    include: {
-      targetUser: true,
-      reviewedBy: true
-    },
-    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }]
+authRouter.get('/password-reset/requests', auth, allow(hasPl7MaintenanceAccess), async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req, { pageSize: 6, maxPageSize: 50 });
+  const clearableWhere = { status: { in: ['rejected', 'completed'] } };
+  const [requests, total, pending, completed, clearable] = await Promise.all([
+    passwordResetRequestModel.findMany({
+      include: {
+        targetUser: true,
+        reviewedBy: true
+      },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      skip,
+      take
+    }),
+    passwordResetRequestModel.count({ where: {} }),
+    passwordResetRequestModel.count({ where: { status: 'pending' } }),
+    passwordResetRequestModel.count({ where: { status: 'completed' } }),
+    passwordResetRequestModel.count({ where: clearableWhere })
+  ]);
+
+  return ok(res, {
+    ...paginated(requests.map(serializePasswordResetRequest), page, pageSize, total),
+    summary: {
+      total,
+      pending,
+      completed,
+      clearable
+    }
   });
-  return ok(res, requests.map(serializePasswordResetRequest));
+});
+
+authRouter.delete('/password-reset/requests/history', auth, allow(hasPl7MaintenanceAccess), async (req, res) => {
+  const deleted = await passwordResetRequestModel.deleteMany({
+    where: {
+      status: { in: ['rejected', 'completed'] }
+    }
+  });
+
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'auth.password-reset.history.clear',
+    entity: 'PasswordResetRequest',
+    metadata: { count: deleted.count }
+  });
+
+  return ok(res, { deleted: deleted.count });
 });
 
 authRouter.post('/password-reset/requests/:id/review', auth, allow(hasPl7MaintenanceAccess), validateBody(passwordResetReviewSchema), async (req, res) => {
