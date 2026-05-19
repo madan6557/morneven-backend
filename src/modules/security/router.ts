@@ -11,6 +11,7 @@ import { createSecurityBlock, revokeSecurityBlock } from '../../security/respond
 import { hashSecurityValue } from '../../security/context.js';
 import { recordSecurityEvent } from '../../security/audit/events.js';
 import { revokeSecuritySessions } from '../../security/sessions/session-service.js';
+import { writeAudit } from '../../utils/audit.js';
 
 export const securityRouter = Router();
 
@@ -84,12 +85,48 @@ securityRouter.get('/events', allow(canReadSecurity), async (req, res) => {
   return ok(res, events);
 });
 
+securityRouter.delete('/events/history', allow(canManageSecurity), async (req, res) => {
+  const deleted = await prisma.$transaction(async (tx) => {
+    const result = await tx.securityEvent.deleteMany({});
+    await writeAudit(tx, {
+      actor: req.user!.username,
+      action: 'security.events.history.clear',
+      entity: 'SecurityEvent',
+      metadata: { count: result.count }
+    });
+    return result;
+  });
+  return ok(res, { deleted: deleted.count });
+});
+
 securityRouter.get('/blocks', allow(canReadSecurity), async (_req, res) => {
   const blocks = await prisma.securityBlock.findMany({
     orderBy: { createdAt: 'desc' },
     take: 100
   });
   return ok(res, blocks);
+});
+
+securityRouter.delete('/blocks/history', allow(canManageSecurity), async (req, res) => {
+  const now = new Date();
+  const deleted = await prisma.$transaction(async (tx) => {
+    const result = await tx.securityBlock.deleteMany({
+      where: {
+        OR: [
+          { revokedAt: { not: null } },
+          { expiresAt: { lte: now } }
+        ]
+      }
+    });
+    await writeAudit(tx, {
+      actor: req.user!.username,
+      action: 'security.blocks.history.clear',
+      entity: 'SecurityBlock',
+      metadata: { count: result.count, scope: 'revoked_or_expired' }
+    });
+    return result;
+  });
+  return ok(res, { deleted: deleted.count });
 });
 
 securityRouter.post('/blocks', allow(canManageSecurity), validateBody(blockSchema), async (req, res) => {
@@ -162,12 +199,42 @@ securityRouter.post('/sessions/:id/revoke', allow(canManageSecurity), validateBo
   return ok(res, result);
 });
 
+securityRouter.delete('/sessions/history', allow(canManageSecurity), async (req, res) => {
+  const deleted = await prisma.$transaction(async (tx) => {
+    const result = await tx.securitySession.deleteMany({
+      where: { revokedAt: { not: null } }
+    });
+    await writeAudit(tx, {
+      actor: req.user!.username,
+      action: 'security.sessions.history.clear',
+      entity: 'SecuritySession',
+      metadata: { count: result.count, scope: 'revoked_only' }
+    });
+    return result;
+  });
+  return ok(res, { deleted: deleted.count });
+});
+
 securityRouter.get('/file-scans', allow(canReadSecurity), async (_req, res) => {
   const records = await prisma.fileScanRecord.findMany({
     orderBy: { createdAt: 'desc' },
     take: 100
   });
   return ok(res, records);
+});
+
+securityRouter.delete('/file-scans/history', allow(canManageSecurity), async (req, res) => {
+  const deleted = await prisma.$transaction(async (tx) => {
+    const result = await tx.fileScanRecord.deleteMany({});
+    await writeAudit(tx, {
+      actor: req.user!.username,
+      action: 'security.file-scans.history.clear',
+      entity: 'FileScanRecord',
+      metadata: { count: result.count }
+    });
+    return result;
+  });
+  return ok(res, { deleted: deleted.count });
 });
 
 securityRouter.get('/hash', allow(canManageSecurity), async (req, res) => {
