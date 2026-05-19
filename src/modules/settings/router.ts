@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { raw } from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { EntityType, MediaType, Prisma, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { auth, hasPl7MaintenanceAccess, isPl7Author } from '../../middleware/auth.js';
@@ -39,6 +40,10 @@ const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
 };
 
 const defaultSettings = defaultCommandCenterSettings;
+const migrationBackupUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 512 * 1024 * 1024 }
+});
 
 const settingsSchema = z.object({
   showStats: z.boolean().optional(),
@@ -824,6 +829,15 @@ const buildExtractionFiles = async (
 
 const extractionProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
 
+const formatBackupDownloadName = (date: Date) => {
+  const dd = String(date.getUTCDate()).padStart(2, '0');
+  const bb = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const yy = String(date.getUTCFullYear()).slice(-2);
+  const hh = String(date.getUTCHours()).padStart(2, '0');
+  const ss = String(date.getUTCSeconds()).padStart(2, '0');
+  return `backup_${dd}${bb}${yy}${hh}${ss}.zip`;
+};
+
 const serializeExtractionJob = (job: Awaited<ReturnType<typeof prisma.extractionJob.findFirst>> | Awaited<ReturnType<typeof prisma.extractionJob.create>>) => {
   if (!job) return job;
   return {
@@ -1019,6 +1033,88 @@ const parseMigrationPayload = (buffer: Buffer): MigrationPayload => {
   }
   (parsed.dataset as Partial<MigrationDataset>).contentViewEvents ??= [];
   return parsed;
+};
+
+const parseStoredZip = (buffer: Buffer) => {
+  const files = new Map<string, Buffer>();
+  let offset = 0;
+
+  while (offset + 30 <= buffer.length) {
+    const signature = buffer.readUInt32LE(offset);
+    if (signature === 0x02014b50 || signature === 0x06054b50) break;
+    if (signature !== 0x04034b50) throw new Error('Unsupported backup archive structure');
+
+    const method = buffer.readUInt16LE(offset + 8);
+    if (method !== 0) throw new Error('Backup archive uses unsupported compression');
+
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraLength = buffer.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + fileNameLength + extraLength;
+    const dataEnd = dataStart + compressedSize;
+
+    if (dataEnd > buffer.length) throw new Error('Backup archive is truncated');
+    const name = buffer.subarray(nameStart, nameStart + fileNameLength).toString('utf8');
+    if (!name.endsWith('/')) files.set(name, buffer.subarray(dataStart, dataEnd));
+    offset = dataEnd;
+  }
+
+  return files;
+};
+
+const parseMigrationDatasetFromBackup = (buffer: Buffer) => {
+  const files = parseStoredZip(buffer);
+  const datasetFile = files.get('db/morneven-full-dataset.json');
+  if (!datasetFile) throw new Error('Backup archive does not include db/morneven-full-dataset.json');
+  const dataset = JSON.parse(datasetFile.toString('utf8')) as MigrationDataset;
+  (dataset as Partial<MigrationDataset>).contentViewEvents ??= [];
+  return { files, dataset };
+};
+
+const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerification> => {
+  const { files, dataset } = parseMigrationDatasetFromBackup(buffer);
+  await importMigrationDataset(dataset);
+
+  const manifestFile = files.get('attachments/manifest.json');
+  let uploadedAssetCount = 0;
+  const failedAssets: Array<{ objectPath: string; error: string }> = [];
+
+  if (manifestFile) {
+    const manifest = JSON.parse(manifestFile.toString('utf8')) as {
+      embeddedAssets?: Array<{ objectPath: string; archivePath: string; contentType?: string }>;
+    };
+
+    for (const asset of manifest.embeddedAssets ?? []) {
+      const content = files.get(asset.archivePath);
+      if (!content) {
+        failedAssets.push({ objectPath: asset.objectPath, error: 'Attachment missing from backup archive' });
+        continue;
+      }
+
+      try {
+        await saveFileToStorage({
+          objectPath: asset.objectPath,
+          buffer: content,
+          contentType: asset.contentType ?? 'application/octet-stream'
+        });
+        uploadedAssetCount += 1;
+      } catch (error) {
+        failedAssets.push({
+          objectPath: asset.objectPath,
+          error: error instanceof Error ? error.message : 'Unknown asset restore failure'
+        });
+      }
+    }
+  }
+
+  const counts = await countCurrentMigrationState();
+  return {
+    tables: counts.tables,
+    assetCount: counts.assetCount,
+    uploadedAssetCount,
+    failedAssets
+  };
 };
 
 const summarizeMigrationDataset = (dataset: MigrationDataset, assetCount: number) => ({
@@ -1520,9 +1616,116 @@ const runMigrationJob = async (
   }
 };
 
+const runBackupMigrationJob = async (
+  jobId: string,
+  actor: string,
+  targetUrl: string,
+  migrationKey: string,
+  downloadName: string,
+  backup: { originalName: string; buffer: Buffer; size: number; sha256: string }
+) => {
+  const updateMetadata = async (patch: Record<string, unknown>) => {
+    const current = await prisma.auditLog.findUnique({ where: { id: jobId } });
+    const currentMetadata = (current?.metadata ?? {}) as Record<string, unknown>;
+    const updated = await prisma.auditLog.update({
+      where: { id: jobId },
+      data: {
+        metadata: {
+          ...currentMetadata,
+          ...patch
+        } as Prisma.InputJsonValue
+      }
+    });
+    emitToUser(actor, 'settings.migration.updated', { job: serializeMigrationJob(updated) as Record<string, unknown> });
+  };
+
+  try {
+    await updateMetadata({
+      progress: migrationProgress(15, 'validating-backup', 'Validating backup archive'),
+      summary: {
+        backupFile: backup.originalName,
+        backupSize: backup.size,
+        backupSha256: backup.sha256
+      }
+    });
+    parseMigrationDatasetFromBackup(backup.buffer);
+
+    await updateMetadata({ progress: migrationProgress(35, 'sending-backup', 'Sending backup archive to target backend') });
+    const boundary = `morneven-backup-${randomUUID()}`;
+    const safeFilename = backup.originalName.replace(/["\r\n]/g, '_');
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="backup"; filename="${safeFilename}"\r\nContent-Type: application/zip\r\n\r\n`,
+        'utf8'
+      ),
+      backup.buffer,
+      Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8')
+    ]);
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'x-migration-key': migrationKey,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        'content-length': String(body.length)
+      },
+      body
+    });
+
+    if (!response.ok) {
+      throw new Error(`Target backend rejected backup migration with status ${response.status}`);
+    }
+
+    await updateMetadata({ progress: migrationProgress(80, 'verifying', 'Reading target verification results') });
+    const responsePayload = (await response.json()) as { success?: boolean; data?: MigrationVerification; message?: string };
+    if (!responsePayload.success || !responsePayload.data) {
+      throw new Error(responsePayload.message || 'Target backend returned an invalid backup migration response');
+    }
+
+    const report = {
+      exportedAt: new Date().toISOString(),
+      actor,
+      targetUrl,
+      method: 'backup-file',
+      backup: {
+        fileName: backup.originalName,
+        size: backup.size,
+        sha256: backup.sha256
+      },
+      verification: responsePayload.data
+    };
+
+    const stored = await saveFileToStorage({
+      objectPath: `exports/migrations/${jobId}/${downloadName}`,
+      buffer: Buffer.from(JSON.stringify(report, null, 2), 'utf8'),
+      contentType: 'application/json'
+    });
+
+    await updateMetadata({
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      artifactPath: stored.objectPath,
+      artifactUrl: stored.url,
+      downloadName,
+      verification: responsePayload.data,
+      progress: migrationProgress(100, 'completed', 'Backup migration verification report ready')
+    });
+  } catch (error) {
+    await updateMetadata({
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Backup migration failed',
+      progress: migrationProgress(100, 'failed', 'Backup migration failed')
+    });
+  }
+};
+
 const buildDefaultMigrationReceiveUrl = (baseUrl: string) => {
   const trimmed = baseUrl.replace(/\/+$/, '');
   return /\/api$/i.test(trimmed) ? `${trimmed}/settings/migration/receive` : `${trimmed}/api/settings/migration/receive`;
+};
+
+const buildDefaultMigrationReceiveBackupUrl = (baseUrl: string) => {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  return /\/api$/i.test(trimmed) ? `${trimmed}/settings/migration/receive-backup` : `${trimmed}/api/settings/migration/receive-backup`;
 };
 
 const sendExtractionDownload = async (
@@ -1582,6 +1785,23 @@ settingsRouter.post('/migration/receive', raw({ type: 'application/octet-stream'
   }
 });
 
+settingsRouter.post('/migration/receive-backup', (req, res, next) => {
+  try {
+    requireMigrationKey(req.header('x-migration-key'));
+    next();
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Forbidden', 'FORBIDDEN');
+  }
+}, migrationBackupUpload.single('backup'), async (req, res) => {
+  try {
+    if (!req.file?.buffer) return fail(res, 422, 'Backup archive is required', 'VALIDATION_ERROR');
+    const verification = await importBackupArchive(req.file.buffer);
+    return ok(res, verification);
+  } catch (error) {
+    return fail(res, 400, error instanceof Error ? error.message : 'Backup migration receive failed', 'MIGRATION_ERROR');
+  }
+});
+
 settingsRouter.get('/extractions', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
   const jobs = await prisma.extractionJob.findMany({
@@ -1615,7 +1835,7 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
 
   const createdAt = new Date();
   const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const downloadName = `morneven-backup-${parsed.data.mode}-${createdAt.toISOString().slice(0, 10)}.zip`;
+  const downloadName = formatBackupDownloadName(createdAt);
   const job = await prisma.extractionJob.create({
     data: {
       mode: parsed.data.mode,
@@ -1734,6 +1954,52 @@ settingsRouter.post('/migrations', auth, async (req, res) => {
   const sourceAssetEndpoint = `${req.protocol}://${req.get('host')}/api/settings/migration/assets`;
   setImmediate(() => {
     void runMigrationJob(job.id, req.user!.username, targetUrl, sourceAssetEndpoint, parsed.data.secretKey, downloadName);
+  });
+
+  emitToUser(req.user!.username, 'settings.migration.updated', { job: serializeMigrationJob(job) as Record<string, unknown> });
+  return res.status(202).json({ success: true, data: serializeMigrationJob(job) });
+});
+
+settingsRouter.post('/migrations/from-backup', auth, migrationBackupUpload.single('backup'), async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+
+  const parsed = migrationSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!req.file?.buffer) return fail(res, 422, 'Backup archive is required', 'VALIDATION_ERROR');
+  if (!env.migrationKey) return fail(res, 503, 'Migration key is not configured', 'MIGRATION_UNAVAILABLE');
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
+  const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
+  if (parsed.data.secretKey !== env.migrationKey) return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
+
+  const targetUrl = parsed.data.migrationUrl || buildDefaultMigrationReceiveBackupUrl(parsed.data.newBaseUrl || '');
+  const createdAt = new Date();
+  const downloadName = `morneven-migration-report-${createdAt.toISOString().slice(0, 10)}.json`;
+  const backup = {
+    originalName: req.file.originalname || 'backup.zip',
+    buffer: req.file.buffer,
+    size: req.file.size,
+    sha256: createHash('sha256').update(req.file.buffer).digest('hex')
+  };
+  const job = await prisma.auditLog.create({
+    data: {
+      actor: req.user!.username,
+      action: 'migration.job',
+      entity: 'MigrationJob',
+      metadata: {
+        status: 'processing',
+        method: 'backup-file',
+        targetUrl,
+        downloadName,
+        progress: migrationProgress(0, 'queued', 'Queued')
+      }
+    }
+  });
+
+  setImmediate(() => {
+    void runBackupMigrationJob(job.id, req.user!.username, targetUrl, parsed.data.secretKey, downloadName, backup);
   });
 
   emitToUser(req.user!.username, 'settings.migration.updated', { job: serializeMigrationJob(job) as Record<string, unknown> });
