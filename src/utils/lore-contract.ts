@@ -69,6 +69,23 @@ const normalizeSkillRestriction = (raw: unknown, fallback?: unknown) => {
 
 const stringArray = (value: unknown) => asArray(value).map((item) => text(item)).filter(Boolean);
 
+const normalizeLoreEntries = (value: unknown, prefix: string) =>
+  asArray(value)
+    .map((entry, index) => {
+      const raw = asObject(entry);
+      const title = text(raw.title);
+      const body = multilineText(raw.body ?? raw.text ?? raw.description);
+      const date = text(raw.date);
+      if (!title && !body && !date) return null;
+      return {
+        id: text(raw.id) || `${prefix}-${index + 1}`,
+        title: title || `Entry ${index + 1}`,
+        body,
+        ...(date ? { date } : {})
+      };
+    })
+    .filter((entry): entry is { id: string; title: string; body: string; date?: string } => Boolean(entry));
+
 const normalizeMetricGroup = <TKey extends string>(
   raw: unknown,
   keys: readonly TKey[],
@@ -221,16 +238,21 @@ export const normalizeLoreMetadata = (
     ...stripTopLevelLoreFields(asObject(existingMetadata)),
     ...stripTopLevelLoreFields(body)
   } as JsonRecord;
+  const existing = asObject(existingMetadata);
+
+  merged.fieldNotes = normalizeLoreEntries(body.fieldNotes ?? existing.fieldNotes, 'field-note');
+  merged.observations = normalizeLoreEntries(body.observations ?? existing.observations, 'observation');
 
   if (entityType === EntityType.character) {
-    merged.stats = normalizeCharacterStats(body.stats ?? asObject(existingMetadata).stats);
-    merged.skills = normalizeSkillItems(body.skills ?? asObject(existingMetadata).skills);
+    merged.stats = normalizeCharacterStats(body.stats ?? existing.stats);
+    merged.skills = normalizeSkillItems(body.skills ?? existing.skills);
+    merged.anecdotes = normalizeLoreEntries(body.anecdotes ?? existing.anecdotes, 'anecdote');
   }
 
   if (entityType === EntityType.creature) {
-    const nextDangerLevel = body.dangerLevel ?? asObject(existingMetadata).dangerLevel;
-    merged.stats = normalizeCreatureStats(body.stats ?? asObject(existingMetadata).stats, nextDangerLevel);
-    merged.skills = normalizeSkillItems(body.skills ?? asObject(existingMetadata).skills);
+    const nextDangerLevel = body.dangerLevel ?? existing.dangerLevel;
+    merged.stats = normalizeCreatureStats(body.stats ?? existing.stats, nextDangerLevel);
+    merged.skills = normalizeSkillItems(body.skills ?? existing.skills);
   }
 
   if (
