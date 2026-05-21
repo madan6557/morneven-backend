@@ -707,6 +707,25 @@ const saveIdentityFile = async (
   });
 };
 
+const asLoreEntries = (value: unknown) => Array.isArray(value)
+  ? value
+    .map((entry) => asJsonRecord(entry as Prisma.JsonValue))
+    .map((entry) => ({
+      title: typeof entry.title === 'string' ? entry.title.trim() : '',
+      body: typeof entry.body === 'string' ? entry.body.trim() : '',
+      date: typeof entry.date === 'string' ? entry.date.trim() : ''
+    }))
+    .filter((entry) => entry.title || entry.body || entry.date)
+  : [];
+
+const formatLoreEntries = (entries: Array<{ title: string; body: string; date: string }>) =>
+  entries.flatMap((entry) => [
+    `### ${entry.title || 'Untitled'}`,
+    entry.date ? `Date: ${entry.date}` : '',
+    '',
+    entry.body
+  ]);
+
 const buildLoreFileContent = (item: {
   id: string;
   name: string;
@@ -717,6 +736,7 @@ const buildLoreFileContent = (item: {
 }) => {
   const metadata = asJsonRecord(item.metadata);
   const traits = asStringArray(metadata.traits);
+  const anecdotes = asLoreEntries(metadata.anecdotes);
   return [
     `# ${item.name} Lore`,
     '',
@@ -729,7 +749,10 @@ const buildLoreFileContent = (item: {
     item.shortDesc,
     '',
     '## Full Lore',
-    item.fullDesc
+    item.fullDesc,
+    '',
+    anecdotes.length ? '## Anecdotes' : '',
+    ...formatLoreEntries(anecdotes)
   ].filter((line) => line !== '').join('\n');
 };
 
