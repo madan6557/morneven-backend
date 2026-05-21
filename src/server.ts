@@ -113,8 +113,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   return fail(res, 500, 'Server error', 'INTERNAL_SERVER_ERROR');
 });
 
-const server = app.listen(env.port, () => {
-  console.log(`Morneven backend listening on ${env.port}`);
+const server = app.listen(env.port, env.host, () => {
+  console.log(`Morneven backend listening on ${env.host}:${env.port}`);
 });
 
 attachRealtimeWebSocket(server);

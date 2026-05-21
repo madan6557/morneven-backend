@@ -5,6 +5,7 @@ dotenv.config();
 
 const schema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
+  HOST: z.string().trim().min(1).default('::'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(16),
@@ -68,6 +69,7 @@ const corsOrigins = parsed.data.CORS_ORIGIN.split(',')
 
 export const env = {
   port: parsed.data.PORT,
+  host: parsed.data.HOST,
   nodeEnv: parsed.data.NODE_ENV,
   databaseUrl: parsed.data.DATABASE_URL,
   jwtAccessSecret: parsed.data.JWT_ACCESS_SECRET,
