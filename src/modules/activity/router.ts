@@ -20,6 +20,24 @@ const contentEntityTypes = [
 ] as const;
 
 type ContentEntityType = (typeof contentEntityTypes)[number];
+type VisitRange = '1d' | '7d' | '30d' | '90d';
+type VisitBucket = 'six_hour' | 'day';
+
+type ViewerEventRecord = {
+  viewerKey: string;
+  viewerKind: string;
+};
+
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const visitRanges: VisitRange[] = ['1d', '7d', '30d', '90d'];
+
+const visitRangeConfig: Record<VisitRange, { bucket: VisitBucket; bucketCount: number; bucketMs: number }> = {
+  '1d': { bucket: 'six_hour', bucketCount: 4, bucketMs: SIX_HOURS_MS },
+  '7d': { bucket: 'day', bucketCount: 7, bucketMs: DAY_MS },
+  '30d': { bucket: 'day', bucketCount: 30, bucketMs: DAY_MS },
+  '90d': { bucket: 'day', bucketCount: 90, bucketMs: DAY_MS }
+};
 
 const categoryLabels: Record<ContentEntityType, string> = {
   gallery: 'Gallery',
@@ -41,6 +59,11 @@ const parseCategory = (value: unknown): ContentEntityType | 'all' => {
   const category = String(value ?? 'all');
   if (category === 'all') return 'all';
   return contentEntityTypes.includes(category as ContentEntityType) ? (category as ContentEntityType) : 'all';
+};
+
+const parseVisitRange = (value: unknown): VisitRange => {
+  const range = String(value ?? '7d');
+  return visitRanges.includes(range as VisitRange) ? (range as VisitRange) : '7d';
 };
 
 const sortMetric = (value: unknown) => {
@@ -86,11 +109,7 @@ const displayUserLabel = (user?: { username: string; accountStatus: AccountStatu
   return user.username;
 };
 
-const summarizeViewers = async (entityType: EntityType, entityId: string) => {
-  const events = await prisma.contentViewEvent.findMany({
-    where: { entityType, entityId },
-    orderBy: { createdAt: 'desc' }
-  });
+const loadUsersForViewerEvents = async (events: ViewerEventRecord[]) => {
   const userIds = [
     ...new Set(
       events
@@ -104,7 +123,14 @@ const summarizeViewers = async (entityType: EntityType, entityId: string) => {
         select: { id: true, username: true, accountStatus: true }
       })
     : [];
-  const userById = new Map(users.map((user) => [user.id, user]));
+  return new Map(users.map((user) => [user.id, user]));
+};
+
+const summarizeViewerEvents = (
+  events: ViewerEventRecord[],
+  userById: Map<string, { username: string; accountStatus: AccountStatus }>,
+  limit?: number
+) => {
   const viewerMap = new Map<string, { label: string; count: number; kind: string }>();
 
   for (const event of events) {
@@ -116,7 +142,31 @@ const summarizeViewers = async (entityType: EntityType, entityId: string) => {
     viewerMap.set(key, current);
   }
 
-  return Array.from(viewerMap.values()).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+  const sorted = Array.from(viewerMap.values()).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+  return typeof limit === 'number' ? sorted.slice(0, limit) : sorted;
+};
+
+const summarizeViewers = async (entityType: EntityType, entityId: string) => {
+  const events = await prisma.contentViewEvent.findMany({
+    where: { entityType, entityId },
+    select: { viewerKey: true, viewerKind: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  const userById = await loadUsersForViewerEvents(events);
+  return summarizeViewerEvents(events, userById);
+};
+
+const floorVisitBucket = (date: Date, bucket: VisitBucket) => {
+  if (bucket === 'six_hour') return new Date(Math.floor(date.getTime() / SIX_HOURS_MS) * SIX_HOURS_MS);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+};
+
+const addBucket = (date: Date, bucketMs: number, count: number) => new Date(date.getTime() + bucketMs * count);
+
+const formatVisitBucketLabel = (date: Date, bucket: VisitBucket) => {
+  const iso = date.toISOString();
+  if (bucket === 'six_hour') return `${iso.slice(5, 10)} ${iso.slice(11, 16)} UTC`;
+  return iso.slice(0, 10);
 };
 
 const loadContentDetail = async (entityType: ContentEntityType, entityId: string) => {
@@ -294,6 +344,98 @@ activityRouter.get('/overview', auth, async (req, res) => {
       ...totals
     },
     leaders
+  });
+});
+
+activityRouter.get('/visits', auth, async (req, res) => {
+  if (!requireRegistered(req, res)) return;
+
+  const range = parseVisitRange(req.query.range);
+  const category = parseCategory(req.query.category);
+  const entityTypes = category === 'all' ? contentEntityTypes : [category];
+  const config = visitRangeConfig[range];
+  const endBucket = floorVisitBucket(new Date(), config.bucket);
+  const startBucket = addBucket(endBucket, config.bucketMs, -(config.bucketCount - 1));
+  const queryEnd = addBucket(endBucket, config.bucketMs, 1);
+
+  const [events, rows] = await Promise.all([
+    prisma.contentViewEvent.findMany({
+      where: {
+        entityType: { in: [...entityTypes] },
+        bucketStart: { gte: startBucket, lt: queryEnd }
+      },
+      select: {
+        entityType: true,
+        entityId: true,
+        viewerKey: true,
+        viewerKind: true,
+        bucketStart: true
+      },
+      orderBy: { bucketStart: 'asc' }
+    }),
+    loadContentRows(category, '')
+  ]);
+
+  const userById = await loadUsersForViewerEvents(events);
+  const contentByKey = new Map(rows.map((row) => [`${row.entityType}:${row.id}`, row]));
+  const buckets = Array.from({ length: config.bucketCount }, (_, index) => addBucket(startBucket, config.bucketMs, index));
+  const eventsByBucket = new Map<string, typeof events>();
+
+  for (const event of events) {
+    const bucketStart = floorVisitBucket(event.bucketStart, config.bucket);
+    const key = bucketStart.toISOString();
+    const bucketEvents = eventsByBucket.get(key) ?? [];
+    bucketEvents.push(event);
+    eventsByBucket.set(key, bucketEvents);
+  }
+
+  const points = buckets.map((bucketStart) => {
+    const bucketKey = bucketStart.toISOString();
+    const bucketEvents = eventsByBucket.get(bucketKey) ?? [];
+    const viewerSummaries = summarizeViewerEvents(bucketEvents, userById);
+    const contentCounts = new Map<string, number>();
+
+    for (const event of bucketEvents) {
+      const contentKey = `${event.entityType}:${event.entityId}`;
+      contentCounts.set(contentKey, (contentCounts.get(contentKey) ?? 0) + 1);
+    }
+
+    const topContent = Array.from(contentCounts.entries())
+      .map(([contentKey, views]) => {
+        const item = contentByKey.get(contentKey);
+        if (!item) return null;
+        return {
+          id: item.id,
+          entityType: item.entityType,
+          category: item.category,
+          title: item.title,
+          thumbnail: item.thumbnail,
+          url: item.url,
+          views
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((left, right) => right.views - left.views || left.title.localeCompare(right.title))
+      .slice(0, 5);
+
+    return {
+      bucketStart: bucketKey,
+      bucketLabel: formatVisitBucketLabel(bucketStart, config.bucket),
+      views: bucketEvents.length,
+      uniqueVisitors: new Set(bucketEvents.map((event) => event.viewerKey)).size,
+      viewers: viewerSummaries.slice(0, 20),
+      viewerOverflow: Math.max(0, viewerSummaries.length - 20),
+      topContent
+    };
+  });
+
+  return ok(res, {
+    range,
+    bucket: config.bucket,
+    category,
+    totalViews: events.length,
+    uniqueVisitors: new Set(events.map((event) => event.viewerKey)).size,
+    points
   });
 });
 
