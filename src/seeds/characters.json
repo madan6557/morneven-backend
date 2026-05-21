@@ -223,6 +223,26 @@
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
       }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-002-01",
+        "title": "The Open Door Policy",
+        "body": "Elynra once announced that Morneven's cross-species council would use an open door policy for the entire week. The building's security system interpreted this literally and kept opening the meeting room door every time someone walked near the corridor. By the third interruption, the minutes included one diplomatic objection, two startled couriers, and a tray of tea that had joined the meeting by accident.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-002-02",
+        "title": "Director's Correction",
+        "body": "Rather than cancel the policy, Elynra revised it. The door would remain open in principle and closed in airflow. She then listened to every delegation without shortening the session, including the engineer who insisted the door had followed the order with admirable loyalty. Elynra thanked the system for its commitment and ordered the wording fixed before the next council cycle.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-002-03",
+        "title": "Canon Note",
+        "body": "Elynra's leadership is compassionate but not soft. She can absorb absurd logistical friction without letting the purpose of the meeting collapse. The humor comes from the Institute trying to literalize her ideals, while Elynra calmly turns the mistake into a better rule.",
+        "date": "2026-05-20"
+      }
     ]
   },
   {
@@ -231,24 +251,24 @@
     "race": "Human",
     "height": "180 cm",
     "traits": [
+      "Genius Inventor",
       "Reckless",
-      "Inventive",
-      "Humorous"
+      "Sola's Playmate"
     ],
     "likes": [
-      "Explosions",
-      "Tinkering",
-      "Spicy food"
+      "Prototype testing",
+      "Impossible engineering requests",
+      "Sola's field feedback"
     ],
     "dislikes": [
-      "Bureaucracy",
-      "Sitting still",
-      "Formal events"
+      "Idle paperwork",
+      "Untested theory",
+      "Safety meetings that start before the test"
     ],
     "accentColor": "#E67E22",
     "thumbnail": "",
-    "shortDesc": "Lead Engineer and head of Morneven's R&D Weapons Division.",
-    "fullDesc": "Rex Ashford is a human engineer whose genius is matched only by his disregard for safety protocols. He heads the Research & Development Weapons Division at Morneven Institute, responsible for developing defensive technologies against Voidborn threats.\n\nDespite numerous lab incidents (17 at last count), his innovations have saved countless lives. His signature creation, the 'Ashford Repeater,' is standard issue for all Institute field operatives.",
+    "shortDesc": "PL5 Lead Engineer and genius inventor whose prototypes are often tested by Sola.",
+    "fullDesc": "Rex Ashford is Morneven's PL5 Lead Engineer and one of the Institute's most dangerous kinds of asset: a genius inventor who can turn a half-finished requirement into a working prototype before the request form has found the correct desk. His workshop covers weapons, field devices, utility systems, defensive hardware, mobility rigs, and anything else Morneven personnel are brave enough to ask for in writing.\n\nRex's talent is not just invention, but iteration. He builds quickly, breaks the design honestly, reads the failure, and rebuilds it before the smoke has fully cleared. This method would be merely alarming if he worked alone. Unfortunately for every safety officer with a calendar, he does not.\n\nSola is Rex's regular playmate because she often tests his inventions. The arrangement began as practical stress testing and slowly became a familiar Institute pattern: Rex needs data from conditions no normal personnel can survive, and Sola enjoys anything that looks fast, loud, sharp, bright, unstable, or personally challenging. If Rex builds something that should not be tested by standard procedure, Sola is usually the first person asking whether she is allowed to hit it, race it, overcharge it, throw it, or stand in front of it.\n\nThe Rex-Sola testing dynamic is dangerous, comedic, and genuinely productive. Rex gives Sola prototypes that require impossible feedback. Sola gives Rex failure data that no simulator can reproduce. Many of Morneven's strongest engineering improvements exist because Sola found the weak point in three seconds, then looked mildly disappointed when the device only exploded once.\n\nRex remains reckless in communication, not incompetent in engineering. He may label a prototype 'probably fine,' but the machine behind the label is usually built from a chain of calculations that would take another engineer a week to verify. His role as PL5 Lead Engineer exists because Morneven needs someone who can keep pace with threats, personnel demands, and Sola's definition of a fair test.\n\n[L5+ track=mechanic]Prototype trials involving Sola require declared boundaries, remote shutdown review, reinforced observation distance, and post-test damage accounting. Rex is authorized to propose extreme validation scenarios. This does not authorize him to remember the paperwork only after Sola has already agreed.[/L5+]",
     "stats": {
       "combat": 65,
       "intelligence": 91,
@@ -257,7 +277,7 @@
       "endurance": 70
     },
     "docs": [],
-    "occupation": "Lead Engineer - R&D Weapons",
+    "occupation": "PL5 Lead Engineer - Invention & Prototype Development",
     "meta": {
       "creator": "Cmdr. Halen",
       "owner": "Field Operations",
@@ -287,23 +307,98 @@
     "fieldNotes": [
       {
         "id": "fn-char-003-01",
-        "title": "Rex Ashford Survey Log",
-        "body": "Perimeter readings are stable, with minor resonance drift after dusk. Routine monitoring remains in effect.",
-        "date": "2026-04-18"
+        "title": "Sola Test Boundary",
+        "body": "If Sola volunteers to test a Rex prototype, the test is not automatically approved. File the boundary sheet first, confirm the remote cutoff, and move spectators beyond the line Rex insists is probably far enough.",
+        "date": "2026-05-20"
       },
       {
         "id": "fn-char-003-02",
-        "title": "Rex Ashford Handling Directive",
-        "body": "All personnel must confirm sensor calibration before direct interaction and file a post-shift anomaly summary.",
-        "date": "2026-04-24"
+        "title": "Workshop Handling Directive",
+        "body": "Do not stand between Rex and an unfinished device unless your assignment explicitly says test subject. If Sola is also present, assume the word unfinished means ten seconds away from becoming data.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "fn-char-003-03",
+        "title": "Paperwork Reminder",
+        "body": "Rex may claim that a successful prototype proves the risk assessment was accurate in spirit. Administration has confirmed that spirit is not a valid filing category.",
+        "date": "2026-05-20"
       }
     ],
     "observations": [
       {
         "id": "ob-char-003-01",
-        "title": "Rex Ashford Observation",
-        "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
-        "date": "2026-04-26"
+        "title": "Rex-Sola Test Pattern",
+        "body": "Sola treats many of Rex's inventions like toys until they survive her first test. Rex treats that survival as preliminary certification. Safety treats both interpretations as a reason to schedule another review.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "ob-char-003-02",
+        "title": "Competence Profile",
+        "body": "Rex is reckless in tempo and labeling, but his engineering logic is consistently strong. Morneven risk reports should frame him as a controlled hazard, not an unreliable technician.",
+        "date": "2026-05-20"
+      }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-003-01",
+        "title": "The Sola Test Standard",
+        "body": "Rex once presented a prototype mobility stabilizer with a careful explanation about balance correction, impact tolerance, and overload response. Sola listened for almost twelve seconds, then asked whether she was supposed to run with it, kick it, or let it explode first. Rex paused, looked at the clipboard, and admitted that all three options would generate useful data.\n\nThe official test plan was rewritten in more professional language. The first line still meant Sola runs at the wall and Rex watches the numbers. The stabilizer survived the first run, failed the second, and produced the exact failure profile Rex had been trying to find for two weeks. Sola called it fun but too polite. Rex wrote that down as a negative performance note.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-003-02",
+        "title": "Probably Fine, Sola Edition",
+        "body": "A review board once rejected Rex's prototype label because the casing still said Probably Fine in marker. Rex argued that the label was statistically honest. The board argued that statistics should not be handwritten on active machinery. Sola, who had been invited only for the controlled test, asked whether Probably Fine meant she could hit it at half strength.\n\nRex immediately said yes. Safety immediately said no. The board took a vote, discovered that Sola had already moved into the marked test lane, and accelerated the review with unusual emotional clarity. The prototype passed. The label did not. The final file renamed it Pre-Series Impact Regulator 2, but Sola kept calling it Probably Fine because, in her words, it was funnier and technically survived.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-003-03",
+        "title": "Lead Engineer Logic",
+        "body": "Rex's leadership style is easiest to understand through one workshop incident. A junior engineer asked why Rex always seemed calmer when Sola was the tester. Rex answered that normal testers report whether a device works, while Sola reports whether reality personally disagrees with it.\n\nThis did not comfort the junior engineer. It did, however, become the unofficial explanation for why Rex remains PL5 Lead Engineer. He does not build things because they sound impressive in a meeting. He builds them until they survive contact with the Institute's most unreasonable practical benchmark, then improves them because Sola looks bored.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-003-04",
+        "title": "Canon Note",
+        "body": "Rex should read as a genius inventor with dangerous momentum, not as a random chaos engineer. His comedy comes from the gap between his actual competence and his terrible risk presentation. Sola is his playmate because she makes impossible testing feel normal, and Rex is one of the few people who can turn her destructive curiosity into useful engineering progress.",
+        "date": "2026-05-20"
+      }
+    ],
+    "contributions": [
+      {
+        "id": "contrib-char-003-01",
+        "title": "PL5 Engineering Leadership",
+        "description": "Leads Morneven's high-level engineering work for prototypes, field hardware, weapon support systems, and rapid technical response."
+      },
+      {
+        "id": "contrib-char-003-02",
+        "title": "Rex-Sola Prototype Test Loop",
+        "description": "Maintains the informal but valuable testing pattern where Sola stress-tests inventions that exceed normal personnel safety limits."
+      },
+      {
+        "id": "contrib-char-003-03",
+        "title": "Rapid Invention Pipeline",
+        "description": "Turns urgent field requirements into working devices quickly enough for Morneven to respond before a threat finishes becoming a disaster."
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill-char-003-01",
+        "name": "Rapid Prototype Engineering",
+        "category": "engineering",
+        "description": "Converts incomplete operational requirements into functional prototypes at high speed, then refines them through aggressive field feedback."
+      },
+      {
+        "id": "skill-char-003-02",
+        "name": "Failure-Point Diagnostics",
+        "category": "analysis",
+        "description": "Reads damage patterns, overload traces, and Sola-grade stress data to identify the exact weakness a device tried to hide."
+      },
+      {
+        "id": "skill-char-003-03",
+        "name": "Prototype Safety Override",
+        "category": "support",
+        "description": "Builds remote cutoff, containment, or forced-idle functions into most serious prototypes, usually because someone from Safety stood in the doorway until he did."
       }
     ]
   },
@@ -480,6 +575,26 @@
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
       }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-005-01",
+        "title": "The Objective Was Clearly Visible",
+        "body": "During a controlled readiness drill, Sola was told to reach the marked objective and wait for the rest of the team. She reached it almost immediately, waved, got bored, and then investigated a second location because it looked like the kind of place an objective would choose if it wanted to be more interesting. The team arrived to find the original marker untouched and Sola proudly reporting that she had secured the backup objective no one had assigned.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-005-02",
+        "title": "Stellar Pass Logic",
+        "body": "When asked why she had left the marked point, Sola explained that waiting at an already reached objective was inefficient because the objective had already been reached. The evaluator attempted to explain that the drill measured hold discipline. Sola nodded, returned to the marker, and held it by physically standing on top of it with the satisfaction of someone who had solved language itself.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-005-03",
+        "title": "Canon Note",
+        "body": "Sola is not careless because she lacks capability. She is difficult because her capability makes normal pacing feel decorative. The comedy should keep her lovable but dangerous: she completes the task, over-completes the task, and then needs Sora or a very specific snack to explain why everyone else looks tired.",
+        "date": "2026-05-20"
+      }
     ]
   },
   {
@@ -566,6 +681,26 @@
         "title": "Garnet Observation",
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
+      }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-006-01",
+        "title": "The Silent Vote",
+        "body": "A field squad once attempted to choose a route through unstable stone while Garnet stood nearby in complete silence. One scout interpreted her silence as approval for the left path. Another interpreted it as rejection of the right path. A third wrote down that Garnet had expressed strong reservations, though Garnet had not moved at all.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-006-02",
+        "title": "One Step Forward",
+        "body": "After several minutes of debate, Garnet took one step toward a narrow ridge no one had listed as an option. The squad followed without further discussion. The ridge held, the left path collapsed, and the right path released mineral dust thick enough to blind the rear line. In the final report, the squad described Garnet's command as clear and concise. Garnet had said nothing.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-006-03",
+        "title": "Canon Note",
+        "body": "Garnet's authority is built on observation rather than volume. Personnel often project meaning onto her silence because her silence has a better record than most speeches. The humor should remain dry: everyone debates what Garnet means, then Garnet solves the problem by becoming the only moving data point.",
+        "date": "2026-05-20"
       }
     ]
   },
@@ -666,6 +801,26 @@
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
       }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-007-01",
+        "title": "The Three-Answer Briefing",
+        "body": "A junior analyst once asked Ameth a simple question during a Morneven planning session: which route was safest for a relief convoy. Ameth answered with three routes, three projected casualty models, two political consequences, and a warning that the safest route would become unsafe if everyone agreed too quickly. The analyst wrote down every word and still looked betrayed by the existence of the answer.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-007-02",
+        "title": "The Part That Was Useful",
+        "body": "The room only understood Ameth's recommendation after she tapped one point on the map and said that the convoy should leave twelve minutes later than scheduled. No one understood why. The convoy departed late, avoided a creature migration, and arrived early because the alternate road had cleared by then. Ameth accepted the report with the expression of someone who had expected the road to apologize for being obvious.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-007-03",
+        "title": "Canon Note",
+        "body": "This anecdote reflects Ameth's normal problem: she is usually correct, but her reasoning arrives in a shape that makes ordinary briefings feel underqualified. The comedy is not that Ameth is random. It is that her mind has already finished the whole board state while everyone else is still asking where the pieces are.",
+        "date": "2026-05-20"
+      }
     ]
   },
   {
@@ -757,6 +912,26 @@
         "title": "Diana Observation",
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
+      }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-008-01",
+        "title": "The Chamber Nap",
+        "body": "A maintenance team once entered the Jewerlian Chamber expecting another silent, immovable day with Diana at the altar. Instead, they found several children asleep near the base of the central crystal, each surrounded by a transparent barrier thin enough to be almost invisible and strong enough to make the safety officer immediately stop walking.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-008-02",
+        "title": "No Verbal Approval",
+        "body": "No one had filed a childcare request. No one had approved the blankets. The children had apparently wandered in, decided the safest place in Gemora was also quiet enough for a nap, and been accepted by Diana without ceremony. When the team tried to determine whether the barriers were intentional, Diana opened one eye. The inquiry ended at once and was later filed as resolved.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-008-03",
+        "title": "Canon Note",
+        "body": "Diana remains the Embodiment of Immovable, but the Chamber's reputation as a safe place is not only strategic. Her protection can be absolute without being dramatic. The comedy should stay quiet: personnel build protocols around Diana, while Diana silently decides that a sleeping child outranks the protocol stack.",
+        "date": "2026-05-20"
       }
     ]
   },
@@ -852,6 +1027,32 @@
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
       }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-009-summary",
+        "title": "Summary",
+        "body": "Sora's Fine Lady persona is sincere, but it is not as flawless as she believes. Her standard for being a lady is heavily influenced by Sola. In Sora's private scale, Sola has no etiquette at all, so being even slightly more controlled than Sola already feels like perfect lady behavior.\n\nThis gap became clear during a shared etiquette class.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-009-dinner-etiquette-trial",
+        "title": "The Dinner Etiquette Trial",
+        "body": "Morneven once placed Sora and Sola in the same etiquette lesson to test whether Sora could help stabilize Sola through formal table manners. The dinner segment failed almost immediately for Sola.\n\nSola's reasoning was simple: why make it complicated? The point is eating. Faster means more. More means better.\n\nFrom there, Sola treated the meal less like dinner and more like a speed trial with cutlery nearby. The instructor attempted to explain pacing, portion control, and presentation. Sola understood the words, decided they were inefficient, and continued eating as if etiquette was a hostile terrain feature.\n\nSora, by contrast, appeared much more composed. She lifted her utensils properly, kept her posture neat, and made a careful little cut into the steak. For a moment, the class record marked this as progress.\n\nThen Sora ate the larger piece.\n\nShe left the tiny polite cut on the plate, chewed the better portion with full confidence, and turned toward Sola with a smug expression that strongly suggested she believed she had mastered refinement. By her own logic, she had used the knife, made a smaller piece, and behaved better than Sola. Therefore, Fine Lady standard achieved.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-009-canon-interpretation",
+        "title": "Canon Interpretation",
+        "body": "This anecdote clarifies that Sora is not a perfect textbook lady. She wants the vibe, the posture, and the recognition, but she still carries some of Sola's appetite, competitiveness, and instinct to claim the better share.\n\nThe comedy should come from Sora being genuinely convinced that her version of etiquette is excellent because the comparison subject is Sola. She is not pretending to be refined. She truly believes she has upgraded the method.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-009-writing-note",
+        "title": "Writing Note",
+        "body": "When writing Sora, keep her ladylike self-image intact, but allow small cracks where Sola's influence shows through. She should correct Sola, then quietly do a more polished version of the same selfish thing. Sora's Fine Lady identity works best when it is elegant in presentation, questionable in technical accuracy, and delivered with total confidence.",
+        "date": "2026-05-20"
+      }
     ]
   },
   {
@@ -943,6 +1144,26 @@
         "title": "Era Observation",
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
+      }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-010-01",
+        "title": "The Bracket That Looked Edible",
+        "body": "During an early Litho Forge exercise, Era was asked to shape a simple replacement bracket for a lab rig. The bracket passed every strength test, but its rounded edges and careful surface polish made it look disturbingly like a pastry. Three engineers independently described it as biscuit-shaped before realizing Era was standing close enough to hear them.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-010-02",
+        "title": "Quiet Correction",
+        "body": "Era did not argue. She made a second bracket, sharper and more industrial, then placed both pieces on the bench. The original still outperformed the corrected version by a small margin. The lab kept the first bracket installed and quietly stopped calling it a biscuit after someone labeled it structural component with excellent manners.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-010-03",
+        "title": "Canon Note",
+        "body": "Era's curiosity and resilience show through small work more than grand speeches. She does not need to dominate a room to change it. The comedy should be gentle: everyone tries to avoid embarrassing her, then discovers the supposedly cute mistake is the best engineering option on the table.",
+        "date": "2026-05-20"
       }
     ]
   },
@@ -1039,6 +1260,26 @@
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
       }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-011-01",
+        "title": "The Coastal Appointment",
+        "body": "Marine once agreed to attend a coastal logistics meeting at exactly noon. At noon, no one was in the chair reserved for her. The meeting secretary marked her absent. Three seconds later, the water in every cup on the table tilted toward the window, and Marine stepped from the harbor mist with the calm of someone who considered doorways a local custom rather than a requirement.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-011-02",
+        "title": "No Clearance Required",
+        "body": "A new clerk attempted to ask for her PL clearance before the briefing continued. Marine smiled, the room became very aware of the coastline outside, and an older coordinator gently moved the form back into the drawer. Marine then answered every supply question in order, including one that had not been asked yet but became relevant when the tide schedule changed.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-011-03",
+        "title": "Canon Note",
+        "body": "Marine's serenity should never be mistaken for passivity. She is elusive because she can afford to be, and loyal enough to still arrive when cooperation matters. The humor is soft and coastal: Morneven prepares a chair, Marine arrives through the weather, and everyone quietly updates their definition of attendance.",
+        "date": "2026-05-20"
+      }
     ]
   },
   {
@@ -1133,6 +1374,32 @@
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
       }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-012-01",
+        "title": "The Marine Show Interruption",
+        "body": "John Halberd's standing problem with Sola, Marine, and Era began during what Logistics later filed as coastal downtime, even though nobody present would agree it was casual. Sola had called Marine to the shore because she wanted to watch a liquid-manipulation show with fish moving through suspended ribbons of seawater. Marine appeared because Sola called, not because an audience had gathered. Era stayed near Sola, quiet and attentive, treating the whole scene like a rare peaceful interval that should not be stepped on.\n\nThen John arrived with a clipboard, three snack-routing corrections, and the confidence of a man who believed timing was something that happened to other people. He did not mean harm. He had found a real logistics mismatch near the coastal supply lane and thought everyone would appreciate immediate coordination. Unfortunately, his opening line began while Marine was holding a spiral of water above the tide, which meant the first sound over the show was John asking whether anyone knew who had approved the wrong crate labels.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-012-02",
+        "title": "Four Reactions, One Clipboard",
+        "body": "The reactions created the relationship record still attached to John's file. Marine did not shout. She simply let the water spiral collapse into the sea with perfect grace, which somehow felt more severe than a reprimand. Sola turned slowly, still holding a half-eaten fish skewer, and asked John why his paper was louder than Marine. Era looked at Sola, looked at John, and silently decided that if Sola was done with him, she was done too.\n\nJohn attempted to recover by explaining that the supply mismatch could delay refreshments for the coastal team by nine minutes. This was technically correct and socially fatal. Sola told him nine minutes was less important than not interrupting fish water art. Marine returned to the water without another word. Era moved one step closer to Sola, which became the quietest possible version of taking a side.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-012-03",
+        "title": "The Boundary That Actually Worked",
+        "body": "The awkward part is that John was not wrong about the crate labels. His correction prevented the supply lane from misrouting food, towels, and two fragile sample containers later that day. The useful outcome made the incident harder to classify. Sola still disliked the interruption. Marine still disliked being bothered. Era still treated John's presence near Sola-priority spaces as something that should be redirected before it became noisy.\n\nLogistics solved the problem in the most John-compatible way possible: if John appears near Sola, Marine, or Era during a quiet moment, he must be given one bounded micro-task and a clear exit route. The policy works because John likes finishing things. It also works because the moment he has a task, everyone else can return to pretending the clipboard never reached the shoreline.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-012-04",
+        "title": "Canon Note",
+        "body": "John's relationship with Marine, Sola, and Era should read as comedic friction, not hatred. Marine dislikes his attention because she values distance and silence. Sola dislikes him because he interrupted one of Marine's shows, and Sola takes her entertainment seriously when fish or Marine are involved. Era's dislike is mostly associative: Sola set the boundary, so Era respects it. John remains useful, earnest, and badly timed, which is why Morneven manages him instead of removing him from the workflow.",
+        "date": "2026-05-20"
+      }
     ]
   },
   {
@@ -1226,6 +1493,26 @@
         "title": "Mira Halden Observation",
         "body": "Observed behavior aligns with current doctrine; no escalation required beyond standing protocols.",
         "date": "2026-04-26"
+      }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-char-013-01",
+        "title": "The Nine-Minute Delegation",
+        "body": "Mira Halden once gave a visiting delegation a nine-minute discussion window because the corridor outside had to remain quiet for a medical transfer. The delegates assumed nine minutes was a polite estimate. Mira placed a small timer on the table, smiled, and began with the phrase, we can be efficient without being rude.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-013-02",
+        "title": "Quiet Corridor Success",
+        "body": "At minute eight, one delegate attempted to open a new topic. Mira thanked him for identifying agenda material for the next session and slid a prepared follow-up form across the table before he finished the sentence. The delegation left on time, the medical transfer passed through a silent corridor, and the delegate later admitted he had never been interrupted so politely.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-char-013-03",
+        "title": "Canon Note",
+        "body": "Mira's diplomacy is precise rather than decorative. She can protect civilian spaces without raising her voice or turning governance into theater. The comedy is procedural: everyone thinks the schedule is flexible until Mira reveals that courtesy has a stopwatch.",
+        "date": "2026-05-20"
       }
     ]
   },
@@ -1437,6 +1724,26 @@
         "title": "Suit Custody Observation",
         "body": "A Sapphire Veil Suit remained intact after reissue to the formerly suspended test group, supporting the conclusion that the prior disintegration was a temporary intervention rather than permanent rejection.",
         "date": "2026-05-15"
+      }
+    ],
+    "anecdotes": [
+      {
+        "id": "anecdote-shafira-01",
+        "title": "The Invitation That Was Not Optional",
+        "body": "A new PL1 once tried to avoid Shafira's suit orientation by claiming they had already read the onboarding file. The reply from Logistic Sector 07 was a handwritten invitation delivered by three floating measuring tapes, one fabric swatch, and a needle that pointed down the corridor with unmistakable patience. The recruit understood that invitation was the polite word for schedule correction.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-shafira-02",
+        "title": "Atelier Assessment",
+        "body": "Inside Sector 07, Shafira adjusted a sleeve, tested movement clearance, corrected posture, and rejected the recruit's chosen stance as visually tragic. The suit fit perfectly afterward. When the recruit asked whether the assessment was combat training or fashion review, Shafira answered that survival without dignity was still an unfinished design.",
+        "date": "2026-05-20"
+      },
+      {
+        "id": "anecdote-shafira-03",
+        "title": "Canon Note",
+        "body": "Shafira's support role should feel elegant but not passive. She protects people through craft, standards, and a terrifying ability to make logistics feel like couture. The humor is sharp: personnel think they are being inspected for safety, then discover Shafira has included taste as part of the survival protocol.",
+        "date": "2026-05-20"
       }
     ]
   }

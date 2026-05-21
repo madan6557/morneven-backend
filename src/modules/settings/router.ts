@@ -3,9 +3,8 @@ import { raw } from 'express';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { EntityType, MediaType, Prisma, Role, Track } from '@prisma/client';
+import { EntityType, Prisma, Role, Track } from '@prisma/client';
 import { z } from 'zod';
 import { auth, hasPl7MaintenanceAccess, isPl7Author } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
@@ -16,17 +15,23 @@ import { readFileWithMetadataFromStorage } from '../../config/storage.js';
 import { createReadStreamFromStorage } from '../../config/storage.js';
 import { fail, ok } from '../../utils/response.js';
 import {
-  serializeGalleryItem,
-  serializeLoreItem,
-  serializeProject,
-  serializeUser
-} from '../../utils/serializers.js';
+  buildDatabaseSqlDump,
+  collectExtractionSnapshot,
+  collectMigrationDataset,
+  collectMigrationPayload,
+  countCurrentMigrationState,
+  importMigrationDataset,
+  normalizeMigrationDataset,
+  type ExportSnapshot,
+  type MigrationDataset,
+  type MigrationPayload,
+  type MigrationVerification
+} from '../../utils/data-contract.js';
 import { makeZip, ZipFile } from '../../utils/zip.js';
 import { writeAudit } from '../../utils/audit.js';
 import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from './preset-service.js';
 import {
   cleanupUnreferencedStoragePaths,
-  collectReferencedStoragePaths,
   extractStorageObjectPath,
   getStorageCleanupReport,
   runStorageCleanup
@@ -34,10 +39,6 @@ import {
 import { emitToUser } from '../../realtime/events.js';
 
 export const settingsRouter = Router();
-const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
-  findMany: (args?: Record<string, unknown>) => Promise<any[]>;
-  count: () => Promise<number>;
-};
 
 const defaultSettings = defaultCommandCenterSettings;
 const migrationBackupUpload = multer({
@@ -261,62 +262,6 @@ const requirePl7Author = (req: Request, res: Response) => {
   return true;
 };
 
-type ExportSnapshot = {
-  characters: ReturnType<typeof serializeLoreItem>[];
-  creatures: ReturnType<typeof serializeLoreItem>[];
-  places: ReturnType<typeof serializeLoreItem>[];
-  projects: ReturnType<typeof serializeProject>[];
-  technology: ReturnType<typeof serializeLoreItem>[];
-  events: ReturnType<typeof serializeLoreItem>[];
-  others: ReturnType<typeof serializeLoreItem>[];
-  gallery: ReturnType<typeof serializeGalleryItem>[];
-  news: Array<{
-    id: string;
-    text: string;
-    date: string;
-    hasDetail: boolean;
-    thumbnail?: string;
-    body?: string;
-    attachments: Array<{ type: 'image' | 'video' | 'link'; url: string; caption?: string }>;
-  }>;
-  personnel: ReturnType<typeof serializeUser>[];
-  passwordResetRequests: Array<{
-    id: string;
-    email: string;
-    username: string;
-    identityProof: string;
-    status: string;
-    reviewNote?: string;
-    reviewedBy?: string;
-    newPasswordHash: string;
-    createdAt: string;
-    updatedAt: string;
-    reviewedAt?: string;
-    completedAt?: string;
-  }>;
-  personnelReports: Array<{
-    id: string;
-    reporterUsername: string;
-    targetUsername: string;
-    category: string;
-    details: string;
-    status: string;
-    resolutionAction?: string;
-    resolutionNote?: string;
-    resolvedByUsername?: string;
-    createdAt: string;
-    updatedAt: string;
-    resolvedAt?: string;
-  }>;
-  contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
-  contentViewEvents: Awaited<ReturnType<typeof prisma.contentViewEvent.findMany>>;
-  contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
-  map: {
-    mapImage: string;
-    markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
-  };
-};
-
 type EmbeddedAsset = {
   objectPath: string;
   archivePath: string;
@@ -331,132 +276,6 @@ type ExtractionBuildResult = {
     embeddedCount: number;
     failedCount: number;
     selectedSources: BackupMediaSource[];
-  };
-};
-
-const serializeNewsForExtraction = (item: Prisma.NewsGetPayload<{ include: { attachments: true } }>): ExportSnapshot['news'][number] => ({
-  id: item.id,
-  text: item.text,
-  date: item.publishDate.toISOString().slice(0, 10),
-  hasDetail: item.hasDetail,
-  thumbnail: item.thumbnail ?? undefined,
-  body: item.body ?? undefined,
-  attachments: item.attachments.map((attachment) => ({
-    type: attachment.type === MediaType.link ? 'link' : attachment.type === MediaType.video ? 'video' : 'image',
-    url: attachment.url,
-    caption: attachment.caption ?? undefined
-  }))
-});
-
-const serializePasswordResetRequestForExtraction = (
-  item: {
-    id: string;
-    email: string;
-    username: string;
-    identityProof: string;
-    status: string;
-    reviewNote?: string | null;
-    reviewedBy?: { username: string } | null;
-    newPasswordHash: string;
-    createdAt: Date;
-    updatedAt: Date;
-    reviewedAt?: Date | null;
-    completedAt?: Date | null;
-  }
-): ExportSnapshot['passwordResetRequests'][number] => ({
-  id: item.id,
-  email: item.email,
-  username: item.username,
-  identityProof: item.identityProof,
-  status: item.status,
-  reviewNote: item.reviewNote ?? undefined,
-  reviewedBy: item.reviewedBy?.username ?? undefined,
-  newPasswordHash: item.newPasswordHash,
-  createdAt: item.createdAt.toISOString(),
-  updatedAt: item.updatedAt.toISOString(),
-  reviewedAt: item.reviewedAt?.toISOString(),
-  completedAt: item.completedAt?.toISOString()
-});
-
-const serializePersonnelReportForExtraction = (
-  item: Prisma.PersonnelReportGetPayload<{ include: { reporter: true; target: true; resolvedBy: true } }>
-): ExportSnapshot['personnelReports'][number] => ({
-  id: item.id,
-  reporterUsername: item.reporter.username,
-  targetUsername: item.target.username,
-  category: item.category,
-  details: item.details,
-  status: item.status,
-  resolutionAction: item.resolutionAction ?? undefined,
-  resolutionNote: item.resolutionNote ?? undefined,
-  resolvedByUsername: item.resolvedBy?.username ?? undefined,
-  createdAt: item.createdAt.toISOString(),
-  updatedAt: item.updatedAt.toISOString(),
-  resolvedAt: item.resolvedAt?.toISOString()
-});
-
-const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
-  const [
-    projects,
-    gallery,
-    news,
-    personnel,
-    passwordResetRequests,
-    personnelReports,
-    contentMetrics,
-    contentViewEvents,
-    contentReactions,
-    mapMarkers,
-    mapImage,
-    lore,
-    docs
-  ] = await Promise.all([
-    prisma.project.findMany({ include: { patches: true } }),
-    prisma.galleryItem.findMany({ include: { tags: true, uploader: true } }),
-    prisma.news.findMany({ include: { attachments: true } }),
-    prisma.user.findMany(),
-    passwordResetRequestModel.findMany({ include: { reviewedBy: true } }),
-    prisma.personnelReport.findMany({ include: { reporter: true, target: true, resolvedBy: true } }),
-    prisma.contentMetric.findMany(),
-    prisma.contentViewEvent.findMany(),
-    prisma.contentReaction.findMany(),
-    prisma.mapMarker.findMany(),
-    prisma.mapImage.findUnique({ where: { id: 'main' } }),
-    prisma.loreItem.findMany(),
-    prisma.entityDoc.findMany()
-  ]);
-
-  const docsByEntity = new Map<string, typeof docs>();
-  for (const doc of docs) {
-    const key = `${doc.entityType}:${doc.entityId}`;
-    docsByEntity.set(key, [...(docsByEntity.get(key) ?? []), doc]);
-  }
-
-  const loreByType = (category: EntityType) =>
-    lore
-      .filter((item) => item.category === category)
-      .map((item) => serializeLoreItem(item, docsByEntity.get(`${item.category}:${item.id}`) ?? []));
-
-  return {
-    characters: loreByType(EntityType.character),
-    creatures: loreByType(EntityType.creature),
-    places: loreByType(EntityType.place),
-    projects: projects.map(serializeProject),
-    technology: loreByType(EntityType.technology),
-    events: loreByType(EntityType.event),
-    others: loreByType(EntityType.other),
-    gallery: gallery.map((item) => serializeGalleryItem(item)),
-    news: news.map(serializeNewsForExtraction),
-    personnel: personnel.map(serializeUser),
-    passwordResetRequests: passwordResetRequests.map(serializePasswordResetRequestForExtraction),
-    personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
-    contentMetrics,
-    contentViewEvents,
-    contentReactions,
-    map: {
-      mapImage: mapImage?.imageUrl ?? '',
-      markers: mapMarkers
-    }
   };
 };
 
@@ -621,99 +440,6 @@ ${selectedSources.map((source) => `- ${source}`).join('\n') || '- none'}
 - Embedded assets: ${embeddedAssets.length}
 - Failed assets: ${failedAssets.length}
 `;
-
-const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
-const sqlIdent = (value: string) => `"${value.replace(/"/g, '""')}"`;
-const jsonColumns = new Set([
-  'metadata',
-  'docs',
-  'meta',
-  'itemLimits',
-  'manualSelections',
-  'payload',
-  'members',
-  'monthly',
-  'yearly',
-  'supervised',
-  'source',
-  'attachments',
-  'replyTo',
-  'progress',
-  'config'
-]);
-
-const sqlValue = (column: string, value: unknown) => {
-  if (value === null || value === undefined) return 'NULL';
-  if (value instanceof Date) return sqlString(value.toISOString());
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL';
-  if (typeof value === 'bigint') return value.toString();
-  if (typeof value === 'object' || jsonColumns.has(column)) return `${sqlString(JSON.stringify(value))}::jsonb`;
-  return sqlString(String(value));
-};
-
-const sqlInsertBlock = (table: string, rows: Array<Record<string, unknown>>) => {
-  if (!rows.length) return `-- ${table}: no rows`;
-  const columns = Object.keys(rows[0]);
-  const columnSql = columns.map(sqlIdent).join(', ');
-  const values = rows
-    .map((row) => `(${columns.map((column) => sqlValue(column, row[column])).join(', ')})`)
-    .join(',\n');
-  return `INSERT INTO ${sqlIdent(table)} (${columnSql}) VALUES\n${values};`;
-};
-
-const buildDatabaseSqlDump = (dataset: MigrationDataset) => {
-  const tables: Array<[string, Array<Record<string, unknown>>]> = [
-    ['User', dataset.users as Array<Record<string, unknown>>],
-    ['SecuritySession', dataset.securitySessions as Array<Record<string, unknown>>],
-    ['CommandCenterSettings', dataset.commandCenterSettings as Array<Record<string, unknown>>],
-    ['RefreshToken', dataset.refreshTokens as Array<Record<string, unknown>>],
-    ['Project', dataset.projects as Array<Record<string, unknown>>],
-    ['ProjectPatch', dataset.projectPatches as Array<Record<string, unknown>>],
-    ['News', dataset.news as Array<Record<string, unknown>>],
-    ['NewsAttachment', dataset.newsAttachments as Array<Record<string, unknown>>],
-    ['LoreItem', dataset.loreItems as Array<Record<string, unknown>>],
-    ['EntityDoc', dataset.entityDocs as Array<Record<string, unknown>>],
-    ['GalleryItem', dataset.galleryItems as Array<Record<string, unknown>>],
-    ['GalleryTag', dataset.galleryTags as Array<Record<string, unknown>>],
-    ['MapImage', dataset.mapImages as Array<Record<string, unknown>>],
-    ['MapMarker', dataset.mapMarkers as Array<Record<string, unknown>>],
-    ['Comment', dataset.comments as Array<Record<string, unknown>>],
-    ['Reply', dataset.replies as Array<Record<string, unknown>>],
-    ['Mention', dataset.mentions as Array<Record<string, unknown>>],
-    ['ContentMetric', dataset.contentMetrics as Array<Record<string, unknown>>],
-    ['ContentViewEvent', dataset.contentViewEvents as Array<Record<string, unknown>>],
-    ['ContentReaction', dataset.contentReactions as Array<Record<string, unknown>>],
-    ['ManagementRequest', dataset.managementRequests as Array<Record<string, unknown>>],
-    ['Team', dataset.teams as Array<Record<string, unknown>>],
-    ['QuotaRecord', dataset.quotaRecords as Array<Record<string, unknown>>],
-    ['Notification', dataset.notifications as Array<Record<string, unknown>>],
-    ['NotificationRead', dataset.notificationReads as Array<Record<string, unknown>>],
-    ['ChatConversation', dataset.chatConversations as Array<Record<string, unknown>>],
-    ['ChatConversationMember', dataset.chatConversationMembers as Array<Record<string, unknown>>],
-    ['ChatMessage', dataset.chatMessages as Array<Record<string, unknown>>],
-    ['ChatReadState', dataset.chatReadStates as Array<Record<string, unknown>>],
-    ['ExtractionJob', dataset.extractionJobs as Array<Record<string, unknown>>],
-    ['AuditLog', dataset.auditLogs as Array<Record<string, unknown>>],
-    ['SecurityEvent', dataset.securityEvents as Array<Record<string, unknown>>],
-    ['SecurityBlock', dataset.securityBlocks as Array<Record<string, unknown>>],
-    ['SecurityPolicy', dataset.securityPolicies as Array<Record<string, unknown>>],
-    ['FileScanRecord', dataset.fileScanRecords as Array<Record<string, unknown>>],
-    ['PersonnelReport', dataset.personnelReports as Array<Record<string, unknown>>],
-    ['PasswordResetRequest', dataset.passwordResetRequests as Array<Record<string, unknown>>]
-  ];
-
-  return [
-    '-- Morneven full database backup',
-    `-- Generated at ${new Date().toISOString()}`,
-    '-- Apply migrations before restoring this file.',
-    'BEGIN;',
-    `TRUNCATE TABLE ${tables.map(([table]) => sqlIdent(table)).join(', ')} RESTART IDENTITY CASCADE;`,
-    ...tables.map(([table, rows]) => sqlInsertBlock(table, rows)),
-    'COMMIT;',
-    ''
-  ].join('\n\n');
-};
 
 const buildExtractionFiles = async (
   mode: 'db' | 'images' | 'all',
@@ -909,67 +635,6 @@ const runExtractionJob = async (
   }
 };
 
-type MigrationDataset = {
-  users: Awaited<ReturnType<typeof prisma.user.findMany>>;
-  passwordResetRequests: any[];
-  commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
-  securitySessions: Awaited<ReturnType<typeof prisma.securitySession.findMany>>;
-  refreshTokens: Awaited<ReturnType<typeof prisma.refreshToken.findMany>>;
-  projects: Awaited<ReturnType<typeof prisma.project.findMany>>;
-  projectPatches: Awaited<ReturnType<typeof prisma.projectPatch.findMany>>;
-  news: Awaited<ReturnType<typeof prisma.news.findMany>>;
-  newsAttachments: Awaited<ReturnType<typeof prisma.newsAttachment.findMany>>;
-  loreItems: Awaited<ReturnType<typeof prisma.loreItem.findMany>>;
-  entityDocs: Awaited<ReturnType<typeof prisma.entityDoc.findMany>>;
-  galleryItems: Awaited<ReturnType<typeof prisma.galleryItem.findMany>>;
-  galleryTags: Awaited<ReturnType<typeof prisma.galleryTag.findMany>>;
-  mapImages: Awaited<ReturnType<typeof prisma.mapImage.findMany>>;
-  mapMarkers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
-  comments: Awaited<ReturnType<typeof prisma.comment.findMany>>;
-  replies: Awaited<ReturnType<typeof prisma.reply.findMany>>;
-  mentions: Awaited<ReturnType<typeof prisma.mention.findMany>>;
-  contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
-  contentViewEvents: Awaited<ReturnType<typeof prisma.contentViewEvent.findMany>>;
-  contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
-  managementRequests: Awaited<ReturnType<typeof prisma.managementRequest.findMany>>;
-  teams: Awaited<ReturnType<typeof prisma.team.findMany>>;
-  quotaRecords: Awaited<ReturnType<typeof prisma.quotaRecord.findMany>>;
-  notifications: Awaited<ReturnType<typeof prisma.notification.findMany>>;
-  notificationReads: Awaited<ReturnType<typeof prisma.notificationRead.findMany>>;
-  chatConversations: Awaited<ReturnType<typeof prisma.chatConversation.findMany>>;
-  chatConversationMembers: Awaited<ReturnType<typeof prisma.chatConversationMember.findMany>>;
-  chatMessages: Awaited<ReturnType<typeof prisma.chatMessage.findMany>>;
-  chatReadStates: Awaited<ReturnType<typeof prisma.chatReadState.findMany>>;
-  extractionJobs: Awaited<ReturnType<typeof prisma.extractionJob.findMany>>;
-  auditLogs: Awaited<ReturnType<typeof prisma.auditLog.findMany>>;
-  securityEvents: Awaited<ReturnType<typeof prisma.securityEvent.findMany>>;
-  securityBlocks: Awaited<ReturnType<typeof prisma.securityBlock.findMany>>;
-  securityPolicies: Awaited<ReturnType<typeof prisma.securityPolicy.findMany>>;
-  fileScanRecords: Awaited<ReturnType<typeof prisma.fileScanRecord.findMany>>;
-  personnelReports: Awaited<ReturnType<typeof prisma.personnelReport.findMany>>;
-};
-
-type MigrationPayload = {
-  version: 1;
-  exportedAt: string;
-  source: {
-    assetEndpoint: string;
-  };
-  dataset: MigrationDataset;
-  assets: Array<{ objectPath: string }>;
-  summary: {
-    tables: Record<string, number>;
-    assetCount: number;
-  };
-};
-
-type MigrationVerification = {
-  tables: Record<string, number>;
-  assetCount: number;
-  uploadedAssetCount: number;
-  failedAssets: Array<{ objectPath: string; error: string }>;
-};
-
 const migrationProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
 
 const requireMigrationKey = (key?: string | null) => {
@@ -1031,7 +696,7 @@ const parseMigrationPayload = (buffer: Buffer): MigrationPayload => {
   if (!parsed || parsed.version !== 1 || !parsed.dataset || !parsed.source?.assetEndpoint) {
     throw new Error('Invalid migration payload');
   }
-  (parsed.dataset as Partial<MigrationDataset>).contentViewEvents ??= [];
+  parsed.dataset = normalizeMigrationDataset(parsed.dataset);
   return parsed;
 };
 
@@ -1067,8 +732,7 @@ const parseMigrationDatasetFromBackup = (buffer: Buffer) => {
   const files = parseStoredZip(buffer);
   const datasetFile = files.get('db/morneven-full-dataset.json');
   if (!datasetFile) throw new Error('Backup archive does not include db/morneven-full-dataset.json');
-  const dataset = JSON.parse(datasetFile.toString('utf8')) as MigrationDataset;
-  (dataset as Partial<MigrationDataset>).contentViewEvents ??= [];
+  const dataset = normalizeMigrationDataset(JSON.parse(datasetFile.toString('utf8')) as Partial<MigrationDataset>);
   return { files, dataset };
 };
 
@@ -1115,354 +779,6 @@ const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerificatio
     uploadedAssetCount,
     failedAssets
   };
-};
-
-const summarizeMigrationDataset = (dataset: MigrationDataset, assetCount: number) => ({
-  tables: Object.fromEntries(
-    Object.entries(dataset).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0])
-  ),
-  assetCount
-});
-
-const collectMigrationDataset = async (): Promise<MigrationDataset> => {
-  const [
-    users,
-    passwordResetRequests,
-    commandCenterSettings,
-    securitySessions,
-    refreshTokens,
-    projects,
-    projectPatches,
-    news,
-    newsAttachments,
-    loreItems,
-    entityDocs,
-    galleryItems,
-    galleryTags,
-    mapImages,
-    mapMarkers,
-    comments,
-    replies,
-    mentions,
-    contentMetrics,
-    contentViewEvents,
-    contentReactions,
-    managementRequests,
-    teams,
-    quotaRecords,
-    notifications,
-    notificationReads,
-    chatConversations,
-    chatConversationMembers,
-    chatMessages,
-    chatReadStates,
-    extractionJobs,
-    auditLogs,
-    securityEvents,
-    securityBlocks,
-    securityPolicies,
-    fileScanRecords,
-    personnelReports
-  ] = await Promise.all([
-    prisma.user.findMany(),
-    passwordResetRequestModel.findMany(),
-    prisma.commandCenterSettings.findMany(),
-    prisma.securitySession.findMany(),
-    prisma.refreshToken.findMany(),
-    prisma.project.findMany(),
-    prisma.projectPatch.findMany(),
-    prisma.news.findMany(),
-    prisma.newsAttachment.findMany(),
-    prisma.loreItem.findMany(),
-    prisma.entityDoc.findMany(),
-    prisma.galleryItem.findMany(),
-    prisma.galleryTag.findMany(),
-    prisma.mapImage.findMany(),
-    prisma.mapMarker.findMany(),
-    prisma.comment.findMany(),
-    prisma.reply.findMany(),
-    prisma.mention.findMany(),
-    prisma.contentMetric.findMany(),
-    prisma.contentViewEvent.findMany(),
-    prisma.contentReaction.findMany(),
-    prisma.managementRequest.findMany(),
-    prisma.team.findMany(),
-    prisma.quotaRecord.findMany(),
-    prisma.notification.findMany(),
-    prisma.notificationRead.findMany(),
-    prisma.chatConversation.findMany(),
-    prisma.chatConversationMember.findMany(),
-    prisma.chatMessage.findMany(),
-    prisma.chatReadState.findMany(),
-    prisma.extractionJob.findMany(),
-    prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } }),
-    prisma.securityEvent.findMany(),
-    prisma.securityBlock.findMany(),
-    prisma.securityPolicy.findMany(),
-    prisma.fileScanRecord.findMany(),
-    prisma.personnelReport.findMany()
-  ]);
-
-  return {
-    users,
-    passwordResetRequests,
-    commandCenterSettings,
-    securitySessions,
-    refreshTokens,
-    projects,
-    projectPatches,
-    news,
-    newsAttachments,
-    loreItems,
-    entityDocs,
-    galleryItems,
-    galleryTags,
-    mapImages,
-    mapMarkers,
-    comments,
-    replies,
-    mentions,
-    contentMetrics,
-    contentViewEvents,
-    contentReactions,
-    managementRequests,
-    teams,
-    quotaRecords,
-    notifications,
-    notificationReads,
-    chatConversations,
-    chatConversationMembers,
-    chatMessages,
-    chatReadStates,
-    extractionJobs,
-    auditLogs,
-    securityEvents,
-    securityBlocks,
-    securityPolicies,
-    fileScanRecords,
-    personnelReports
-  };
-};
-
-const collectMigrationPayload = async (assetEndpoint: string): Promise<MigrationPayload> => {
-  const dataset = await collectMigrationDataset();
-  const assets = Array.from(await collectReferencedStoragePaths())
-    .sort((left, right) => left.localeCompare(right))
-    .map((objectPath) => ({ objectPath }));
-
-  return {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    source: { assetEndpoint },
-    dataset,
-    assets,
-    summary: summarizeMigrationDataset(dataset, assets.length)
-  };
-};
-
-const countCurrentMigrationState = async () => {
-  const [
-    users,
-    passwordResetRequests,
-    commandCenterSettings,
-    securitySessions,
-    refreshTokens,
-    projects,
-    projectPatches,
-    news,
-    newsAttachments,
-    loreItems,
-    entityDocs,
-    galleryItems,
-    galleryTags,
-    mapImages,
-    mapMarkers,
-    comments,
-    replies,
-    mentions,
-    contentMetrics,
-    contentViewEvents,
-    contentReactions,
-    managementRequests,
-    teams,
-    quotaRecords,
-    notifications,
-    notificationReads,
-    chatConversations,
-    chatConversationMembers,
-    chatMessages,
-    chatReadStates,
-    extractionJobs,
-    auditLogs,
-    securityEvents,
-    securityBlocks,
-    securityPolicies,
-    fileScanRecords,
-    personnelReports,
-    assets
-  ] = await Promise.all([
-    prisma.user.count(),
-    passwordResetRequestModel.count(),
-    prisma.commandCenterSettings.count(),
-    prisma.securitySession.count(),
-    prisma.refreshToken.count(),
-    prisma.project.count(),
-    prisma.projectPatch.count(),
-    prisma.news.count(),
-    prisma.newsAttachment.count(),
-    prisma.loreItem.count(),
-    prisma.entityDoc.count(),
-    prisma.galleryItem.count(),
-    prisma.galleryTag.count(),
-    prisma.mapImage.count(),
-    prisma.mapMarker.count(),
-    prisma.comment.count(),
-    prisma.reply.count(),
-    prisma.mention.count(),
-    prisma.contentMetric.count(),
-    prisma.contentViewEvent.count(),
-    prisma.contentReaction.count(),
-    prisma.managementRequest.count(),
-    prisma.team.count(),
-    prisma.quotaRecord.count(),
-    prisma.notification.count(),
-    prisma.notificationRead.count(),
-    prisma.chatConversation.count(),
-    prisma.chatConversationMember.count(),
-    prisma.chatMessage.count(),
-    prisma.chatReadState.count(),
-    prisma.extractionJob.count(),
-    prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }),
-    prisma.securityEvent.count(),
-    prisma.securityBlock.count(),
-    prisma.securityPolicy.count(),
-    prisma.fileScanRecord.count(),
-    prisma.personnelReport.count(),
-    collectReferencedStoragePaths()
-  ]);
-
-  return {
-    tables: {
-      users,
-      passwordResetRequests,
-      commandCenterSettings,
-      securitySessions,
-      refreshTokens,
-      projects,
-      projectPatches,
-      news,
-      newsAttachments,
-      loreItems,
-      entityDocs,
-      galleryItems,
-      galleryTags,
-      mapImages,
-      mapMarkers,
-      comments,
-      replies,
-      mentions,
-      contentMetrics,
-      contentViewEvents,
-      contentReactions,
-      managementRequests,
-      teams,
-      quotaRecords,
-      notifications,
-      notificationReads,
-      chatConversations,
-      chatConversationMembers,
-      chatMessages,
-      chatReadStates,
-      extractionJobs,
-      auditLogs,
-      securityEvents,
-      securityBlocks,
-      securityPolicies,
-      fileScanRecords,
-      personnelReports
-    },
-    assetCount: assets.size
-  };
-};
-
-const importMigrationDataset = async (dataset: MigrationDataset) => {
-  await prisma.$transaction(async (tx) => {
-    await tx.notificationRead.deleteMany();
-    await tx.mention.deleteMany();
-    await tx.contentReaction.deleteMany();
-    await tx.contentViewEvent.deleteMany();
-    await tx.contentMetric.deleteMany();
-    await tx.reply.deleteMany();
-    await tx.comment.deleteMany();
-    await tx.galleryTag.deleteMany();
-    await tx.newsAttachment.deleteMany();
-    await tx.projectPatch.deleteMany();
-    await tx.chatReadState.deleteMany();
-    await tx.chatMessage.deleteMany();
-    await tx.chatConversationMember.deleteMany();
-    await tx.chatConversation.deleteMany();
-    await tx.refreshToken.deleteMany();
-    await tx.securitySession.deleteMany();
-    await (tx as any).passwordResetRequest.deleteMany();
-    await tx.extractionJob.deleteMany();
-    await tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } });
-    await tx.securityEvent.deleteMany();
-    await tx.securityBlock.deleteMany();
-    await tx.securityPolicy.deleteMany();
-    await tx.fileScanRecord.deleteMany();
-    await tx.personnelReport.deleteMany();
-    await tx.managementRequest.deleteMany();
-    await tx.team.deleteMany();
-    await tx.quotaRecord.deleteMany();
-    await tx.notification.deleteMany();
-    await tx.mapMarker.deleteMany();
-    await tx.mapImage.deleteMany();
-    await tx.galleryItem.deleteMany();
-    await tx.entityDoc.deleteMany();
-    await tx.loreItem.deleteMany();
-    await tx.news.deleteMany();
-    await tx.project.deleteMany();
-    await tx.commandCenterSettings.deleteMany();
-    await tx.user.deleteMany();
-
-    if (dataset.users.length) await tx.user.createMany({ data: dataset.users as any });
-    if (dataset.securitySessions.length) await tx.securitySession.createMany({ data: dataset.securitySessions as any });
-    if (dataset.passwordResetRequests.length) await (tx as any).passwordResetRequest.createMany({ data: dataset.passwordResetRequests as any });
-    if (dataset.commandCenterSettings.length) await tx.commandCenterSettings.createMany({ data: dataset.commandCenterSettings as any });
-    if (dataset.refreshTokens.length) await tx.refreshToken.createMany({ data: dataset.refreshTokens as any });
-    if (dataset.projects.length) await tx.project.createMany({ data: dataset.projects as any });
-    if (dataset.projectPatches.length) await tx.projectPatch.createMany({ data: dataset.projectPatches as any });
-    if (dataset.news.length) await tx.news.createMany({ data: dataset.news as any });
-    if (dataset.newsAttachments.length) await tx.newsAttachment.createMany({ data: dataset.newsAttachments as any });
-    if (dataset.loreItems.length) await tx.loreItem.createMany({ data: dataset.loreItems as any });
-    if (dataset.entityDocs.length) await tx.entityDoc.createMany({ data: dataset.entityDocs as any });
-    if (dataset.galleryItems.length) await tx.galleryItem.createMany({ data: dataset.galleryItems as any });
-    if (dataset.galleryTags.length) await tx.galleryTag.createMany({ data: dataset.galleryTags as any });
-    if (dataset.mapImages.length) await tx.mapImage.createMany({ data: dataset.mapImages as any });
-    if (dataset.mapMarkers.length) await tx.mapMarker.createMany({ data: dataset.mapMarkers as any });
-    if (dataset.comments.length) await tx.comment.createMany({ data: dataset.comments as any });
-    if (dataset.replies.length) await tx.reply.createMany({ data: dataset.replies as any });
-    if (dataset.mentions.length) await tx.mention.createMany({ data: dataset.mentions as any });
-    if (dataset.contentMetrics.length) await tx.contentMetric.createMany({ data: dataset.contentMetrics as any });
-    if (dataset.contentViewEvents.length) await tx.contentViewEvent.createMany({ data: dataset.contentViewEvents as any });
-    if (dataset.contentReactions.length) await tx.contentReaction.createMany({ data: dataset.contentReactions as any });
-    if (dataset.managementRequests.length) await tx.managementRequest.createMany({ data: dataset.managementRequests as any });
-    if (dataset.teams.length) await tx.team.createMany({ data: dataset.teams as any });
-    if (dataset.quotaRecords.length) await tx.quotaRecord.createMany({ data: dataset.quotaRecords as any });
-    if (dataset.notifications.length) await tx.notification.createMany({ data: dataset.notifications as any });
-    if (dataset.notificationReads.length) await tx.notificationRead.createMany({ data: dataset.notificationReads as any });
-    if (dataset.chatConversations.length) await tx.chatConversation.createMany({ data: dataset.chatConversations as any });
-    if (dataset.chatConversationMembers.length) await tx.chatConversationMember.createMany({ data: dataset.chatConversationMembers as any });
-    if (dataset.chatMessages.length) await tx.chatMessage.createMany({ data: dataset.chatMessages as any });
-    if (dataset.chatReadStates.length) await tx.chatReadState.createMany({ data: dataset.chatReadStates as any });
-    if (dataset.extractionJobs.length) await tx.extractionJob.createMany({ data: dataset.extractionJobs as any });
-    if (dataset.auditLogs.length) await tx.auditLog.createMany({ data: dataset.auditLogs as any });
-    if (dataset.securityEvents.length) await tx.securityEvent.createMany({ data: dataset.securityEvents as any });
-    if (dataset.securityBlocks.length) await tx.securityBlock.createMany({ data: dataset.securityBlocks as any });
-    if (dataset.securityPolicies.length) await tx.securityPolicy.createMany({ data: dataset.securityPolicies as any });
-    if (dataset.fileScanRecords.length) await tx.fileScanRecord.createMany({ data: dataset.fileScanRecords as any });
-    if (dataset.personnelReports.length) await tx.personnelReport.createMany({ data: dataset.personnelReports as any });
-  });
 };
 
 const pullMigrationAssets = async (payload: MigrationPayload, migrationKey: string): Promise<MigrationVerification> => {
