@@ -126,6 +126,8 @@ const defaultIdentityFiles = (name: string, roleTitle: string) => [
   }
 ] as const;
 
+const readOnlyWorkspacePaths = new Set(['memory/history.jsonl']);
+
 const safeEquals = (left: string, right: string) => {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -141,6 +143,8 @@ const normalizeWorkspacePath = (value: string) => {
   if (!/^[a-zA-Z0-9._/-]+$/.test(normalized)) return null;
   return normalized;
 };
+
+const isReadOnlyWorkspacePath = (value: string) => readOnlyWorkspacePaths.has(value.toLowerCase());
 
 const slugify = (value: string) => {
   const slug = value
@@ -688,6 +692,10 @@ botManagerRouter.put('/identities/:id/files', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = fileSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const workspacePath = normalizeWorkspacePath(parsed.data.path);
+  if (workspacePath && isReadOnlyWorkspacePath(workspacePath)) {
+    return fail(res, 403, 'This workspace file is read-only and managed by runtime history', 'FORBIDDEN');
+  }
   const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
   if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
 
