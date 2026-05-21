@@ -205,7 +205,9 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     gallery,
     mapImage,
     chatMessages,
-    extractionJobs
+    extractionJobs,
+    botManagerIdentities,
+    botManagerFiles
   ] = await Promise.all([
     prisma.project.findMany({ select: { thumbnail: true, docs: true, meta: true } }),
     prisma.loreItem.findMany({ select: { id: true, category: true, thumbnail: true, metadata: true } }),
@@ -214,7 +216,9 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     prisma.galleryItem.findMany({ select: { thumbnail: true, mediaUrl: true, videoUrl: true } }),
     prisma.mapImage.findUnique({ where: { id: 'main' }, select: { imageUrl: true } }),
     prisma.chatMessage.findMany({ select: { attachments: true } }),
-    prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } })
+    prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
+    prisma.botManagerIdentity.findMany({ select: { profileImageObjectPath: true, profileImageUrl: true } }),
+    prisma.botManagerIdentityFile.findMany({ select: { objectPath: true } })
   ]);
 
   const docsByEntity = new Map<string, Array<{ url: string; thumbnail?: string | null }>>();
@@ -261,6 +265,15 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
   for (const job of extractionJobs) {
     addPath(paths, job.artifactPath);
     addPath(paths, job.artifactUrl);
+  }
+
+  for (const identity of botManagerIdentities) {
+    addPath(paths, identity.profileImageObjectPath);
+    addPath(paths, identity.profileImageUrl);
+  }
+
+  for (const file of botManagerFiles) {
+    addPath(paths, file.objectPath);
   }
 
   return paths;
@@ -324,7 +337,7 @@ export const getStorageCleanupReport = async (): Promise<StorageCleanupReport> =
     })),
     automaticCleanup: {
       enabled: true,
-      scopes: ['projects', 'lore', 'news', 'gallery', 'map', 'extraction-history']
+      scopes: ['projects', 'lore', 'news', 'gallery', 'map', 'chat', 'bot-manager', 'extraction-history']
     }
   };
 };
@@ -358,7 +371,7 @@ export const runStorageCleanup = async (): Promise<StorageCleanupReport> => {
     })),
     automaticCleanup: {
       enabled: true,
-      scopes: ['projects', 'lore', 'news', 'gallery', 'map', 'extraction-history']
+      scopes: ['projects', 'lore', 'news', 'gallery', 'map', 'chat', 'bot-manager', 'extraction-history']
     }
   };
 };

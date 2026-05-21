@@ -5,6 +5,7 @@ const allowedObjectFolders = new Set([
   'news',
   'map',
   'chat',
+  'bot-manager',
   'exports',
   'uploads'
 ]);

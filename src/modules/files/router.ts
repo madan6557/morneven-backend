@@ -14,7 +14,7 @@ export const filesRouter = Router();
 
 const querySchema = z.object({
   folder: z
-    .enum(['gallery', 'lore', 'projects', 'news', 'map', 'chat', 'exports', 'uploads'])
+    .enum(['gallery', 'lore', 'projects', 'news', 'map', 'chat', 'bot-manager', 'exports', 'uploads'])
     .optional()
 });
 

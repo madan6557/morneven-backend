@@ -23,6 +23,7 @@ import { contentStatsRouter } from './modules/content-stats/router.js';
 import { commandCenterRouter } from './modules/command-center/router.js';
 import { securityRouter } from './modules/security/router.js';
 import { activityRouter } from './modules/activity/router.js';
+import { botManagerRouter } from './modules/bot-manager/router.js';
 import { attachRealtimeWebSocket } from './realtime/websocket.js';
 import { securityGateway, securityLimiters } from './security/index.js';
 
@@ -99,6 +100,7 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/activity`, securityLimiters.api, activityRouter);
   app.use(`${base}/command-center`, securityLimiters.admin, commandCenterRouter);
   app.use(`${base}/security`, securityLimiters.security, securityRouter);
+  app.use(`${base}/bot-manager`, securityLimiters.admin, botManagerRouter);
 };
 
 mountApiRoutes('/api');

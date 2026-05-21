@@ -81,7 +81,8 @@ const backupMediaSourceSchema = z.enum([
   'other',
   'projects',
   'news',
-  'map'
+  'map',
+  'bot-manager'
 ]);
 type BackupMediaSource = z.infer<typeof backupMediaSourceSchema>;
 
@@ -96,7 +97,8 @@ const defaultBackupMediaSources: BackupMediaSource[] = [
   'other',
   'projects',
   'news',
-  'map'
+  'map',
+  'bot-manager'
 ];
 
 const extractionSchema = z.object({
@@ -352,6 +354,8 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     projects,
     news,
     mapImage,
+    botManagerIdentities,
+    botManagerFiles,
     loreItems,
     docs
   ] = await Promise.all([
@@ -360,6 +364,8 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     prisma.project.findMany(),
     prisma.news.findMany({ include: { attachments: true } }),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
+    prisma.botManagerIdentity.findMany(),
+    prisma.botManagerIdentityFile.findMany(),
     prisma.loreItem.findMany(),
     prisma.entityDoc.findMany()
   ]);
@@ -369,6 +375,8 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
   for (const project of projects) addPathSetValue(sets.projects, project);
   for (const item of news) addPathSetValue(sets.news, item);
   addPathSetValue(sets.map, mapImage?.imageUrl);
+  for (const identity of botManagerIdentities) addPathSetValue(sets['bot-manager'], identity);
+  for (const file of botManagerFiles) addPathSetValue(sets['bot-manager'], file.objectPath);
 
   const docsByEntity = new Map<string, typeof docs>();
   for (const doc of docs) {
@@ -512,6 +520,7 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/content-view-events.json', content: JSON.stringify(exportedSnapshot.contentViewEvents, null, 2) });
     files.push({ name: 'db/content-reactions.json', content: JSON.stringify(exportedSnapshot.contentReactions, null, 2) });
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
+    files.push({ name: 'db/bot-manager.json', content: JSON.stringify(exportedSnapshot.botManager, null, 2) });
   }
 
   if (includeMedia) {

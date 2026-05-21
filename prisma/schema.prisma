@@ -537,6 +537,62 @@ model FileScanRecord {
   @@index([verdict, createdAt])
 }
 
+model BotManagerCredential {
+  id             String   @id @default(uuid())
+  provider       String   @unique
+  encryptedValue String
+  keyPreview     String?
+  metadata       Json     @default("{}")
+  updatedBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model BotManagerGeneralConfig {
+  id        String   @id @default("default")
+  config    Json     @default("{}")
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BotManagerIdentity {
+  id                     String   @id @default(uuid())
+  slug                   String   @unique
+  name                   String
+  roleTitle              String
+  description            String   @default("")
+  isActive               Boolean  @default(false)
+  profileImageObjectPath String?
+  profileImageUrl        String?
+  channels               Json     @default("{}")
+  settings               Json     @default("{}")
+  createdBy              String?
+  updatedBy              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  files                  BotManagerIdentityFile[]
+
+  @@index([isActive])
+}
+
+model BotManagerIdentityFile {
+  id          String   @id @default(uuid())
+  identityId  String
+  path        String
+  kind        String
+  contentType String   @default("text/markdown")
+  objectPath  String
+  size        Int      @default(0)
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  identity    BotManagerIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@unique([identityId, path])
+  @@index([objectPath])
+}
+
 model PersonnelReport {
   id               String   @id @default(uuid())
   reporterId       String

@@ -67,12 +67,22 @@ export type ExportSnapshot = {
     mapImage: string;
     markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
   };
+  botManager: {
+    credentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
+    generalConfig: Awaited<ReturnType<typeof prisma.botManagerGeneralConfig.findMany>>;
+    identities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
+    files: Awaited<ReturnType<typeof prisma.botManagerIdentityFile.findMany>>;
+  };
 };
 
 export type MigrationDataset = {
   users: Awaited<ReturnType<typeof prisma.user.findMany>>;
   passwordResetRequests: any[];
   commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
+  botManagerCredentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
+  botManagerGeneralConfigs: Awaited<ReturnType<typeof prisma.botManagerGeneralConfig.findMany>>;
+  botManagerIdentities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
+  botManagerIdentityFiles: Awaited<ReturnType<typeof prisma.botManagerIdentityFile.findMany>>;
   securitySessions: Awaited<ReturnType<typeof prisma.securitySession.findMany>>;
   refreshTokens: Awaited<ReturnType<typeof prisma.refreshToken.findMany>>;
   projects: Awaited<ReturnType<typeof prisma.project.findMany>>;
@@ -145,6 +155,10 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'securitySessions', sqlTable: 'SecuritySession', findMany: () => prisma.securitySession.findMany(), count: () => prisma.securitySession.count(), deleteMany: (tx) => tx.securitySession.deleteMany(), createMany: (tx, rows) => tx.securitySession.createMany({ data: rows }) },
   { key: 'passwordResetRequests', sqlTable: 'PasswordResetRequest', findMany: () => passwordResetRequestModel.findMany(), count: () => passwordResetRequestModel.count(), deleteMany: (tx) => (tx as any).passwordResetRequest.deleteMany(), createMany: (tx, rows) => (tx as any).passwordResetRequest.createMany({ data: rows }) },
   { key: 'commandCenterSettings', sqlTable: 'CommandCenterSettings', findMany: () => prisma.commandCenterSettings.findMany(), count: () => prisma.commandCenterSettings.count(), deleteMany: (tx) => tx.commandCenterSettings.deleteMany(), createMany: (tx, rows) => tx.commandCenterSettings.createMany({ data: rows }) },
+  { key: 'botManagerCredentials', sqlTable: 'BotManagerCredential', findMany: () => prisma.botManagerCredential.findMany(), count: () => prisma.botManagerCredential.count(), deleteMany: (tx) => tx.botManagerCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerCredential.createMany({ data: rows }) },
+  { key: 'botManagerGeneralConfigs', sqlTable: 'BotManagerGeneralConfig', findMany: () => prisma.botManagerGeneralConfig.findMany(), count: () => prisma.botManagerGeneralConfig.count(), deleteMany: (tx) => tx.botManagerGeneralConfig.deleteMany(), createMany: (tx, rows) => tx.botManagerGeneralConfig.createMany({ data: rows }) },
+  { key: 'botManagerIdentities', sqlTable: 'BotManagerIdentity', findMany: () => prisma.botManagerIdentity.findMany(), count: () => prisma.botManagerIdentity.count(), deleteMany: (tx) => tx.botManagerIdentity.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentity.createMany({ data: rows }) },
+  { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: () => prisma.botManagerIdentityFile.findMany(), count: () => prisma.botManagerIdentityFile.count(), deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
   { key: 'refreshTokens', sqlTable: 'RefreshToken', findMany: () => prisma.refreshToken.findMany(), count: () => prisma.refreshToken.count(), deleteMany: (tx) => tx.refreshToken.deleteMany(), createMany: (tx, rows) => tx.refreshToken.createMany({ data: rows }) },
   { key: 'projects', sqlTable: 'Project', findMany: () => prisma.project.findMany(), count: () => prisma.project.count(), deleteMany: (tx) => tx.project.deleteMany(), createMany: (tx, rows) => tx.project.createMany({ data: rows }) },
   { key: 'projectPatches', sqlTable: 'ProjectPatch', findMany: () => prisma.projectPatch.findMany(), count: () => prisma.projectPatch.count(), deleteMany: (tx) => tx.projectPatch.deleteMany(), createMany: (tx, rows) => tx.projectPatch.createMany({ data: rows }) },
@@ -254,6 +268,10 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     contentReactions,
     mapMarkers,
     mapImage,
+    botManagerCredentials,
+    botManagerGeneralConfig,
+    botManagerIdentities,
+    botManagerFiles,
     lore,
     docs
   ] = await Promise.all([
@@ -268,6 +286,10 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.contentReaction.findMany(),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
+    prisma.botManagerCredential.findMany(),
+    prisma.botManagerGeneralConfig.findMany(),
+    prisma.botManagerIdentity.findMany(),
+    prisma.botManagerIdentityFile.findMany(),
     prisma.loreItem.findMany(),
     prisma.entityDoc.findMany()
   ]);
@@ -302,6 +324,12 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     map: {
       mapImage: mapImage?.imageUrl ?? '',
       markers: mapMarkers
+    },
+    botManager: {
+      credentials: botManagerCredentials,
+      generalConfig: botManagerGeneralConfig,
+      identities: botManagerIdentities,
+      files: botManagerFiles
     }
   };
 };

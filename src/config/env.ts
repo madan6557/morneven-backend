@@ -36,7 +36,12 @@ const schema = z.object({
   S3_PUBLIC_BASE_URL: z.string().url().optional(),
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
   MIGRATION_KEY: z.string().min(16).optional(),
-  EXTRACTION_KEY: z.string().min(16).optional()
+  EXTRACTION_KEY: z.string().min(16).optional(),
+  BOT_MANAGER_KEY: z.string().min(16).optional(),
+  BOT_MANAGER_ENCRYPTION_KEY: z.string().min(32).optional(),
+  BOT_MANAGER_SYNC_TOKEN: z.string().min(16).optional(),
+  NANOBOT_INTERNAL_BASE_URL: z.string().url().optional(),
+  NANOBOT_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional()
 });
 
 
@@ -89,5 +94,10 @@ export const env = {
   s3PublicBaseUrl: parsed.data.S3_PUBLIC_BASE_URL,
   s3ForcePathStyle: parsed.data.S3_FORCE_PATH_STYLE,
   migrationKey: parsed.data.MIGRATION_KEY,
-  extractionKey: parsed.data.EXTRACTION_KEY
+  extractionKey: parsed.data.EXTRACTION_KEY,
+  botManagerKey: parsed.data.BOT_MANAGER_KEY,
+  botManagerEncryptionKey: parsed.data.BOT_MANAGER_ENCRYPTION_KEY,
+  botManagerSyncToken: parsed.data.BOT_MANAGER_SYNC_TOKEN,
+  nanobotInternalBaseUrl: parsed.data.NANOBOT_INTERNAL_BASE_URL,
+  nanobotMornevenReloadToken: parsed.data.NANOBOT_MORNEVEN_RELOAD_TOKEN
 };
