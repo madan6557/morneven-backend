@@ -10,6 +10,7 @@ export const globalRateLimiter = rateLimit({
   max: env.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/bot-manager') || req.path.startsWith('/v1/bot-manager'),
   message: {
     success: false,
     message: 'Too many requests, please try again later.',

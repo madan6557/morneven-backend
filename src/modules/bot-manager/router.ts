@@ -9,6 +9,7 @@ import { prisma } from '../../config/prisma.js';
 import { createReadStreamFromStorage, deleteFileFromStorage, readFileWithMetadataFromStorage, saveFileToStorage } from '../../config/storage.js';
 import { auth, isPl7Admin, isPl7Author } from '../../middleware/auth.js';
 import { scanUploadBuffer } from '../../security/files/scanner.js';
+import { securityLimiters } from '../../security/rate-limit/limiters.js';
 import { fail, ok } from '../../utils/response.js';
 import { writeAudit } from '../../utils/audit.js';
 import { makeZip, ZipFile } from '../../utils/zip.js';
@@ -181,6 +182,9 @@ const protectedWorkspacePaths = new Set([
 ]);
 
 const readOnlyWorkspacePaths = new Set(['lore.md', 'memory/history.jsonl']);
+const nanobotStatusCacheMs = 30_000;
+
+let nanobotStatusCache: { payload: unknown; cachedAt: number } | null = null;
 
 const safeEquals = (left: string, right: string) => {
   const leftBuffer = Buffer.from(left);
@@ -261,6 +265,13 @@ const requireBotManagerAccess = (req: Request, res: Response) => {
     return false;
   }
   return true;
+};
+
+const botManagerRateLimiter = (req: Request, res: Response, next: NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return securityLimiters.botManagerRead(req, res, next);
+  }
+  return securityLimiters.botManagerWrite(req, res, next);
 };
 
 const verifyCredentialGate = async (req: Request, password: string, botManagerKey: string) => {
@@ -917,6 +928,23 @@ const callNanobot = async (path: string, init: { method?: string; body?: unknown
   throw new Error(lastError);
 };
 
+const clearNanobotStatusCache = () => {
+  nanobotStatusCache = null;
+};
+
+const setNanobotStatusCache = (payload: unknown) => {
+  nanobotStatusCache = { payload, cachedAt: Date.now() };
+};
+
+const getNanobotStatus = async (force = false) => {
+  if (!force && nanobotStatusCache && Date.now() - nanobotStatusCache.cachedAt < nanobotStatusCacheMs) {
+    return nanobotStatusCache.payload;
+  }
+  const { payload } = await callNanobot('/api/morneven/status');
+  setNanobotStatusCache(payload);
+  return payload;
+};
+
 botManagerRouter.get('/runtime/bundle', async (req, res) => {
   const parsed = syncTokenSchema.safeParse({ token: req.header('x-bot-manager-sync-token') });
   if (!parsed.success || !env.botManagerSyncToken || parsed.data.token !== env.botManagerSyncToken) {
@@ -931,6 +959,7 @@ botManagerRouter.get('/runtime/bundle', async (req, res) => {
 });
 
 botManagerRouter.use(auth);
+botManagerRouter.use(botManagerRateLimiter);
 
 botManagerRouter.get('/summary', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
@@ -961,8 +990,7 @@ botManagerRouter.get('/summary', async (req, res) => {
 botManagerRouter.get('/runtime/status', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   try {
-    const { payload } = await callNanobot('/api/morneven/status');
-    return ok(res, payload);
+    return ok(res, await getNanobotStatus(req.query.fresh === 'true'));
   } catch (error) {
     return fail(res, 502, error instanceof Error ? error.message : 'Nanobot status request failed', 'NANOBOT_REQUEST_FAILED');
   }
@@ -974,10 +1002,12 @@ botManagerRouter.post('/runtime/:action', async (req, res) => {
   if (!parsed.success) return fail(res, 422, 'Invalid nanobot runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
 
   try {
+    clearNanobotStatusCache();
     const { payload } = await callNanobot(`/api/morneven/gateway/${parsed.data}`, {
       method: 'POST',
       body: { requestedBy: req.user!.username }
     });
+    setNanobotStatusCache(payload);
     await writeAudit(prisma, {
       actor: req.user!.username,
       action: `bot-manager.runtime.${parsed.data}`,
@@ -1612,10 +1642,12 @@ botManagerRouter.post('/sync', async (req, res) => {
   }
 
   try {
+    clearNanobotStatusCache();
     const { payload } = await callNanobot('/api/morneven/reload', {
       method: 'POST',
       body: { requestedBy: req.user!.username }
     });
+    setNanobotStatusCache(payload);
     const runtimeSync = await markRuntimeSynced(req.user!.username);
     return ok(res, {
       synced: true,

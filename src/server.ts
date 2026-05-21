@@ -100,7 +100,7 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/activity`, securityLimiters.api, activityRouter);
   app.use(`${base}/command-center`, securityLimiters.admin, commandCenterRouter);
   app.use(`${base}/security`, securityLimiters.security, securityRouter);
-  app.use(`${base}/bot-manager`, securityLimiters.admin, botManagerRouter);
+  app.use(`${base}/bot-manager`, botManagerRouter);
 };
 
 mountApiRoutes('/api');

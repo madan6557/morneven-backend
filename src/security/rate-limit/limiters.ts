@@ -45,6 +45,8 @@ export const securityLimiters = {
   chat: securityRouteLimiter('chat', { windowMs: 60 * 1000, max: 120 }),
   management: securityRouteLimiter('management', { windowMs: 15 * 60 * 1000, max: 120 }),
   admin: securityRouteLimiter('admin', { windowMs: 15 * 60 * 1000, max: 120 }),
+  botManagerRead: securityRouteLimiter('bot-manager-read', { windowMs: 60 * 1000, max: 180 }),
+  botManagerWrite: securityRouteLimiter('bot-manager-write', { windowMs: 15 * 60 * 1000, max: 120 }),
   security: securityRouteLimiter('security', { windowMs: 15 * 60 * 1000, max: 240 }),
   api: securityRouteLimiter('api', { windowMs: env.rateLimitWindowMs, max: env.rateLimitMax })
 };
