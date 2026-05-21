@@ -22,13 +22,17 @@ const upload = multer({
 const providers = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter', 'deepseek', 'zhipu', 'vllm'] as const;
 const fileKinds = ['identity', 'memory', 'cron', 'skill', 'session', 'tool', 'user', 'system', 'other'] as const;
 
-const credentialSchema = z.object({
-  provider: z.enum(providers),
-  apiKey: z.string().trim().min(1).max(4096),
-  apiBase: z.string().trim().url().optional().or(z.literal('')),
+const credentialGateSchema = z.object({
   password: z.string().min(1),
   botManagerKey: z.string().min(1),
   confirmText: z.literal('CREDENTIALS')
+});
+
+const credentialSchema = credentialGateSchema.extend({
+  provider: z.enum(providers),
+  apiKey: z.string().trim().min(1).max(4096),
+  apiBase: z.string().trim().url().optional().or(z.literal('')),
+  modelId: z.string().trim().min(1).max(160)
 });
 
 const generalConfigSchema = z.object({
@@ -317,7 +321,7 @@ const buildRuntimeBundle = async () => {
 
   const [generalConfig, credentials] = await Promise.all([
     ensureGeneralConfig(),
-    prisma.botManagerCredential.findMany()
+    prisma.botManagerCredential.findMany({ orderBy: { provider: 'asc' } })
   ]);
 
   return {
@@ -373,6 +377,26 @@ botManagerRouter.get('/summary', async (req, res) => {
   });
 });
 
+botManagerRouter.post('/credentials/unlock', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = credentialGateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.credential.unlock',
+      entity: 'BotManagerCredential',
+      metadata: { unlocked: true }
+    });
+    return ok(res, { unlocked: true, unlockedAt: new Date().toISOString() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Credential unlock failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
 botManagerRouter.put('/credentials', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = credentialSchema.safeParse(req.body);
@@ -382,7 +406,12 @@ botManagerRouter.put('/credentials', async (req, res) => {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
     const value = {
       apiKey: parsed.data.apiKey,
-      apiBase: parsed.data.apiBase || null
+      apiBase: parsed.data.apiBase || null,
+      modelId: parsed.data.modelId
+    };
+    const metadata = {
+      apiBaseConfigured: Boolean(parsed.data.apiBase),
+      modelId: parsed.data.modelId
     };
     const saved = await prisma.botManagerCredential.upsert({
       where: { provider: parsed.data.provider },
@@ -390,13 +419,13 @@ botManagerRouter.put('/credentials', async (req, res) => {
         provider: parsed.data.provider,
         encryptedValue: encryptJson(value),
         keyPreview: keyPreview(parsed.data.apiKey),
-        metadata: { apiBaseConfigured: Boolean(parsed.data.apiBase) },
+        metadata,
         updatedBy: req.user!.username
       },
       update: {
         encryptedValue: encryptJson(value),
         keyPreview: keyPreview(parsed.data.apiKey),
-        metadata: { apiBaseConfigured: Boolean(parsed.data.apiBase) },
+        metadata,
         updatedBy: req.user!.username
       }
     });
