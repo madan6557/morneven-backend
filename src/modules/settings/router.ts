@@ -356,6 +356,7 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     mapImage,
     botManagerIdentities,
     botManagerFiles,
+    botManagerBackupJobs,
     loreItems,
     docs
   ] = await Promise.all([
@@ -366,6 +367,7 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
     prisma.botManagerIdentity.findMany(),
     prisma.botManagerIdentityFile.findMany(),
+    prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
     prisma.loreItem.findMany(),
     prisma.entityDoc.findMany()
   ]);
@@ -377,6 +379,10 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
   addPathSetValue(sets.map, mapImage?.imageUrl);
   for (const identity of botManagerIdentities) addPathSetValue(sets['bot-manager'], identity);
   for (const file of botManagerFiles) addPathSetValue(sets['bot-manager'], file.objectPath);
+  for (const job of botManagerBackupJobs) {
+    addPathSetValue(sets['bot-manager'], job.artifactPath);
+    addPathSetValue(sets['bot-manager'], job.artifactUrl);
+  }
 
   const docsByEntity = new Map<string, typeof docs>();
   for (const doc of docs) {

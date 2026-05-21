@@ -207,7 +207,8 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     chatMessages,
     extractionJobs,
     botManagerIdentities,
-    botManagerFiles
+    botManagerFiles,
+    botManagerBackupJobs
   ] = await Promise.all([
     prisma.project.findMany({ select: { thumbnail: true, docs: true, meta: true } }),
     prisma.loreItem.findMany({ select: { id: true, category: true, thumbnail: true, metadata: true } }),
@@ -218,7 +219,8 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     prisma.chatMessage.findMany({ select: { attachments: true } }),
     prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
     prisma.botManagerIdentity.findMany({ select: { profileImageObjectPath: true, profileImageUrl: true } }),
-    prisma.botManagerIdentityFile.findMany({ select: { objectPath: true } })
+    prisma.botManagerIdentityFile.findMany({ select: { objectPath: true } }),
+    prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } })
   ]);
 
   const docsByEntity = new Map<string, Array<{ url: string; thumbnail?: string | null }>>();
@@ -274,6 +276,11 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
 
   for (const file of botManagerFiles) {
     addPath(paths, file.objectPath);
+  }
+
+  for (const job of botManagerBackupJobs) {
+    addPath(paths, job.artifactPath);
+    addPath(paths, job.artifactUrl);
   }
 
   return paths;
