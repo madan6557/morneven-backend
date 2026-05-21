@@ -60,6 +60,8 @@ const syncTokenSchema = z.object({
   token: z.string().optional()
 });
 
+const runtimeActionSchema = z.enum(['start', 'stop', 'restart']);
+
 type IdentityWithFiles = Prisma.BotManagerIdentityGetPayload<{ include: { files: true } }>;
 type IdentityRecord = {
   id: string;
@@ -342,6 +344,95 @@ const buildRuntimeBundle = async () => {
   };
 };
 
+const nanobotBaseUrlCandidates = () => {
+  if (!env.nanobotInternalBaseUrl) return [];
+  const candidates: string[] = [];
+  const addCandidate = (value: string) => {
+    const normalized = value.replace(/\/+$/, '');
+    if (normalized && !candidates.includes(normalized)) candidates.push(normalized);
+  };
+
+  addCandidate(env.nanobotInternalBaseUrl);
+  try {
+    const parsed = new URL(env.nanobotInternalBaseUrl);
+    const isRailwayPrivate = parsed.hostname.endsWith('.railway.internal');
+    if (isRailwayPrivate) {
+      parsed.protocol = 'http:';
+      addCandidate(parsed.toString());
+      if (!parsed.port) {
+        parsed.port = '8080';
+        addCandidate(parsed.toString());
+      }
+    }
+  } catch {
+    return candidates;
+  }
+  return candidates;
+};
+
+const describeNanobotFetchError = (error: unknown, endpoint: string) => {
+  const baseMessage = error instanceof Error ? error.message : 'request failed';
+  const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+  const causeText = cause?.code ? `${cause.code}${cause.message ? `: ${cause.message}` : ''}` : cause?.message;
+  const railwayHint = endpoint.includes('.railway.internal')
+    ? ' Railway private networking should use http://<private-domain>:<port>, not https.'
+    : '';
+  return `Nanobot request failed at ${endpoint}: ${causeText ?? baseMessage}.${railwayHint}`;
+};
+
+const parseNanobotPayload = async (response: globalThis.Response) => {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+};
+
+const nanobotPayloadMessage = (payload: unknown) => {
+  if (payload && typeof payload === 'object') {
+    const record = payload as { error?: unknown; message?: unknown };
+    if (typeof record.error === 'string') return record.error;
+    if (typeof record.message === 'string') return record.message;
+  }
+  if (typeof payload === 'string' && payload.trim()) return payload;
+  return null;
+};
+
+const callNanobot = async (path: string, init: { method?: string; body?: unknown } = {}) => {
+  if (!env.nanobotInternalBaseUrl || !env.nanobotMornevenReloadToken) {
+    throw new Error('Nanobot runtime endpoint is not configured');
+  }
+
+  const bases = nanobotBaseUrlCandidates();
+  let lastError = `Nanobot request failed: ${path}`;
+  for (const base of bases) {
+    const endpoint = `${base}${path}`;
+    try {
+      const response = await fetch(endpoint, {
+        method: init.method ?? 'GET',
+        headers: {
+          'content-type': 'application/json',
+          'x-morneven-reload-token': env.nanobotMornevenReloadToken
+        },
+        body: init.body === undefined ? undefined : JSON.stringify(init.body)
+      });
+      const payload = await parseNanobotPayload(response);
+      if (!response.ok) {
+        const message = nanobotPayloadMessage(payload) ?? `Nanobot responded with ${response.status}`;
+        throw new Error(`${message} (${response.status})`);
+      }
+      return { endpoint, payload };
+    } catch (error) {
+      lastError = describeNanobotFetchError(error, endpoint);
+      if (error instanceof Error && !error.message.includes('fetch failed')) break;
+    }
+  }
+
+  throw new Error(lastError);
+};
+
 botManagerRouter.get('/runtime/bundle', async (req, res) => {
   const parsed = syncTokenSchema.safeParse({ token: req.header('x-bot-manager-sync-token') });
   if (!parsed.success || !env.botManagerSyncToken || parsed.data.token !== env.botManagerSyncToken) {
@@ -375,6 +466,38 @@ botManagerRouter.get('/summary', async (req, res) => {
       activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null
     }
   });
+});
+
+botManagerRouter.get('/runtime/status', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  try {
+    const { payload } = await callNanobot('/api/morneven/status');
+    return ok(res, payload);
+  } catch (error) {
+    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot status request failed', 'NANOBOT_REQUEST_FAILED');
+  }
+});
+
+botManagerRouter.post('/runtime/:action', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = runtimeActionSchema.safeParse(req.params.action);
+  if (!parsed.success) return fail(res, 422, 'Invalid nanobot runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  try {
+    const { payload } = await callNanobot(`/api/morneven/gateway/${parsed.data}`, {
+      method: 'POST',
+      body: { requestedBy: req.user!.username }
+    });
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: `bot-manager.runtime.${parsed.data}`,
+      entity: 'NanobotGateway',
+      metadata: { action: parsed.data }
+    });
+    return ok(res, payload);
+  } catch (error) {
+    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot runtime request failed', 'NANOBOT_REQUEST_FAILED');
+  }
 });
 
 botManagerRouter.post('/credentials/unlock', async (req, res) => {
@@ -621,20 +744,14 @@ botManagerRouter.post('/sync', async (req, res) => {
   }
 
   try {
-    const endpoint = `${env.nanobotInternalBaseUrl.replace(/\/+$/, '')}/api/morneven/reload`;
-    const response = await fetch(endpoint, {
+    const { payload } = await callNanobot('/api/morneven/reload', {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-morneven-reload-token': env.nanobotMornevenReloadToken
-      },
-      body: JSON.stringify({ requestedBy: req.user!.username })
+      body: { requestedBy: req.user!.username }
     });
-    if (!response.ok) throw new Error(`Nanobot reload responded with ${response.status}`);
     return ok(res, {
       synced: true,
       bundle,
-      nanobot: await response.json().catch(() => ({ ok: true }))
+      nanobot: payload
     });
   } catch (error) {
     return fail(res, 502, error instanceof Error ? error.message : 'Nanobot reload failed', 'NANOBOT_RELOAD_FAILED');

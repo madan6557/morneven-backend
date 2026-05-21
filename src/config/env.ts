@@ -40,7 +40,12 @@ const schema = z.object({
   BOT_MANAGER_KEY: z.string().min(16).optional(),
   BOT_MANAGER_ENCRYPTION_KEY: z.string().min(32).optional(),
   BOT_MANAGER_SYNC_TOKEN: z.string().min(16).optional(),
-  NANOBOT_INTERNAL_BASE_URL: z.string().url().optional(),
+  NANOBOT_INTERNAL_BASE_URL: z.preprocess((value) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  }, z.string().url().optional()),
   NANOBOT_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional()
 });
 
