@@ -88,6 +88,16 @@ const defaultGeneralConfig = {
   }
 };
 
+const runtimeSyncConfigKey = '__runtimeSync';
+
+const defaultRuntimeSyncState = {
+  runtimeDirty: false,
+  runtimeDirtySince: null as string | null,
+  runtimeDirtyReason: null as string | null,
+  lastRuntimeSyncAt: null as string | null,
+  lastRuntimeSyncError: null as string | null
+};
+
 const defaultIdentityFiles = (name: string, roleTitle: string) => [
   {
     path: 'AGENTS.md',
@@ -218,6 +228,104 @@ const verifyCredentialGate = async (req: Request, password: string, botManagerKe
   if (!passwordOk) throw new Error('Password confirmation failed');
 };
 
+const asJsonRecord = (value: Prisma.JsonValue | Record<string, unknown> | null | undefined): Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return { ...(value as Record<string, unknown>) };
+};
+
+const getRuntimeSyncState = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const raw = asJsonRecord(asJsonRecord(config)[runtimeSyncConfigKey] as Prisma.JsonValue | null | undefined);
+  return {
+    ...defaultRuntimeSyncState,
+    runtimeDirty: typeof raw.runtimeDirty === 'boolean' ? raw.runtimeDirty : defaultRuntimeSyncState.runtimeDirty,
+    runtimeDirtySince: typeof raw.runtimeDirtySince === 'string' ? raw.runtimeDirtySince : null,
+    runtimeDirtyReason: typeof raw.runtimeDirtyReason === 'string' ? raw.runtimeDirtyReason : null,
+    lastRuntimeSyncAt: typeof raw.lastRuntimeSyncAt === 'string' ? raw.lastRuntimeSyncAt : null,
+    lastRuntimeSyncError: typeof raw.lastRuntimeSyncError === 'string' ? raw.lastRuntimeSyncError : null
+  };
+};
+
+const stripInternalGeneralConfig = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const record = asJsonRecord(config);
+  delete record[runtimeSyncConfigKey];
+  return record;
+};
+
+const attachRuntimeSyncState = (
+  config: Prisma.JsonValue | Record<string, unknown> | null | undefined,
+  runtimeSync: typeof defaultRuntimeSyncState
+) => ({
+  ...stripInternalGeneralConfig(config),
+  [runtimeSyncConfigKey]: runtimeSync
+});
+
+const createDirtyRuntimeSyncState = (
+  previous: typeof defaultRuntimeSyncState,
+  reason: string,
+  now = new Date().toISOString()
+) => ({
+  ...previous,
+  runtimeDirty: true,
+  runtimeDirtySince: previous.runtimeDirty ? previous.runtimeDirtySince ?? now : now,
+  runtimeDirtyReason: reason,
+  lastRuntimeSyncError: null
+});
+
+const markRuntimeDirty = async (actor: string, reason: string) => {
+  const current = await ensureGeneralConfig();
+  const previous = getRuntimeSyncState(current.config);
+  const runtimeSync = createDirtyRuntimeSyncState(previous, reason);
+  await prisma.botManagerGeneralConfig.update({
+    where: { id: 'default' },
+    data: {
+      config: attachRuntimeSyncState(current.config, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: actor
+    }
+  });
+  return runtimeSync;
+};
+
+const markRuntimeSynced = async (actor: string) => {
+  const current = await ensureGeneralConfig();
+  const runtimeSync = {
+    ...getRuntimeSyncState(current.config),
+    runtimeDirty: false,
+    runtimeDirtySince: null,
+    runtimeDirtyReason: null,
+    lastRuntimeSyncAt: new Date().toISOString(),
+    lastRuntimeSyncError: null
+  };
+  await prisma.botManagerGeneralConfig.update({
+    where: { id: 'default' },
+    data: {
+      config: attachRuntimeSyncState(current.config, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: actor
+    }
+  });
+  return runtimeSync;
+};
+
+const markRuntimeSyncFailed = async (actor: string, message: string) => {
+  const current = await ensureGeneralConfig();
+  const previous = getRuntimeSyncState(current.config);
+  const now = new Date().toISOString();
+  const runtimeSync = {
+    ...previous,
+    runtimeDirty: true,
+    runtimeDirtySince: previous.runtimeDirtySince ?? now,
+    runtimeDirtyReason: previous.runtimeDirtyReason ?? 'Runtime sync failed',
+    lastRuntimeSyncError: message
+  };
+  await prisma.botManagerGeneralConfig.update({
+    where: { id: 'default' },
+    data: {
+      config: attachRuntimeSyncState(current.config, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: actor
+    }
+  });
+  return runtimeSync;
+};
+
 const serializeIdentity = (identity: IdentityRecord) => ({
   id: identity.id,
   slug: identity.slug,
@@ -257,7 +365,7 @@ const listMaskedCredentials = async () => {
 const ensureGeneralConfig = async () =>
   prisma.botManagerGeneralConfig.upsert({
     where: { id: 'default' },
-    create: { id: 'default', config: defaultGeneralConfig },
+    create: { id: 'default', config: attachRuntimeSyncState(defaultGeneralConfig, defaultRuntimeSyncState) },
     update: {}
   });
 
@@ -334,7 +442,7 @@ const buildRuntimeBundle = async () => {
     version: 1,
     generatedAt: new Date().toISOString(),
     mode: 'single-active-personality',
-    generalConfig: generalConfig.config,
+    generalConfig: stripInternalGeneralConfig(generalConfig.config),
     activeIdentity: serializeIdentity(activeIdentity),
     credentials: Object.fromEntries(
       credentials.map((credential) => [
@@ -462,8 +570,9 @@ botManagerRouter.get('/summary', async (req, res) => {
 
   return ok(res, {
     credentials,
-    generalConfig: generalConfig.config,
+    generalConfig: stripInternalGeneralConfig(generalConfig.config),
     identities: identities.map(serializeIdentity),
+    runtimeSync: getRuntimeSyncState(generalConfig.config),
     runtimeStatus: {
       nanobotConfigured: Boolean(env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken),
       singleActivePersonality: true,
@@ -563,6 +672,7 @@ botManagerRouter.put('/credentials', async (req, res) => {
       entityId: saved.id,
       metadata: { provider: saved.provider }
     });
+    await markRuntimeDirty(req.user!.username, `Credential updated: ${saved.provider}`);
     return ok(res, serializeCredential(saved));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Credential update failed';
@@ -574,13 +684,22 @@ botManagerRouter.put('/general-config', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = generalConfigSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
-  const config = parsed.data.config as Prisma.InputJsonValue;
+  const current = await ensureGeneralConfig();
+  const config = stripInternalGeneralConfig(parsed.data.config as Prisma.JsonValue);
+  const runtimeSync = createDirtyRuntimeSyncState(getRuntimeSyncState(current.config), 'General config updated');
   const saved = await prisma.botManagerGeneralConfig.upsert({
     where: { id: 'default' },
-    create: { id: 'default', config, updatedBy: req.user!.username },
-    update: { config, updatedBy: req.user!.username }
+    create: {
+      id: 'default',
+      config: attachRuntimeSyncState(config, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: req.user!.username
+    },
+    update: {
+      config: attachRuntimeSyncState(config, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: req.user!.username
+    }
   });
-  return ok(res, saved.config);
+  return ok(res, stripInternalGeneralConfig(saved.config));
 });
 
 botManagerRouter.get('/identities', async (req, res) => {
@@ -617,6 +736,7 @@ botManagerRouter.post('/identities', async (req, res) => {
   }
 
   const created = await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: identity.id }, include: { files: true } });
+  await markRuntimeDirty(req.user!.username, `Personality created: ${created.name}`);
   return res.status(201).json({ success: true, data: serializeIdentity(created) });
 });
 
@@ -645,6 +765,7 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
     },
     include: { files: true }
   });
+  await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
   return ok(res, serializeIdentity(updated));
 });
 
@@ -656,6 +777,7 @@ botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
     prisma.botManagerIdentity.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
     prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
   ]);
+  await markRuntimeDirty(req.user!.username, `Active personality changed: ${activated.name}`);
   return ok(res, serializeIdentity(activated));
 });
 
@@ -701,6 +823,7 @@ botManagerRouter.put('/identities/:id/files', async (req, res) => {
 
   try {
     const file = await saveIdentityFile(identity, parsed.data, req.user!.username);
+    await markRuntimeDirty(req.user!.username, `Workspace file saved: ${file.path}`);
     return ok(res, { ...file, content: parsed.data.content, updatedAt: file.updatedAt.toISOString() });
   } catch (error) {
     return fail(res, 422, error instanceof Error ? error.message : 'File save failed', 'VALIDATION_ERROR');
@@ -731,6 +854,9 @@ botManagerRouter.post('/identities/:id/profile-image', upload.single('file'), as
     },
     include: { files: true }
   });
+  if (identity.isActive) {
+    await markRuntimeDirty(req.user!.username, `Profile image updated: ${updated.name}`);
+  }
   return ok(res, serializeIdentity(updated));
 });
 
@@ -740,15 +866,15 @@ botManagerRouter.post('/sync', async (req, res) => {
   try {
     bundle = await buildRuntimeBundle();
   } catch (error) {
-    return fail(res, 409, error instanceof Error ? error.message : 'Runtime bundle unavailable', 'BOT_MANAGER_UNAVAILABLE');
+    const message = error instanceof Error ? error.message : 'Runtime bundle unavailable';
+    await markRuntimeSyncFailed(req.user!.username, message);
+    return fail(res, 409, message, 'BOT_MANAGER_UNAVAILABLE');
   }
 
   if (!env.nanobotInternalBaseUrl || !env.nanobotMornevenReloadToken) {
-    return ok(res, {
-      synced: false,
-      reason: 'Nanobot reload endpoint is not configured',
-      bundle
-    });
+    const message = 'Nanobot reload endpoint is not configured';
+    const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
+    return fail(res, 502, message, 'NANOBOT_RELOAD_FAILED', { runtimeSync });
   }
 
   try {
@@ -756,12 +882,16 @@ botManagerRouter.post('/sync', async (req, res) => {
       method: 'POST',
       body: { requestedBy: req.user!.username }
     });
+    const runtimeSync = await markRuntimeSynced(req.user!.username);
     return ok(res, {
       synced: true,
+      runtimeSync,
       bundle,
       nanobot: payload
     });
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot reload failed', 'NANOBOT_RELOAD_FAILED');
+    const message = error instanceof Error ? error.message : 'Nanobot reload failed';
+    const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
+    return fail(res, 502, message, 'NANOBOT_RELOAD_FAILED', { runtimeSync });
   }
 });
