@@ -548,6 +548,43 @@ model BotManagerCredential {
   updatedAt      DateTime @updatedAt
 }
 
+model BotManagerOpenRouterProfile {
+  id             String   @id @default(uuid())
+  name           String
+  encryptedValue String
+  keyPreview     String?
+  modelId        String
+  apiBase        String?
+  tags           Json     @default("[]")
+  notes          String   @default("")
+  isActive       Boolean  @default(false)
+  updatedBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([updatedAt])
+}
+
+model BotManagerBackupJob {
+  id           String   @id @default(uuid())
+  mode         String
+  status       String   @default("processing")
+  identityIds  Json     @default("[]")
+  createdBy    String
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+  expiresAt    DateTime
+  downloadName String?
+  artifactPath String?
+  artifactUrl  String?
+  error        String?
+  progress     Json     @default("{\"percent\":0,\"stage\":\"queued\",\"message\":\"Queued\"}")
+
+  @@index([createdBy, createdAt])
+  @@index([status])
+}
+
 model BotManagerGeneralConfig {
   id        String   @id @default("default")
   config    Json     @default("{}")

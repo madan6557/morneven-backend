@@ -1,16 +1,17 @@
-import { Request, Response, Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
-import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { Prisma } from '@prisma/client';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { EntityType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { prisma } from '../../config/prisma.js';
-import { readFileWithMetadataFromStorage, saveFileToStorage } from '../../config/storage.js';
+import { createReadStreamFromStorage, deleteFileFromStorage, readFileWithMetadataFromStorage, saveFileToStorage } from '../../config/storage.js';
 import { auth, isPl7Admin, isPl7Author } from '../../middleware/auth.js';
 import { scanUploadBuffer } from '../../security/files/scanner.js';
 import { fail, ok } from '../../utils/response.js';
 import { writeAudit } from '../../utils/audit.js';
+import { makeZip, ZipFile } from '../../utils/zip.js';
 
 export const botManagerRouter = Router();
 
@@ -35,6 +36,17 @@ const credentialSchema = credentialGateSchema.extend({
   modelId: z.string().trim().min(1).max(160)
 });
 
+const openRouterProfileSchema = credentialGateSchema.extend({
+  name: z.string().trim().min(2).max(80),
+  apiKey: z.string().trim().min(1).max(4096),
+  apiBase: z.string().trim().url().optional().or(z.literal('')),
+  modelId: z.string().trim().min(1).max(160),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional().default([]),
+  notes: z.string().trim().max(800).optional().default('')
+});
+
+const providerActivationSchema = credentialGateSchema;
+
 const generalConfigSchema = z.object({
   config: z.record(z.unknown()).default({})
 });
@@ -44,7 +56,8 @@ const identitySchema = z.object({
   roleTitle: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1200).optional().default(''),
   channels: z.record(z.unknown()).optional().default({}),
-  settings: z.record(z.unknown()).optional().default({})
+  settings: z.record(z.unknown()).optional().default({}),
+  loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
 });
 
 const identityUpdateSchema = identitySchema.partial();
@@ -54,6 +67,26 @@ const fileSchema = z.object({
   kind: z.enum(fileKinds).default('other'),
   content: z.string().max(500000),
   contentType: z.string().trim().min(3).max(120).optional()
+});
+
+const fileDeleteSchema = z.object({
+  path: z.string().trim().min(1).max(240)
+});
+
+const backupSchema = z.object({
+  mode: z.enum(['full', 'custom']),
+  identityIds: z.array(z.string()).optional().default([]),
+  confirmText: z.literal('PERSONALITY'),
+  password: z.string().min(1),
+  secretKey: z.string().min(16)
+});
+
+const clearBackupSchema = z.object({
+  ids: z.array(z.string()).optional()
+});
+
+const backupDownloadTicketSchema = z.object({
+  secretKey: z.string().min(16)
 });
 
 const syncTokenSchema = z.object({
@@ -136,7 +169,18 @@ const defaultIdentityFiles = (name: string, roleTitle: string) => [
   }
 ] as const;
 
-const readOnlyWorkspacePaths = new Set(['memory/history.jsonl']);
+const protectedWorkspacePaths = new Set([
+  'agents.md',
+  'soul.md',
+  'memory.md',
+  'tools.md',
+  'user.md',
+  'heartbeat.md',
+  'lore.md',
+  'memory/history.jsonl'
+]);
+
+const readOnlyWorkspacePaths = new Set(['lore.md', 'memory/history.jsonl']);
 
 const safeEquals = (left: string, right: string) => {
   const leftBuffer = Buffer.from(left);
@@ -155,6 +199,7 @@ const normalizeWorkspacePath = (value: string) => {
 };
 
 const isReadOnlyWorkspacePath = (value: string) => readOnlyWorkspacePaths.has(value.toLowerCase());
+const isProtectedWorkspacePath = (value: string) => protectedWorkspacePaths.has(value.toLowerCase());
 
 const slugify = (value: string) => {
   const slug = value
@@ -228,10 +273,26 @@ const verifyCredentialGate = async (req: Request, password: string, botManagerKe
   if (!passwordOk) throw new Error('Password confirmation failed');
 };
 
+const verifyAccountPassword = async (req: Request, password: string) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) throw new Error('Invalid user');
+  const passwordOk = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordOk) throw new Error('Password confirmation failed');
+};
+
+const requireExtractionKey = (key?: string | null) => {
+  if (!env.extractionKey) throw new Error('EXTRACTION_KEY is not configured on this backend');
+  if (!key || !safeEquals(key, env.extractionKey)) throw new Error('Invalid extraction key');
+};
+
 const asJsonRecord = (value: Prisma.JsonValue | Record<string, unknown> | null | undefined): Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return { ...(value as Record<string, unknown>) };
 };
+
+const asStringArray = (value: Prisma.JsonValue | unknown): string[] => Array.isArray(value)
+  ? value.filter((item): item is string => typeof item === 'string')
+  : [];
 
 const getRuntimeSyncState = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
   const raw = asJsonRecord(asJsonRecord(config)[runtimeSyncConfigKey] as Prisma.JsonValue | null | undefined);
@@ -258,6 +319,31 @@ const attachRuntimeSyncState = (
   ...stripInternalGeneralConfig(config),
   [runtimeSyncConfigKey]: runtimeSync
 });
+
+const setRuntimeProviderConfig = async (
+  actor: string,
+  input: { provider: string; openRouterProfileId?: string | null }
+) => {
+  const current = await ensureGeneralConfig();
+  const publicConfig = stripInternalGeneralConfig(current.config);
+  const nextConfig = {
+    ...publicConfig,
+    activeProvider: input.provider,
+    activeOpenRouterProfileId: input.openRouterProfileId ?? null
+  };
+  const runtimeSync = createDirtyRuntimeSyncState(
+    getRuntimeSyncState(current.config),
+    input.provider === 'openrouter' ? 'OpenRouter profile activated' : `Provider activated: ${input.provider}`
+  );
+  await prisma.botManagerGeneralConfig.update({
+    where: { id: 'default' },
+    data: {
+      config: attachRuntimeSyncState(nextConfig, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: actor
+    }
+  });
+  return { config: nextConfig, runtimeSync };
+};
 
 const createDirtyRuntimeSyncState = (
   previous: typeof defaultRuntimeSyncState,
@@ -326,6 +412,186 @@ const markRuntimeSyncFailed = async (actor: string, message: string) => {
   return runtimeSync;
 };
 
+const backupProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
+
+const serializeBackupJob = (job: Awaited<ReturnType<typeof prisma.botManagerBackupJob.findFirst>> | Awaited<ReturnType<typeof prisma.botManagerBackupJob.create>>) => {
+  if (!job) return job;
+  return {
+    ...job,
+    progress: job.progress ?? backupProgress(0, 'queued', 'Queued')
+  };
+};
+
+const formatBotManagerBackupName = (date: Date) => {
+  const dd = String(date.getUTCDate()).padStart(2, '0');
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const yy = String(date.getUTCFullYear()).slice(-2);
+  const hh = String(date.getUTCHours()).padStart(2, '0');
+  const ss = String(date.getUTCSeconds()).padStart(2, '0');
+  return `bot-manager_${dd}${mm}${yy}${hh}${ss}.zip`;
+};
+
+const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFile[]> => {
+  const where = identityIds.length ? { id: { in: identityIds } } : {};
+  const identities = await prisma.botManagerIdentity.findMany({
+    where,
+    include: { files: true },
+    orderBy: [{ isActive: 'desc' }, { name: 'asc' }]
+  });
+  const files: ZipFile[] = [];
+  const manifest = {
+    generatedAt: new Date().toISOString(),
+    mode: identityIds.length ? 'custom' : 'full',
+    identityCount: identities.length,
+    activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null
+  };
+  files.push({ name: 'manifest.json', content: JSON.stringify(manifest, null, 2) });
+
+  for (const identity of identities) {
+    files.push({
+      name: `identities/${identity.slug}/identity.json`,
+      content: JSON.stringify(serializeIdentity(identity), null, 2)
+    });
+    for (const workspaceFile of identity.files.sort((left, right) => left.path.localeCompare(right.path))) {
+      try {
+        const stored = await readFileWithMetadataFromStorage(workspaceFile.objectPath);
+        files.push({
+          name: `identities/${identity.slug}/workspace/${workspaceFile.path}`,
+          content: stored.buffer
+        });
+      } catch {
+        files.push({
+          name: `identities/${identity.slug}/workspace/${workspaceFile.path}.missing.txt`,
+          content: `Storage object not found: ${workspaceFile.objectPath}`
+        });
+      }
+    }
+    if (identity.profileImageObjectPath) {
+      try {
+        const stored = await readFileWithMetadataFromStorage(identity.profileImageObjectPath);
+        files.push({
+          name: `identities/${identity.slug}/profile/${identity.profileImageObjectPath.split('/').pop() ?? 'profile-image'}`,
+          content: stored.buffer
+        });
+      } catch {
+        files.push({
+          name: `identities/${identity.slug}/profile/missing.txt`,
+          content: `Storage object not found: ${identity.profileImageObjectPath}`
+        });
+      }
+    }
+  }
+
+  return files;
+};
+
+const runBotManagerBackupJob = async (jobId: string, actor: string, identityIds: string[], downloadName: string) => {
+  try {
+    const updateProgress = async (percent: number, stage: string, message: string) => {
+      await prisma.botManagerBackupJob.update({
+        where: { id: jobId },
+        data: { progress: backupProgress(percent, stage, message) }
+      });
+    };
+    await updateProgress(15, 'collecting', 'Collecting Bot Manager personalities');
+    const files = await buildBotManagerBackupFiles(identityIds);
+    await updateProgress(70, 'compressing', 'Compressing Bot Manager backup');
+    const zip = makeZip(files);
+    await updateProgress(86, 'uploading', 'Uploading backup artifact');
+    const objectPath = `bot-manager/backups/${jobId}/${downloadName}`;
+    const stored = await saveFileToStorage({ objectPath, buffer: zip, contentType: 'application/zip' });
+    const completed = await prisma.botManagerBackupJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'completed',
+        completedAt: new Date(),
+        artifactPath: stored.objectPath,
+        artifactUrl: stored.url,
+        progress: backupProgress(100, 'completed', 'Backup ready')
+      }
+    });
+    await writeAudit(prisma, {
+      actor,
+      action: 'bot-manager.backup.create',
+      entity: 'BotManagerBackupJob',
+      entityId: completed.id,
+      metadata: { identityCount: identityIds.length || 'all', fileCount: files.length }
+    });
+  } catch (error) {
+    await prisma.botManagerBackupJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Bot Manager backup failed',
+        progress: backupProgress(100, 'failed', 'Backup failed')
+      }
+    });
+  }
+};
+
+type BotManagerBackupTicket = {
+  jobId: string;
+  actor: string;
+  exp: number;
+  nonce: string;
+};
+
+const signBackupTicketPayload = (payload: string) =>
+  createHmac('sha256', env.jwtAccessSecret).update(payload).digest('base64url');
+
+const createBotManagerBackupTicket = (jobId: string, actor: string) => {
+  const payload: BotManagerBackupTicket = {
+    jobId,
+    actor,
+    exp: Date.now() + 5 * 60 * 1000,
+    nonce: randomUUID()
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return `${encodedPayload}.${signBackupTicketPayload(encodedPayload)}`;
+};
+
+const parseBotManagerBackupTicket = (ticket: string): BotManagerBackupTicket => {
+  const [encodedPayload, signature] = ticket.split('.');
+  if (!encodedPayload || !signature) throw new Error('Invalid download ticket');
+  const expectedSignature = signBackupTicketPayload(encodedPayload);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    throw new Error('Invalid download ticket');
+  }
+  const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as BotManagerBackupTicket;
+  if (!payload.jobId || !payload.actor || !payload.exp || payload.exp < Date.now()) {
+    throw new Error('Expired download ticket');
+  }
+  return payload;
+};
+
+const sendBotManagerBackupDownload = async (
+  res: Response,
+  job: { id: string; artifactPath: string | null; downloadName: string | null },
+  actor: string
+) => {
+  if (!job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+  await writeAudit(prisma, {
+    actor,
+    action: 'bot-manager.backup.download',
+    entity: 'BotManagerBackupJob',
+    entityId: job.id
+  });
+  const file = await createReadStreamFromStorage(job.artifactPath);
+  res.setHeader('Content-Type', file.contentType ?? 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${job.downloadName ?? `bot-manager-backup-${job.id}.zip`}"`);
+  if (file.contentLength !== undefined) res.setHeader('Content-Length', String(file.contentLength));
+  file.stream.on('error', (error) => {
+    if (!res.headersSent) {
+      fail(res, 500, 'Download stream failed', 'STORAGE_ERROR');
+      return;
+    }
+    res.destroy(error);
+  });
+  return file.stream.pipe(res);
+};
+
 const serializeIdentity = (identity: IdentityRecord) => ({
   id: identity.id,
   slug: identity.slug,
@@ -348,6 +614,33 @@ const serializeCredential = (credential: { provider: string; keyPreview?: string
   keyPreview: credential.keyPreview ?? '***',
   metadata: credential.metadata ?? {},
   updatedAt: credential.updatedAt.toISOString()
+});
+
+const serializeOpenRouterProfile = (profile: {
+  id: string;
+  name: string;
+  keyPreview?: string | null;
+  modelId: string;
+  apiBase?: string | null;
+  tags: Prisma.JsonValue;
+  notes: string;
+  isActive: boolean;
+  updatedBy?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) => ({
+  id: profile.id,
+  name: profile.name,
+  configured: true,
+  keyPreview: profile.keyPreview ?? '***',
+  modelId: profile.modelId,
+  apiBase: profile.apiBase ?? '',
+  tags: asStringArray(profile.tags),
+  notes: profile.notes,
+  isActive: profile.isActive,
+  updatedBy: profile.updatedBy ?? null,
+  createdAt: profile.createdAt.toISOString(),
+  updatedAt: profile.updatedAt.toISOString()
 });
 
 const listMaskedCredentials = async () => {
@@ -403,6 +696,66 @@ const saveIdentityFile = async (
   });
 };
 
+const buildLoreFileContent = (item: {
+  id: string;
+  name: string;
+  type: string | null;
+  shortDesc: string;
+  fullDesc: string;
+  metadata: Prisma.JsonValue | null;
+}) => {
+  const metadata = asJsonRecord(item.metadata);
+  const traits = asStringArray(metadata.traits);
+  return [
+    `# ${item.name} Lore`,
+    '',
+    `Source: Morneven Lore/Wiki`,
+    `Lore ID: ${item.id}`,
+    item.type ? `Type: ${item.type}` : '',
+    traits.length ? `Traits: ${traits.join(', ')}` : '',
+    '',
+    '## Summary',
+    item.shortDesc,
+    '',
+    '## Full Lore',
+    item.fullDesc
+  ].filter((line) => line !== '').join('\n');
+};
+
+const attachLoreFile = async (
+  identity: { id: string; slug: string; name: string; roleTitle: string; settings: Prisma.JsonValue },
+  loreCharacterId: string,
+  actor: string
+) => {
+  const character = await prisma.loreItem.findFirst({
+    where: { id: loreCharacterId, category: EntityType.character }
+  });
+  if (!character) throw new Error('Lore character not found');
+
+  const currentSettings = asJsonRecord(identity.settings);
+  const metadata = asJsonRecord(character.metadata);
+  const settings = {
+    ...currentSettings,
+    loreReference: {
+      category: 'characters',
+      id: character.id,
+      name: character.name,
+      traits: asStringArray(metadata.traits)
+    }
+  };
+
+  await prisma.botManagerIdentity.update({
+    where: { id: identity.id },
+    data: { settings: settings as Prisma.InputJsonValue, updatedBy: actor }
+  });
+  await saveIdentityFile(identity, {
+    path: 'LORE.md',
+    kind: 'identity',
+    content: buildLoreFileContent(character),
+    contentType: 'text/markdown'
+  }, actor);
+};
+
 const readIdentityFileContent = async (file: { objectPath: string }) => {
   const stored = await readFileWithMetadataFromStorage(file.objectPath);
   return stored.buffer.toString('utf8');
@@ -437,19 +790,38 @@ const buildRuntimeBundle = async () => {
     ensureGeneralConfig(),
     prisma.botManagerCredential.findMany({ orderBy: { provider: 'asc' } })
   ]);
+  const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+  const credentialMap = new Map(credentials.map((credential) => [credential.provider, credential]));
+  const activeProvider = typeof publicConfig.activeProvider === 'string'
+    ? publicConfig.activeProvider
+    : credentials[0]?.provider ?? null;
+  let runtimeCredentials: Record<string, unknown> = {};
+
+  if (activeProvider === 'openrouter') {
+    const activeOpenRouterProfileId = typeof publicConfig.activeOpenRouterProfileId === 'string'
+      ? publicConfig.activeOpenRouterProfileId
+      : undefined;
+    const openRouterProfile = activeOpenRouterProfileId
+      ? await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: activeOpenRouterProfileId } })
+      : await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
+    if (openRouterProfile) {
+      runtimeCredentials = {
+        openrouter: decryptJson<Record<string, unknown>>(openRouterProfile.encryptedValue)
+      };
+    }
+  } else if (activeProvider && credentialMap.has(activeProvider)) {
+    runtimeCredentials = {
+      [activeProvider]: decryptJson<Record<string, unknown>>(credentialMap.get(activeProvider)!.encryptedValue)
+    };
+  }
 
   return {
     version: 1,
     generatedAt: new Date().toISOString(),
     mode: 'single-active-personality',
-    generalConfig: stripInternalGeneralConfig(generalConfig.config),
+    generalConfig: publicConfig,
     activeIdentity: serializeIdentity(activeIdentity),
-    credentials: Object.fromEntries(
-      credentials.map((credential) => [
-        credential.provider,
-        decryptJson<Record<string, unknown>>(credential.encryptedValue)
-      ])
-    ),
+    credentials: runtimeCredentials,
     channels: activeIdentity.channels,
     settings: activeIdentity.settings,
     files: await loadIdentityFiles(activeIdentity)
@@ -562,21 +934,26 @@ botManagerRouter.use(auth);
 
 botManagerRouter.get('/summary', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const [generalConfig, credentials, identities] = await Promise.all([
+  const [generalConfig, credentials, identities, openRouterProfiles] = await Promise.all([
     ensureGeneralConfig(),
     listMaskedCredentials(),
-    prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] })
+    prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] }),
+    prisma.botManagerOpenRouterProfile.findMany({ orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }], take: 5 })
   ]);
+  const publicConfig = stripInternalGeneralConfig(generalConfig.config);
 
   return ok(res, {
     credentials,
-    generalConfig: stripInternalGeneralConfig(generalConfig.config),
+    openRouterProfiles: openRouterProfiles.map(serializeOpenRouterProfile),
+    generalConfig: publicConfig,
     identities: identities.map(serializeIdentity),
     runtimeSync: getRuntimeSyncState(generalConfig.config),
     runtimeStatus: {
       nanobotConfigured: Boolean(env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken),
       singleActivePersonality: true,
-      activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null
+      activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null,
+      activeProvider: typeof publicConfig.activeProvider === 'string' ? publicConfig.activeProvider : null,
+      activeOpenRouterProfileId: typeof publicConfig.activeOpenRouterProfileId === 'string' ? publicConfig.activeOpenRouterProfileId : null
     }
   });
 });
@@ -680,6 +1057,174 @@ botManagerRouter.put('/credentials', async (req, res) => {
   }
 });
 
+botManagerRouter.patch('/credentials/:provider/activate', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const provider = z.enum(providers).safeParse(req.params.provider);
+  if (!provider.success || provider.data === 'openrouter') {
+    return fail(res, 422, 'Invalid provider activation target', 'VALIDATION_ERROR');
+  }
+  const parsed = providerActivationSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const credential = await prisma.botManagerCredential.findUnique({ where: { provider: provider.data } });
+    if (!credential) return fail(res, 409, 'Provider credential is incomplete', 'PROVIDER_INCOMPLETE');
+    await prisma.botManagerOpenRouterProfile.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } });
+    const result = await setRuntimeProviderConfig(req.user!.username, { provider: provider.data });
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.provider.activate',
+      entity: 'BotManagerCredential',
+      entityId: credential.id,
+      metadata: { provider: provider.data }
+    });
+    return ok(res, result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Provider activation failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.get('/openrouter-profiles', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const filter = typeof req.query.filter === 'string' ? req.query.filter : 'all';
+  const page = Math.max(Number(req.query.page ?? 1) || 1, 1);
+  const pageSize = Math.min(Math.max(Number(req.query.pageSize ?? 6) || 6, 1), 50);
+  const where: Prisma.BotManagerOpenRouterProfileWhereInput = {
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { modelId: { contains: search, mode: 'insensitive' } },
+            { notes: { contains: search, mode: 'insensitive' } }
+          ]
+        }
+      : {}),
+    ...(filter === 'active' ? { isActive: true } : {}),
+    ...(filter === 'incomplete' ? { OR: [{ modelId: '' }, { keyPreview: null }] } : {})
+  };
+  const [items, total] = await Promise.all([
+    prisma.botManagerOpenRouterProfile.findMany({
+      where,
+      orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    }),
+    prisma.botManagerOpenRouterProfile.count({ where })
+  ]);
+  return ok(res, { items: items.map(serializeOpenRouterProfile), page, pageSize, total, totalPages: Math.max(Math.ceil(total / pageSize), 1) });
+});
+
+botManagerRouter.post('/openrouter-profiles', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = openRouterProfileSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const value = {
+      apiKey: parsed.data.apiKey,
+      apiBase: parsed.data.apiBase || null,
+      modelId: parsed.data.modelId
+    };
+    const created = await prisma.botManagerOpenRouterProfile.create({
+      data: {
+        name: parsed.data.name,
+        encryptedValue: encryptJson(value),
+        keyPreview: keyPreview(parsed.data.apiKey),
+        modelId: parsed.data.modelId,
+        apiBase: parsed.data.apiBase || null,
+        tags: parsed.data.tags as Prisma.InputJsonValue,
+        notes: parsed.data.notes,
+        updatedBy: req.user!.username
+      }
+    });
+    await markRuntimeDirty(req.user!.username, `OpenRouter profile created: ${created.name}`);
+    return res.status(201).json({ success: true, data: serializeOpenRouterProfile(created) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'OpenRouter profile create failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.put('/openrouter-profiles/:id', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = openRouterProfileSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
+    if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
+    const value = {
+      apiKey: parsed.data.apiKey,
+      apiBase: parsed.data.apiBase || null,
+      modelId: parsed.data.modelId
+    };
+    const updated = await prisma.botManagerOpenRouterProfile.update({
+      where: { id: existing.id },
+      data: {
+        name: parsed.data.name,
+        encryptedValue: encryptJson(value),
+        keyPreview: keyPreview(parsed.data.apiKey),
+        modelId: parsed.data.modelId,
+        apiBase: parsed.data.apiBase || null,
+        tags: parsed.data.tags as Prisma.InputJsonValue,
+        notes: parsed.data.notes,
+        updatedBy: req.user!.username
+      }
+    });
+    await markRuntimeDirty(req.user!.username, `OpenRouter profile updated: ${updated.name}`);
+    return ok(res, serializeOpenRouterProfile(updated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'OpenRouter profile update failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.patch('/openrouter-profiles/:id/activate', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = credentialGateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
+    if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
+    await prisma.$transaction([
+      prisma.botManagerOpenRouterProfile.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
+      prisma.botManagerOpenRouterProfile.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username } })
+    ]);
+    const result = await setRuntimeProviderConfig(req.user!.username, { provider: 'openrouter', openRouterProfileId: existing.id });
+    const activated = await prisma.botManagerOpenRouterProfile.findUniqueOrThrow({ where: { id: existing.id } });
+    return ok(res, { ...result, profile: serializeOpenRouterProfile(activated) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'OpenRouter profile activation failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.delete('/openrouter-profiles/:id', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = credentialGateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Credential gate failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+  const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
+  if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
+  const generalConfig = await ensureGeneralConfig();
+  const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+  if (existing.isActive || publicConfig.activeOpenRouterProfileId === existing.id) {
+    return fail(res, 409, 'Active OpenRouter profile cannot be deleted', 'ACTIVE_PROFILE');
+  }
+  await prisma.botManagerOpenRouterProfile.delete({ where: { id: existing.id } });
+  await markRuntimeDirty(req.user!.username, `OpenRouter profile deleted: ${existing.name}`);
+  return ok(res, { deleted: true });
+});
+
 botManagerRouter.put('/general-config', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = generalConfigSchema.safeParse(req.body);
@@ -734,6 +1279,15 @@ botManagerRouter.post('/identities', async (req, res) => {
   for (const file of defaultIdentityFiles(identity.name, identity.roleTitle)) {
     await saveIdentityFile(identity, file, req.user!.username);
   }
+  if (parsed.data.loreCharacterId) {
+    await attachLoreFile({
+      id: identity.id,
+      slug: identity.slug,
+      name: identity.name,
+      roleTitle: identity.roleTitle,
+      settings: identity.settings
+    }, parsed.data.loreCharacterId, req.user!.username);
+  }
 
   const created = await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: identity.id }, include: { files: true } });
   await markRuntimeDirty(req.user!.username, `Personality created: ${created.name}`);
@@ -765,8 +1319,18 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
     },
     include: { files: true }
   });
+  if (parsed.data.loreCharacterId) {
+    await attachLoreFile({
+      id: updated.id,
+      slug: updated.slug,
+      name: updated.name,
+      roleTitle: updated.roleTitle,
+      settings: updated.settings
+    }, parsed.data.loreCharacterId, req.user!.username);
+  }
   await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
-  return ok(res, serializeIdentity(updated));
+  const latest = await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } });
+  return ok(res, serializeIdentity(latest));
 });
 
 botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
@@ -779,6 +1343,27 @@ botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
   ]);
   await markRuntimeDirty(req.user!.username, `Active personality changed: ${activated.name}`);
   return ok(res, serializeIdentity(activated));
+});
+
+botManagerRouter.delete('/identities/:id', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const existing = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id }, include: { files: true } });
+  if (!existing) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  if (existing.isActive) return fail(res, 409, 'Active personality cannot be deleted', 'ACTIVE_PERSONALITY');
+  await prisma.botManagerIdentity.delete({ where: { id: existing.id } });
+  await Promise.allSettled([
+    ...existing.files.map((file) => deleteFileFromStorage(file.objectPath)),
+    existing.profileImageObjectPath ? deleteFileFromStorage(existing.profileImageObjectPath) : Promise.resolve()
+  ]);
+  await markRuntimeDirty(req.user!.username, `Personality deleted: ${existing.name}`);
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'bot-manager.identity.delete',
+    entity: 'BotManagerIdentity',
+    entityId: existing.id,
+    metadata: { name: existing.name }
+  });
+  return ok(res, { deleted: true });
 });
 
 botManagerRouter.get('/identities/:id/files', async (req, res) => {
@@ -830,6 +1415,25 @@ botManagerRouter.put('/identities/:id/files', async (req, res) => {
   }
 });
 
+botManagerRouter.delete('/identities/:id/files', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = fileDeleteSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const workspacePath = normalizeWorkspacePath(parsed.data.path);
+  if (!workspacePath) return fail(res, 422, 'Invalid workspace file path', 'VALIDATION_ERROR');
+  if (isProtectedWorkspacePath(workspacePath)) {
+    return fail(res, 403, 'Default workspace files are protected from delete', 'FORBIDDEN');
+  }
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id }, include: { files: true } });
+  if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const file = identity.files.find((item) => item.path === workspacePath);
+  if (!file) return fail(res, 404, 'Workspace file not found', 'NOT_FOUND');
+  await prisma.botManagerIdentityFile.delete({ where: { id: file.id } });
+  await deleteFileFromStorage(file.objectPath).catch(() => undefined);
+  await markRuntimeDirty(req.user!.username, `Workspace file deleted: ${file.path}`);
+  return ok(res, { deleted: true });
+});
+
 botManagerRouter.post('/identities/:id/profile-image', upload.single('file'), async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
@@ -858,6 +1462,136 @@ botManagerRouter.post('/identities/:id/profile-image', upload.single('file'), as
     await markRuntimeDirty(req.user!.username, `Profile image updated: ${updated.name}`);
   }
   return ok(res, serializeIdentity(updated));
+});
+
+botManagerRouter.get('/backups', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const page = Math.max(Number(req.query.page ?? 1) || 1, 1);
+  const pageSize = Math.min(Math.max(Number(req.query.pageSize ?? 8) || 8, 1), 50);
+  const status = typeof req.query.status === 'string' && req.query.status !== 'all' ? req.query.status : undefined;
+  const mode = typeof req.query.mode === 'string' && req.query.mode !== 'all' ? req.query.mode : undefined;
+  const where: Prisma.BotManagerBackupJobWhereInput = {
+    createdBy: req.user!.username,
+    expiresAt: { gt: new Date() },
+    ...(status ? { status } : {}),
+    ...(mode ? { mode } : {})
+  };
+  const [items, total] = await Promise.all([
+    prisma.botManagerBackupJob.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    }),
+    prisma.botManagerBackupJob.count({ where })
+  ]);
+  return ok(res, { items: items.map(serializeBackupJob), page, pageSize, total, totalPages: Math.max(Math.ceil(total / pageSize), 1) });
+});
+
+botManagerRouter.post('/backups', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = backupSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+    await verifyAccountPassword(req, parsed.data.password);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Backup authorization failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN');
+  }
+
+  const identityIds = parsed.data.mode === 'custom' ? Array.from(new Set(parsed.data.identityIds)) : [];
+  if (parsed.data.mode === 'custom' && identityIds.length === 0) {
+    return fail(res, 422, 'Select at least one personality for custom backup', 'VALIDATION_ERROR');
+  }
+  if (identityIds.length) {
+    const count = await prisma.botManagerIdentity.count({ where: { id: { in: identityIds } } });
+    if (count !== identityIds.length) return fail(res, 422, 'One or more selected personalities were not found', 'VALIDATION_ERROR');
+  }
+
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const downloadName = formatBotManagerBackupName(createdAt);
+  const job = await prisma.botManagerBackupJob.create({
+    data: {
+      mode: parsed.data.mode,
+      status: 'processing',
+      identityIds: identityIds as Prisma.InputJsonValue,
+      createdBy: req.user!.username,
+      expiresAt,
+      downloadName,
+      progress: backupProgress(0, 'queued', 'Queued')
+    }
+  });
+  setImmediate(() => {
+    void runBotManagerBackupJob(job.id, req.user!.username, identityIds, downloadName);
+  });
+  return res.status(202).json({ success: true, data: serializeBackupJob(job) });
+});
+
+botManagerRouter.get('/backups/:id', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const job = await prisma.botManagerBackupJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  if (!job) return fail(res, 404, 'Bot Manager backup job not found', 'NOT_FOUND');
+  return ok(res, serializeBackupJob(job));
+});
+
+botManagerRouter.post('/backups/:id/download-ticket', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = backupDownloadTicketSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid extraction key';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN');
+  }
+  const job = await prisma.botManagerBackupJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+  return ok(res, {
+    ticket: createBotManagerBackupTicket(job.id, req.user!.username),
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+  });
+});
+
+botManagerRouter.get('/backups/:id/download', async (req, res, next: NextFunction) => {
+  const ticket = typeof req.query.ticket === 'string' ? req.query.ticket : null;
+  if (!ticket) return next();
+  try {
+    const payload = parseBotManagerBackupTicket(ticket);
+    if (payload.jobId !== req.params.id) return fail(res, 403, 'Invalid download ticket', 'FORBIDDEN');
+    const job = await prisma.botManagerBackupJob.findFirst({ where: { id: payload.jobId, createdBy: payload.actor } });
+    if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+    return sendBotManagerBackupDownload(res, job, payload.actor);
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Invalid download ticket', 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.get('/backups/:id/download', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const job = await prisma.botManagerBackupJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
+  return sendBotManagerBackupDownload(res, job, req.user!.username);
+});
+
+botManagerRouter.delete('/backups', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = clearBackupSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const where = parsed.data.ids?.length
+    ? { createdBy: req.user!.username, id: { in: parsed.data.ids } }
+    : { createdBy: req.user!.username };
+  const jobs = await prisma.botManagerBackupJob.findMany({ where, select: { artifactPath: true } });
+  const result = await prisma.botManagerBackupJob.deleteMany({ where });
+  await Promise.allSettled(jobs.map((job) => job.artifactPath ? deleteFileFromStorage(job.artifactPath) : Promise.resolve()));
+  await writeAudit(prisma, {
+    actor: req.user!.username,
+    action: 'bot-manager.backup.delete',
+    entity: 'BotManagerBackupJob',
+    metadata: { count: result.count }
+  });
+  return ok(res, { deleted: result.count });
 });
 
 botManagerRouter.post('/sync', async (req, res) => {
