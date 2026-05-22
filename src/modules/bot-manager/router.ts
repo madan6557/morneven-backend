@@ -307,10 +307,10 @@ const restartAfterSync = (
   config: Prisma.JsonValue | Record<string, unknown> | null | undefined,
   settings: Prisma.JsonValue | Record<string, unknown> | null | undefined
 ) => {
-  const identityValue = gatewayConfig(settings).restartAfterSync;
-  if (typeof identityValue === 'boolean') return identityValue;
   const globalValue = gatewayConfig(config).restartAfterSync;
-  return typeof globalValue === 'boolean' ? globalValue : false;
+  if (typeof globalValue === 'boolean') return globalValue;
+  const identityValue = gatewayConfig(settings).restartAfterSync;
+  return typeof identityValue === 'boolean' ? identityValue : false;
 };
 
 const getRuntimeSyncState = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
