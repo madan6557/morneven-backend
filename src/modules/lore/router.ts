@@ -24,6 +24,28 @@ export const loreRouter = Router();
 type LoreDocInput = { type?: string; url?: string; thumbnail?: string; caption?: string; date?: string };
 
 const resolveCategory = (category: string) => categoryToEntityType(category);
+const isNameTraitSearch = (value: unknown) => value === 'name-traits';
+const likePattern = (value: string) => `%${value.replace(/[\\%_]/g, '\\$&')}%`;
+
+const findTraitMatchedIds = async (entityType: EntityType, q: string) => {
+  if (entityType !== EntityType.character || !q.trim()) return [];
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT id
+    FROM "LoreItem"
+    WHERE category::text = ${entityType}
+      AND EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(
+          CASE
+            WHEN jsonb_typeof(metadata->'traits') = 'array' THEN metadata->'traits'
+            ELSE '[]'::jsonb
+          END
+        ) AS trait(value)
+        WHERE trait.value ILIKE ${likePattern(q)} ESCAPE '\'
+      )
+  `);
+  return rows.map((row) => row.id);
+};
 
 const loadDocs = async (items: Array<{ id: string }>) => {
   const docs = await prisma.entityDoc.findMany({ where: { entityId: { in: items.map((item) => item.id) } } });
@@ -94,17 +116,25 @@ loreRouter.get('/:category', auth, async (req, res) => {
   const ids = parseIds(req.query.ids);
   const { page, pageSize, skip, take } = parsePagination(req, { pageSize: 24, maxPageSize: 100 });
   const q = getSearchQuery(req);
+  const nameTraitSearch = entityType === EntityType.character && isNameTraitSearch(req.query.searchScope);
+  const traitMatchedIds = nameTraitSearch ? await findTraitMatchedIds(entityType, q) : [];
+  const searchOr: Prisma.LoreItemWhereInput[] = nameTraitSearch
+    ? [
+        { name: { contains: q, mode: 'insensitive' } },
+        ...(traitMatchedIds.length ? [{ id: { in: traitMatchedIds } }] : [])
+      ]
+    : [
+        { name: { contains: q, mode: 'insensitive' } },
+        { type: { contains: q, mode: 'insensitive' } },
+        { shortDesc: { contains: q, mode: 'insensitive' } },
+        { fullDesc: { contains: q, mode: 'insensitive' } }
+      ];
   const where: Prisma.LoreItemWhereInput = {
     category: entityType,
     ...(ids.length ? { id: { in: ids } } : {}),
     ...(q
       ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { type: { contains: q, mode: 'insensitive' } },
-            { shortDesc: { contains: q, mode: 'insensitive' } },
-            { fullDesc: { contains: q, mode: 'insensitive' } }
-          ]
+          OR: searchOr
         }
       : {})
   };
