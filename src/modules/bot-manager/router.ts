@@ -124,7 +124,8 @@ const defaultGeneralConfig = {
   timezone: 'Asia/Singapore',
   globalRules: 'Follow Morneven website policy and active personality files.',
   gateway: {
-    restartAfterSync: false
+    restartAfterSync: false,
+    allowRuntimeReload: true
   }
 };
 
@@ -293,6 +294,24 @@ const asStringArray = (value: Prisma.JsonValue | unknown): string[] => Array.isA
   : [];
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const gatewayConfig = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) =>
+  asJsonRecord(asJsonRecord(config).gateway as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+
+const allowRuntimeReload = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const value = gatewayConfig(config).allowRuntimeReload;
+  return typeof value === 'boolean' ? value : true;
+};
+
+const restartAfterSync = (
+  config: Prisma.JsonValue | Record<string, unknown> | null | undefined,
+  settings: Prisma.JsonValue | Record<string, unknown> | null | undefined
+) => {
+  const identityValue = gatewayConfig(settings).restartAfterSync;
+  if (typeof identityValue === 'boolean') return identityValue;
+  const globalValue = gatewayConfig(config).restartAfterSync;
+  return typeof globalValue === 'boolean' ? globalValue : false;
+};
 
 const getRuntimeSyncState = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
   const raw = asJsonRecord(asJsonRecord(config)[runtimeSyncConfigKey] as Prisma.JsonValue | null | undefined);
@@ -2402,16 +2421,36 @@ botManagerRouter.post('/sync', async (req, res) => {
     return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, writeback });
   }
 
+  const bundleRecord = asJsonRecord(bundle as Record<string, unknown>);
+  const generalConfig = asJsonRecord(bundleRecord.generalConfig as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const settings = asJsonRecord(bundleRecord.settings as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const reloadAllowed = allowRuntimeReload(generalConfig);
+  const restartGateway = restartAfterSync(generalConfig, settings);
+
+  if (!reloadAllowed) {
+    const current = await ensureGeneralConfig();
+    return ok(res, {
+      synced: false,
+      reloadSkipped: true,
+      reason: 'Runtime reload is disabled by Bot Manager General Config',
+      runtimeSync: getRuntimeSyncState(current.config),
+      writeback,
+      bundle,
+      nanobot: null
+    });
+  }
+
   try {
     clearNanobotStatusCache();
     const { payload } = await callNanobot('/api/morneven/reload', {
       method: 'POST',
-      body: { requestedBy: req.user!.username }
+      body: { requestedBy: req.user!.username, restartGateway }
     });
     setNanobotStatusCache(payload);
     const runtimeSync = await markRuntimeSynced(req.user!.username);
     return ok(res, {
       synced: true,
+      restartGateway,
       runtimeSync,
       writeback,
       bundle,
