@@ -292,6 +292,8 @@ const asStringArray = (value: Prisma.JsonValue | unknown): string[] => Array.isA
   ? value.filter((item): item is string => typeof item === 'string')
   : [];
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const getRuntimeSyncState = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
   const raw = asJsonRecord(asJsonRecord(config)[runtimeSyncConfigKey] as Prisma.JsonValue | null | undefined);
   return {
@@ -794,6 +796,53 @@ const markdownList = (items: string[], fallback: string) =>
 
 const contentHash = (content: string) => createHash('sha256').update(content).digest('hex');
 
+const runtimeGlobalRulesStart = '<!-- MORNEVEN_GLOBAL_RULES_START -->';
+const runtimeGlobalRulesEnd = '<!-- MORNEVEN_GLOBAL_RULES_END -->';
+const runtimeGlobalRulesBlockPattern = new RegExp(
+  `\\n*${escapeRegExp(runtimeGlobalRulesStart)}[\\s\\S]*?${escapeRegExp(runtimeGlobalRulesEnd)}\\n*`,
+  'g'
+);
+
+const getGlobalRules = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const value = asJsonRecord(config).globalRules;
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+const stripRuntimeGlobalRulesBlock = (content: string) =>
+  content.replace(runtimeGlobalRulesBlockPattern, '\n\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+
+const injectRuntimeGlobalRules = (
+  content: string,
+  config: Prisma.JsonValue | Record<string, unknown> | null | undefined
+) => {
+  const globalRules = getGlobalRules(config);
+  const baseContent = stripRuntimeGlobalRulesBlock(content);
+  if (!globalRules) return baseContent;
+
+  return [
+    baseContent,
+    '',
+    runtimeGlobalRulesStart,
+    '## Morneven Global Rules',
+    '',
+    globalRules,
+    '',
+    'These rules come from Bot Manager General Config and override lower priority personality notes when they conflict.',
+    runtimeGlobalRulesEnd
+  ].filter((line) => line !== '').join('\n').trimEnd();
+};
+
+const isAgentsWorkspacePath = (workspacePath: string) => workspacePath.toLowerCase() === 'agents.md';
+
+const toStoredWorkspaceContent = (workspacePath: string, content: string) =>
+  isAgentsWorkspacePath(workspacePath) ? stripRuntimeGlobalRulesBlock(content) : content;
+
+const toRuntimeWorkspaceContent = (
+  workspacePath: string,
+  content: string,
+  config: Prisma.JsonValue | Record<string, unknown> | null | undefined
+) => (isAgentsWorkspacePath(workspacePath) ? injectRuntimeGlobalRules(content, config) : content);
+
 const formatSkillList = (skills: ReturnType<typeof asLoreSkills>) =>
   markdownList(
     skills.map((skill) => skill.description
@@ -921,6 +970,8 @@ const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspac
   });
   if (!activeIdentity) throw new Error('No active bot personality is configured');
 
+  const generalConfig = await ensureGeneralConfig();
+  const publicConfig = stripInternalGeneralConfig(generalConfig.config);
   const { payload } = await callNanobot('/api/morneven/workspace/changes');
   const parsed = toRuntimeWorkspaceChanges(payload);
   const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
@@ -939,28 +990,31 @@ const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspac
       continue;
     }
 
+    const storedChangeContent = toStoredWorkspaceContent(workspacePath, change.content);
     const existing = existingByPath.get(workspacePath.toLowerCase());
     if (!existing) {
       await saveIdentityFile(activeIdentity, {
         path: workspacePath,
         kind: change.kind,
-        content: change.content
+        content: storedChangeContent
       }, actor);
       appliedPaths.push(workspacePath);
       continue;
     }
 
     const currentContent = await readIdentityFileContent(existing);
-    const currentHash = contentHash(currentContent);
-    if (currentHash === change.contentHash) {
+    const currentStoredHash = contentHash(currentContent);
+    const currentRuntimeHash = contentHash(toRuntimeWorkspaceContent(workspacePath, currentContent, publicConfig));
+    const storedChangeHash = contentHash(storedChangeContent);
+    if (currentRuntimeHash === change.contentHash || currentStoredHash === storedChangeHash) {
       skippedPaths.push(`${workspacePath}: already current`);
       continue;
     }
-    if (change.baseHash && currentHash === change.baseHash) {
+    if (change.baseHash && currentRuntimeHash === change.baseHash) {
       await saveIdentityFile(activeIdentity, {
         path: workspacePath,
         kind: change.kind,
-        content: change.content,
+        content: storedChangeContent,
         contentType: existing.contentType
       }, actor);
       appliedPaths.push(workspacePath);
@@ -1372,6 +1426,57 @@ const applyDefaultIdentityFiles = async (
   return { updatedPaths, skippedPaths };
 };
 
+const loadRuntimeIdentityFiles = async (
+  identity: IdentityWithFiles,
+  config: Prisma.JsonValue | Record<string, unknown> | null | undefined
+) => {
+  const files: Array<{
+    id: string;
+    path: string;
+    kind: string;
+    contentType: string;
+    objectPath: string;
+    size: number;
+    updatedAt: string;
+    content: string;
+  }> = [];
+  let hasAgentsFile = false;
+
+  for (const file of identity.files.sort((left, right) => left.path.localeCompare(right.path))) {
+    const workspacePath = file.path;
+    const storedContent = await readIdentityFileContent(file);
+    const runtimeContent = toRuntimeWorkspaceContent(workspacePath, storedContent, config);
+    if (isAgentsWorkspacePath(workspacePath)) hasAgentsFile = true;
+
+    files.push({
+      id: file.id,
+      path: workspacePath,
+      kind: file.kind,
+      contentType: file.contentType,
+      objectPath: file.objectPath,
+      size: Buffer.byteLength(runtimeContent, 'utf8'),
+      updatedAt: file.updatedAt.toISOString(),
+      content: runtimeContent
+    });
+  }
+
+  if (!hasAgentsFile && getGlobalRules(config)) {
+    const content = injectRuntimeGlobalRules(`# ${identity.name} Agent\n\nUse the active Morneven personality workspace.`, config);
+    files.unshift({
+      id: 'runtime-managed-agents',
+      path: 'AGENTS.md',
+      kind: 'identity',
+      contentType: 'text/markdown',
+      objectPath: `runtime-managed://${identity.slug}/AGENTS.md`,
+      size: Buffer.byteLength(content, 'utf8'),
+      updatedAt: new Date().toISOString(),
+      content
+    });
+  }
+
+  return files;
+};
+
 const loadIdentityFiles = async (identity: IdentityWithFiles) => {
   const files = [];
   for (const file of identity.files.sort((left, right) => left.path.localeCompare(right.path))) {
@@ -1435,7 +1540,7 @@ const buildRuntimeBundle = async () => {
     credentials: runtimeCredentials,
     channels: activeIdentity.channels,
     settings: activeIdentity.settings,
-    files: await loadIdentityFiles(activeIdentity)
+    files: await loadRuntimeIdentityFiles(activeIdentity, publicConfig)
   };
 };
 
