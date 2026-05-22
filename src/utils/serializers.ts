@@ -209,6 +209,7 @@ export const serializeLoreItem = (
     id: item.id,
     thumbnail: item.thumbnail ?? '',
     headerImage: typeof metadata.headerImage === 'string' ? metadata.headerImage : undefined,
+    profileImage: typeof metadata.profileImage === 'string' ? metadata.profileImage : undefined,
     shortDesc: item.shortDesc,
     fullDesc: item.fullDesc,
     docs: sortDocsByDateDesc(docs.map(serializeDoc)),

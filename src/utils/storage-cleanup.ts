@@ -150,6 +150,7 @@ const collectLoreStoragePaths = (item: LoreAssetRecord, docs: Array<{ url: strin
 
   const metadata = asObject(item.metadata);
   addPath(paths, metadata.headerImage);
+  addPath(paths, metadata.profileImage);
 
   for (const skill of asArray(metadata.skills)) {
     addPath(paths, asObject(skill).icon);

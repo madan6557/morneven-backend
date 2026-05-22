@@ -56,6 +56,7 @@ const identitySchema = z.object({
   name: z.string().trim().min(2).max(80),
   roleTitle: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1200).optional().default(''),
+  profileImageUrl: z.string().trim().max(2048).optional().or(z.literal('')),
   channels: z.record(z.unknown()).optional().default({}),
   settings: z.record(z.unknown()).optional().default({}),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
@@ -751,6 +752,7 @@ type LoreCharacterRecord = {
   id: string;
   name: string;
   type: string | null;
+  thumbnail: string | null;
   shortDesc: string;
   fullDesc: string;
   metadata: Prisma.JsonValue | null;
@@ -991,11 +993,18 @@ const findLoreCharacter = (loreCharacterId: string) =>
       id: true,
       name: true,
       type: true,
+      thumbnail: true,
       shortDesc: true,
       fullDesc: true,
       metadata: true
     }
   });
+
+const loreCharacterProfileImage = (loreCharacter?: LoreCharacterRecord | null) => {
+  if (!loreCharacter) return '';
+  const metadata = asJsonRecord(loreCharacter.metadata);
+  return textValue(metadata.profileImage) || loreCharacter.thumbnail || '';
+};
 
 const getLoreReferenceId = (settings: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
   const loreReference = asJsonRecord(asJsonRecord(settings).loreReference as Prisma.JsonValue | null | undefined);
@@ -1892,6 +1901,7 @@ botManagerRouter.post('/identities', async (req, res) => {
       name: parsed.data.name,
       roleTitle: parsed.data.roleTitle,
       description: parsed.data.description,
+      profileImageUrl: parsed.data.profileImageUrl || loreCharacterProfileImage(loreCharacter) || null,
       channels: parsed.data.channels as Prisma.InputJsonValue,
       settings: parsed.data.settings as Prisma.InputJsonValue,
       isActive: activeCount === 0,
@@ -1928,12 +1938,29 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   const loreCharacterId = parsed.data.loreCharacterId || '';
   const loreCharacter = loreCharacterId ? await findLoreCharacter(loreCharacterId) : null;
   if (loreCharacterId && !loreCharacter) return fail(res, 404, 'Lore character not found', 'NOT_FOUND');
+  const existingLoreCharacterId = getLoreReferenceId(existing.settings);
+  const existingLoreCharacter = existingLoreCharacterId ? await findLoreCharacter(existingLoreCharacterId) : null;
+  const existingLoreProfileImage = loreCharacterProfileImage(existingLoreCharacter);
+  const existingProfileImageUrl = existing.profileImageUrl ?? '';
+  const loreReferenceChanged = parsed.data.loreCharacterId !== undefined && loreCharacterId !== existingLoreCharacterId;
+  const canAutofillProfileImage =
+    Boolean(loreCharacter) &&
+    loreReferenceChanged &&
+    !existing.profileImageObjectPath &&
+    (!existingProfileImageUrl || existingProfileImageUrl === existingLoreProfileImage);
+  const profileImagePatch =
+    parsed.data.profileImageUrl !== undefined
+      ? { profileImageUrl: parsed.data.profileImageUrl || null }
+      : canAutofillProfileImage
+        ? { profileImageUrl: loreCharacterProfileImage(loreCharacter) || null }
+        : {};
   const updated = await prisma.botManagerIdentity.update({
     where: { id: existing.id },
     data: {
       ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
       ...(parsed.data.roleTitle !== undefined ? { roleTitle: parsed.data.roleTitle } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      ...profileImagePatch,
       ...(parsed.data.channels !== undefined ? { channels: parsed.data.channels as Prisma.InputJsonValue } : {}),
       ...(parsed.data.settings !== undefined ? { settings: parsed.data.settings as Prisma.InputJsonValue } : {}),
       updatedBy: req.user!.username

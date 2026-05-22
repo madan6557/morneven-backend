@@ -244,6 +244,9 @@ export const normalizeLoreMetadata = (
   merged.observations = normalizeLoreEntries(body.observations ?? existing.observations, 'observation');
 
   if (entityType === EntityType.character) {
+    if (body.profileImage !== undefined) {
+      merged.profileImage = text(body.profileImage);
+    }
     merged.stats = normalizeCharacterStats(body.stats ?? existing.stats);
     merged.skills = normalizeSkillItems(body.skills ?? existing.skills);
     merged.anecdotes = normalizeLoreEntries(body.anecdotes ?? existing.anecdotes, 'anecdote');
