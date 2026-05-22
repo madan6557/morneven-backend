@@ -123,7 +123,7 @@ const defaultGeneralConfig = {
   timezone: 'Asia/Singapore',
   globalRules: 'Follow Morneven website policy and active personality files.',
   gateway: {
-    restartAfterSync: true
+    restartAfterSync: false
   }
 };
 
