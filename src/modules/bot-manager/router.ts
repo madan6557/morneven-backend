@@ -134,7 +134,10 @@ const defaultRuntimeSyncState = {
   runtimeDirtySince: null as string | null,
   runtimeDirtyReason: null as string | null,
   lastRuntimeSyncAt: null as string | null,
-  lastRuntimeSyncError: null as string | null
+  lastRuntimeSyncError: null as string | null,
+  lastRuntimePullAt: null as string | null,
+  lastRuntimePullChangedCount: 0,
+  lastRuntimePullConflictCount: 0
 };
 
 const defaultFilesGeneratorVersion = 2;
@@ -185,6 +188,8 @@ const normalizeWorkspacePath = (value: string) => {
 
 const isReadOnlyWorkspacePath = (value: string) => readOnlyWorkspacePaths.has(value.toLowerCase());
 const isProtectedWorkspacePath = (value: string) => protectedWorkspacePaths.has(value.toLowerCase());
+const isBotFileKind = (value: unknown): value is (typeof fileKinds)[number] =>
+  typeof value === 'string' && fileKinds.includes(value as (typeof fileKinds)[number]);
 
 const slugify = (value: string) => {
   const slug = value
@@ -294,7 +299,10 @@ const getRuntimeSyncState = (config: Prisma.JsonValue | Record<string, unknown> 
     runtimeDirtySince: typeof raw.runtimeDirtySince === 'string' ? raw.runtimeDirtySince : null,
     runtimeDirtyReason: typeof raw.runtimeDirtyReason === 'string' ? raw.runtimeDirtyReason : null,
     lastRuntimeSyncAt: typeof raw.lastRuntimeSyncAt === 'string' ? raw.lastRuntimeSyncAt : null,
-    lastRuntimeSyncError: typeof raw.lastRuntimeSyncError === 'string' ? raw.lastRuntimeSyncError : null
+    lastRuntimeSyncError: typeof raw.lastRuntimeSyncError === 'string' ? raw.lastRuntimeSyncError : null,
+    lastRuntimePullAt: typeof raw.lastRuntimePullAt === 'string' ? raw.lastRuntimePullAt : null,
+    lastRuntimePullChangedCount: typeof raw.lastRuntimePullChangedCount === 'number' ? raw.lastRuntimePullChangedCount : 0,
+    lastRuntimePullConflictCount: typeof raw.lastRuntimePullConflictCount === 'number' ? raw.lastRuntimePullConflictCount : 0
   };
 };
 
@@ -393,6 +401,38 @@ const markRuntimeSyncFailed = async (actor: string, message: string) => {
     runtimeDirtySince: previous.runtimeDirtySince ?? now,
     runtimeDirtyReason: previous.runtimeDirtyReason ?? 'Runtime sync failed',
     lastRuntimeSyncError: message
+  };
+  await prisma.botManagerGeneralConfig.update({
+    where: { id: 'default' },
+    data: {
+      config: attachRuntimeSyncState(current.config, runtimeSync) as Prisma.InputJsonValue,
+      updatedBy: actor
+    }
+  });
+  return runtimeSync;
+};
+
+const markRuntimePullResult = async (
+  actor: string,
+  result: { pulledCount: number; conflictPaths: string[]; appliedPaths: string[]; skippedPaths: string[] }
+) => {
+  const current = await ensureGeneralConfig();
+  const previous = getRuntimeSyncState(current.config);
+  const now = new Date().toISOString();
+  const hasWriteback = result.appliedPaths.length > 0 || result.conflictPaths.length > 0;
+  const runtimeSync = {
+    ...previous,
+    runtimeDirty: hasWriteback ? true : previous.runtimeDirty,
+    runtimeDirtySince: hasWriteback ? previous.runtimeDirtySince ?? now : previous.runtimeDirtySince,
+    runtimeDirtyReason: result.conflictPaths.length
+      ? 'Runtime pull created conflict copies'
+      : hasWriteback
+        ? 'Runtime pull applied workspace changes'
+        : previous.runtimeDirtyReason,
+    lastRuntimeSyncError: null,
+    lastRuntimePullAt: now,
+    lastRuntimePullChangedCount: result.pulledCount,
+    lastRuntimePullConflictCount: result.conflictPaths.length
   };
   await prisma.botManagerGeneralConfig.update({
     where: { id: 'default' },
@@ -816,6 +856,132 @@ const buildLoreFileContent = (item: {
 const readIdentityFileContent = async (file: { objectPath: string }) => {
   const stored = await readFileWithMetadataFromStorage(file.objectPath);
   return stored.buffer.toString('utf8');
+};
+
+type RuntimeWorkspaceChange = {
+  path: string;
+  kind: (typeof fileKinds)[number];
+  content: string;
+  contentHash: string;
+  baseHash: string | null;
+  size: number;
+  updatedAt: string | null;
+};
+
+type RuntimeWorkspacePull = {
+  pulledCount: number;
+  appliedPaths: string[];
+  conflictPaths: string[];
+  skippedPaths: string[];
+  changes: RuntimeWorkspaceChange[];
+  skipped: Array<{ path: string; reason: string }>;
+};
+
+const toRuntimeWorkspaceChanges = (payload: unknown) => {
+  const record = asJsonRecord(payload as Prisma.JsonValue | null | undefined);
+  const changes = Array.isArray(record.changes) ? record.changes : [];
+  const skipped = Array.isArray(record.skipped) ? record.skipped : [];
+  return {
+    changes: changes
+      .map((item) => asJsonRecord(item as Prisma.JsonValue))
+      .map((item) => ({
+        path: typeof item.path === 'string' ? item.path : '',
+        kind: isBotFileKind(item.kind) ? item.kind : 'other',
+        content: typeof item.content === 'string' ? item.content : '',
+        contentHash: typeof item.contentHash === 'string' ? item.contentHash : '',
+        baseHash: typeof item.baseHash === 'string' ? item.baseHash : null,
+        size: typeof item.size === 'number' ? item.size : 0,
+        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : null
+      }))
+      .filter((item): item is RuntimeWorkspaceChange => Boolean(item.path && item.contentHash)),
+    skipped: skipped
+      .map((item) => asJsonRecord(item as Prisma.JsonValue))
+      .map((item) => ({
+        path: typeof item.path === 'string' ? item.path : '',
+        reason: typeof item.reason === 'string' ? item.reason : 'Skipped by Nanobot'
+      }))
+      .filter((item) => item.path)
+  };
+};
+
+const conflictWorkspacePath = (workspacePath: string) => {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const candidate = `conflicts/runtime/${timestamp}/${workspacePath}`;
+  if (candidate.length <= 240) return candidate;
+  const extension = workspacePath.includes('.') ? `.${workspacePath.split('.').pop()}` : '.txt';
+  return `conflicts/runtime/${timestamp}/${contentHash(workspacePath)}${extension}`;
+};
+
+const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspacePull> => {
+  const activeIdentity = await prisma.botManagerIdentity.findFirst({
+    where: { isActive: true },
+    include: { files: true }
+  });
+  if (!activeIdentity) throw new Error('No active bot personality is configured');
+
+  const { payload } = await callNanobot('/api/morneven/workspace/changes');
+  const parsed = toRuntimeWorkspaceChanges(payload);
+  const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
+  const appliedPaths: string[] = [];
+  const conflictPaths: string[] = [];
+  const skippedPaths: string[] = [];
+
+  for (const change of parsed.changes) {
+    const workspacePath = normalizeWorkspacePath(change.path);
+    if (!workspacePath) {
+      skippedPaths.push(`${change.path}: invalid path`);
+      continue;
+    }
+    if (change.content.length > 500000) {
+      skippedPaths.push(`${workspacePath}: content too large`);
+      continue;
+    }
+
+    const existing = existingByPath.get(workspacePath.toLowerCase());
+    if (!existing) {
+      await saveIdentityFile(activeIdentity, {
+        path: workspacePath,
+        kind: change.kind,
+        content: change.content
+      }, actor);
+      appliedPaths.push(workspacePath);
+      continue;
+    }
+
+    const currentContent = await readIdentityFileContent(existing);
+    const currentHash = contentHash(currentContent);
+    if (currentHash === change.contentHash) {
+      skippedPaths.push(`${workspacePath}: already current`);
+      continue;
+    }
+    if (change.baseHash && currentHash === change.baseHash) {
+      await saveIdentityFile(activeIdentity, {
+        path: workspacePath,
+        kind: change.kind,
+        content: change.content,
+        contentType: existing.contentType
+      }, actor);
+      appliedPaths.push(workspacePath);
+      continue;
+    }
+
+    const conflictPath = conflictWorkspacePath(workspacePath);
+    await saveIdentityFile(activeIdentity, {
+      path: conflictPath,
+      kind: change.kind,
+      content: change.content
+    }, actor);
+    conflictPaths.push(conflictPath);
+  }
+
+  return {
+    pulledCount: parsed.changes.length,
+    appliedPaths,
+    conflictPaths,
+    skippedPaths,
+    changes: parsed.changes,
+    skipped: parsed.skipped
+  };
 };
 
 const findLoreCharacter = (loreCharacterId: string) =>
@@ -2086,6 +2252,24 @@ botManagerRouter.post('/sync', async (req, res) => {
     return fail(res, 502, message, 'NANOBOT_RELOAD_FAILED', { runtimeSync });
   }
 
+  let writeback: RuntimeWorkspacePull = {
+    pulledCount: 0,
+    appliedPaths: [],
+    conflictPaths: [],
+    skippedPaths: [],
+    changes: [],
+    skipped: []
+  };
+  try {
+    writeback = await applyRuntimeWorkspacePull(req.user!.username);
+    await markRuntimePullResult(req.user!.username, writeback);
+    bundle = await buildRuntimeBundle();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Nanobot workspace pull failed';
+    const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
+    return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, writeback });
+  }
+
   try {
     clearNanobotStatusCache();
     const { payload } = await callNanobot('/api/morneven/reload', {
@@ -2097,6 +2281,7 @@ botManagerRouter.post('/sync', async (req, res) => {
     return ok(res, {
       synced: true,
       runtimeSync,
+      writeback,
       bundle,
       nanobot: payload
     });
