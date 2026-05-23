@@ -1095,6 +1095,18 @@ type RuntimeWorkspacePull = {
   skipped: Array<{ path: string; reason: string }>;
 };
 
+type RuntimeConfigSecretPull = {
+  importedCount: number;
+  appliedPaths: string[];
+  skippedPaths: string[];
+};
+
+const emptyRuntimeConfigSecretPull = (): RuntimeConfigSecretPull => ({
+  importedCount: 0,
+  appliedPaths: [],
+  skippedPaths: []
+});
+
 const toRuntimeWorkspaceChanges = (payload: unknown) => {
   const record = asJsonRecord(payload as Prisma.JsonValue | null | undefined);
   const changes = Array.isArray(record.changes) ? record.changes : [];
@@ -1128,6 +1140,208 @@ const conflictWorkspacePath = (workspacePath: string) => {
   if (candidate.length <= 240) return candidate;
   const extension = workspacePath.includes('.') ? `.${workspacePath.split('.').pop()}` : '.txt';
   return `conflicts/runtime/${timestamp}/${contentHash(workspacePath)}${extension}`;
+};
+
+const decryptRecordOrEmpty = (value?: string | null): Record<string, unknown> => {
+  if (!value) return {};
+  try {
+    const decrypted = decryptJson<unknown>(value);
+    return isPlainRecord(decrypted) ? decrypted : {};
+  } catch {
+    return {};
+  }
+};
+
+const unmaskedRuntimeSecret = (value: unknown) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.endsWith('***')) return '';
+  return trimmed;
+};
+
+const runtimeSecretValue = (record: Record<string, unknown>, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = unmaskedRuntimeSecret(record[key]);
+    if (value) return value;
+  }
+  return '';
+};
+
+const mergeMissingRuntimeSecrets = (
+  source: unknown,
+  existing: unknown,
+  pathPrefix: string,
+  appliedPaths: string[],
+  currentKey?: string
+): unknown => {
+  if (currentKey && isSensitiveConfigKey(currentKey)) {
+    const preserved = preservedEncryptedSecret(existing);
+    if (preserved) return preserved;
+    const sourceSecret = unmaskedRuntimeSecret(source);
+    if (!sourceSecret) return existing ?? '';
+    appliedPaths.push(pathPrefix);
+    return encryptedSecret(sourceSecret);
+  }
+
+  if (Array.isArray(source)) return Array.isArray(existing) && existing.length ? existing : source;
+
+  if (isPlainRecord(source)) {
+    const existingRecord = isPlainRecord(existing) ? existing : {};
+    const result: Record<string, unknown> = { ...existingRecord };
+    for (const [key, sourceValue] of Object.entries(source)) {
+      const childPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+      const existingValue = existingRecord[key];
+      if (isSensitiveConfigKey(key) || (isPlainRecord(sourceValue) && isPlainRecord(existingValue))) {
+        result[key] = mergeMissingRuntimeSecrets(sourceValue, existingValue, childPath, appliedPaths, key);
+      } else if (existingValue === undefined || existingValue === '' || (Array.isArray(existingValue) && existingValue.length === 0)) {
+        result[key] = sourceValue;
+      }
+    }
+    return result;
+  }
+
+  return existing ?? source;
+};
+
+const providerModelFromRuntime = (
+  provider: string,
+  providerConfig: Record<string, unknown>,
+  agents: Record<string, unknown>,
+  existingValue: Record<string, unknown>
+) => {
+  const defaults = asJsonRecord(agents.defaults as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const defaultsProvider = textValue(defaults.provider);
+  return textValue(providerConfig.modelId ?? providerConfig.model_id ?? providerConfig.model)
+    || (defaultsProvider === provider ? textValue(defaults.model ?? defaults.modelId ?? defaults.model_id) : '')
+    || textValue(existingValue.modelId ?? existingValue.model_id);
+};
+
+const applyRuntimeProviderSecretPull = async (
+  actor: string,
+  payload: Record<string, unknown>,
+  appliedPaths: string[],
+  skippedPaths: string[]
+) => {
+  const providersRecord = asJsonRecord(payload.providers as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const agents = asJsonRecord(payload.agents as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const generalConfig = await ensureGeneralConfig();
+  const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+  for (const provider of providers) {
+    const providerConfig = asJsonRecord(providersRecord[provider] as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+    const apiKey = runtimeSecretValue(providerConfig, 'apiKey', 'api_key');
+    if (!apiKey) continue;
+    const apiBase = textValue(providerConfig.apiBase ?? providerConfig.api_base);
+    const existingCredential = await prisma.botManagerCredential.findUnique({ where: { provider } });
+    const existingValue = decryptRecordOrEmpty(existingCredential?.encryptedValue);
+    if (textValue(existingValue.apiKey ?? existingValue.api_key)) continue;
+    const modelId = providerModelFromRuntime(provider, providerConfig, agents, existingValue);
+
+    if (provider === 'openrouter') {
+      const activeProfileId = textValue(publicConfig.activeOpenRouterProfileId);
+      const existingProfile = activeProfileId
+        ? await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: activeProfileId } })
+        : await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } })
+          ?? await prisma.botManagerOpenRouterProfile.findFirst({ orderBy: { updatedAt: 'desc' } });
+      if (existingProfile) {
+        const profileValue = decryptRecordOrEmpty(existingProfile.encryptedValue);
+        if (textValue(profileValue.apiKey ?? profileValue.api_key)) continue;
+        await prisma.botManagerOpenRouterProfile.update({
+          where: { id: existingProfile.id },
+          data: {
+            encryptedValue: encryptJson({ ...profileValue, apiKey, apiBase: apiBase || null, modelId }),
+            keyPreview: keyPreview(apiKey),
+            modelId: modelId || existingProfile.modelId,
+            apiBase: apiBase || existingProfile.apiBase,
+            updatedBy: actor
+          }
+        });
+        appliedPaths.push('openrouterProfiles.active.apiKey');
+      } else {
+        await prisma.botManagerOpenRouterProfile.create({
+          data: {
+            name: 'Imported OpenRouter',
+            encryptedValue: encryptJson({ apiKey, apiBase: apiBase || null, modelId }),
+            keyPreview: keyPreview(apiKey),
+            modelId: modelId || 'runtime-import',
+            apiBase: apiBase || null,
+            tags: ['runtime-import'] as Prisma.InputJsonValue,
+            notes: 'Imported from Nanobot runtime config.',
+            isActive: textValue(publicConfig.activeProvider) === 'openrouter',
+            updatedBy: actor
+          }
+        });
+        appliedPaths.push('openrouterProfiles.imported.apiKey');
+      }
+      continue;
+    }
+
+    const nextValue = {
+      ...existingValue,
+      apiKey,
+      apiBase: apiBase || textValue(existingValue.apiBase ?? existingValue.api_base) || null,
+      modelId
+    };
+    const metadata = {
+      apiBaseConfigured: Boolean(nextValue.apiBase),
+      modelId
+    };
+    await prisma.botManagerCredential.upsert({
+      where: { provider },
+      create: {
+        provider,
+        encryptedValue: encryptJson(nextValue),
+        keyPreview: keyPreview(apiKey),
+        metadata,
+        updatedBy: actor
+      },
+      update: {
+        encryptedValue: encryptJson(nextValue),
+        keyPreview: keyPreview(apiKey),
+        metadata,
+        updatedBy: actor
+      }
+    });
+    appliedPaths.push(`credentials.${provider}.apiKey`);
+  }
+
+  if (!Object.keys(providersRecord).length) skippedPaths.push('providers: no runtime provider config returned');
+};
+
+const applyRuntimeConfigSecretPull = async (actor: string): Promise<RuntimeConfigSecretPull> => {
+  const result = emptyRuntimeConfigSecretPull();
+  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({ where: { isActive: true } });
+  if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
+  const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
+  const { payload } = await callNanobot('/api/morneven/config-secrets');
+  const config = asJsonRecord(payload as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+
+  await applyRuntimeProviderSecretPull(actor, config, result.appliedPaths, result.skippedPaths);
+
+  const sourceChannels = asJsonRecord(config.channels as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const sourceTools = asJsonRecord(config.tools as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const channelPaths: string[] = [];
+  const settingPaths: string[] = [];
+  const nextChannels = mergeMissingRuntimeSecrets(sourceChannels, activeIdentity.channels, 'channels', channelPaths);
+  const nextSettings = mergeMissingRuntimeSecrets({ tools: sourceTools }, activeIdentity.settings, 'settings', settingPaths);
+  const channelChanged = JSON.stringify(nextChannels) !== JSON.stringify(activeIdentity.channels);
+  const settingsChanged = JSON.stringify(nextSettings) !== JSON.stringify(activeIdentity.settings);
+
+  if (channelChanged || settingsChanged) {
+    await prisma.botManagerIdentity.update({
+      where: { id: activeIdentity.id },
+      data: {
+        ...(channelChanged ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
+        ...(settingsChanged ? { settings: nextSettings as Prisma.InputJsonValue } : {}),
+        updatedBy: actor
+      }
+    });
+    result.appliedPaths.push(...channelPaths, ...settingPaths);
+  }
+
+  result.importedCount = result.appliedPaths.length;
+  if (!Object.keys(sourceChannels).length) result.skippedPaths.push('channels: no runtime channel config returned');
+  if (!Object.keys(sourceTools).length) result.skippedPaths.push('settings.tools: no runtime tools config returned');
+  return result;
 };
 
 const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspacePull> => {
@@ -2600,14 +2814,16 @@ botManagerRouter.post('/sync', async (req, res) => {
     changes: [],
     skipped: []
   };
+  let configBackfill = emptyRuntimeConfigSecretPull();
   try {
+    configBackfill = await applyRuntimeConfigSecretPull(req.user!.username);
     writeback = await applyRuntimeWorkspacePull(req.user!.username);
     await markRuntimePullResult(req.user!.username, writeback);
     bundle = await buildRuntimeBundle();
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Nanobot workspace pull failed';
+    const message = error instanceof Error ? error.message : 'Nanobot runtime pull failed';
     const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
-    return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, writeback });
+    return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, configBackfill, writeback });
   }
 
   const bundleRecord = asJsonRecord(bundle as Record<string, unknown>);
@@ -2623,6 +2839,7 @@ botManagerRouter.post('/sync', async (req, res) => {
       reloadSkipped: true,
       reason: 'Runtime reload is disabled by Bot Manager General Config',
       runtimeSync: getRuntimeSyncState(current.config),
+      configBackfill,
       writeback,
       runtimeBundle: summarizeRuntimeBundle(bundle),
       nanobot: null
@@ -2641,6 +2858,7 @@ botManagerRouter.post('/sync', async (req, res) => {
       synced: true,
       restartGateway,
       runtimeSync,
+      configBackfill,
       writeback,
       runtimeBundle: summarizeRuntimeBundle(bundle),
       nanobot: payload
