@@ -382,6 +382,25 @@ const collectDroppedSubmittedSecrets = (
   });
 };
 
+const requiredChannelSecrets: Record<string, string[]> = {
+  telegram: ['token'],
+  discord: ['token'],
+  slack: ['botToken', 'appToken', 'signingSecret'],
+  feishu: ['appSecret', 'verificationToken', 'encryptKey'],
+  dingtalk: ['webhookUrl', 'secret']
+};
+
+const collectEnabledChannelMissingSecrets = (channels: unknown) => {
+  if (!isPlainRecord(channels)) return [];
+  return Object.entries(requiredChannelSecrets).flatMap(([channel, secretKeys]) => {
+    const channelConfig = channels[channel];
+    if (!isPlainRecord(channelConfig) || channelConfig.enabled !== true) return [];
+    return secretKeys
+      .filter((secretKey) => !hasStoredSecretValue(channelConfig[secretKey]))
+      .map((secretKey) => `channels.${channel}.${secretKey}`);
+  });
+};
+
 const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
   if (isEncryptedSecretEnvelope(value)) return publicSecret(value.preview, true);
   if (isPublicSecretMarker(value)) return publicSecret(typeof value.preview === 'string' ? value.preview : '', value.configured !== false);
@@ -2498,6 +2517,10 @@ botManagerRouter.post('/identities', async (req, res) => {
   if (droppedSecrets.length) {
     return fail(res, 500, 'Bot Manager secret storage failed', 'SECRET_STORAGE_FAILED', { paths: droppedSecrets });
   }
+  const missingEnabledSecrets = collectEnabledChannelMissingSecrets(channels);
+  if (missingEnabledSecrets.length) {
+    return fail(res, 422, 'Enabled channel is missing required secrets', 'CHANNEL_SECRET_REQUIRED', { paths: missingEnabledSecrets });
+  }
 
   const identity = await prisma.botManagerIdentity.create({
     data: {
@@ -2572,6 +2595,10 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   ];
   if (droppedSecrets.length) {
     return fail(res, 500, 'Bot Manager secret storage failed', 'SECRET_STORAGE_FAILED', { paths: droppedSecrets });
+  }
+  const missingEnabledSecrets = nextChannels !== undefined ? collectEnabledChannelMissingSecrets(nextChannels) : [];
+  if (missingEnabledSecrets.length) {
+    return fail(res, 422, 'Enabled channel is missing required secrets', 'CHANNEL_SECRET_REQUIRED', { paths: missingEnabledSecrets });
   }
 
   const updated = await prisma.botManagerIdentity.update({
