@@ -62,7 +62,15 @@ const identitySchema = z.object({
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
 });
 
-const identityUpdateSchema = identitySchema.partial();
+const identityUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(80).optional(),
+  roleTitle: z.string().trim().min(2).max(120).optional(),
+  description: z.string().trim().max(1200).optional(),
+  profileImageUrl: z.string().trim().max(2048).optional().or(z.literal('')),
+  channels: z.record(z.unknown()).optional(),
+  settings: z.record(z.unknown()).optional(),
+  loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
+});
 
 const fileSchema = z.object({
   path: z.string().trim().min(1).max(240),
@@ -348,6 +356,30 @@ const mergeSubmittedSecretsForStorage = (stored: unknown, submitted: unknown, cu
     result[key] = mergeSubmittedSecretsForStorage(storedRecord[key], value, key);
   }
   return result;
+};
+
+const hasStoredSecretValue = (value: unknown) =>
+  isEncryptedSecretEnvelope(value) ||
+  (typeof value === 'string' && value.trim().length > 0);
+
+const collectDroppedSubmittedSecrets = (
+  stored: unknown,
+  submitted: unknown,
+  pathPrefix: string,
+  currentKey?: string
+): string[] => {
+  if (currentKey && isSensitiveConfigKey(currentKey)) {
+    return typeof submitted === 'string' && submitted.trim() && !hasStoredSecretValue(stored)
+      ? [pathPrefix]
+      : [];
+  }
+
+  if (!isPlainRecord(submitted)) return [];
+  const storedRecord = isPlainRecord(stored) ? stored : {};
+  return Object.entries(submitted).flatMap(([key, value]) => {
+    const childPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+    return collectDroppedSubmittedSecrets(storedRecord[key], value, childPath, key);
+  });
 };
 
 const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
@@ -2457,6 +2489,16 @@ botManagerRouter.post('/identities', async (req, res) => {
     createUniqueSlug(parsed.data.name),
     prisma.botManagerIdentity.count({ where: { isActive: true } })
   ]);
+  const channels = encryptSensitiveConfig(parsed.data.channels);
+  const settings = encryptSensitiveConfig(parsed.data.settings);
+  const droppedSecrets = [
+    ...collectDroppedSubmittedSecrets(channels, parsed.data.channels, 'channels'),
+    ...collectDroppedSubmittedSecrets(settings, parsed.data.settings, 'settings')
+  ];
+  if (droppedSecrets.length) {
+    return fail(res, 500, 'Bot Manager secret storage failed', 'SECRET_STORAGE_FAILED', { paths: droppedSecrets });
+  }
+
   const identity = await prisma.botManagerIdentity.create({
     data: {
       slug,
@@ -2464,8 +2506,8 @@ botManagerRouter.post('/identities', async (req, res) => {
       roleTitle: parsed.data.roleTitle,
       description: parsed.data.description,
       profileImageUrl: parsed.data.profileImageUrl || loreCharacterProfileImage(loreCharacter) || null,
-      channels: encryptSensitiveConfig(parsed.data.channels) as Prisma.InputJsonValue,
-      settings: encryptSensitiveConfig(parsed.data.settings) as Prisma.InputJsonValue,
+      channels: channels as Prisma.InputJsonValue,
+      settings: settings as Prisma.InputJsonValue,
       isActive: activeCount === 0,
       createdBy: req.user!.username,
       updatedBy: req.user!.username
@@ -2518,6 +2560,20 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       : canAutofillProfileImage
         ? { profileImageUrl: loreCharacterProfileImage(loreCharacter) || null }
         : {};
+  const nextChannels = parsed.data.channels !== undefined
+    ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(parsed.data.channels, existing.channels), parsed.data.channels)
+    : undefined;
+  const nextSettings = parsed.data.settings !== undefined
+    ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(parsed.data.settings, existing.settings), parsed.data.settings)
+    : undefined;
+  const droppedSecrets = [
+    ...(nextChannels !== undefined ? collectDroppedSubmittedSecrets(nextChannels, parsed.data.channels, 'channels') : []),
+    ...(nextSettings !== undefined ? collectDroppedSubmittedSecrets(nextSettings, parsed.data.settings, 'settings') : [])
+  ];
+  if (droppedSecrets.length) {
+    return fail(res, 500, 'Bot Manager secret storage failed', 'SECRET_STORAGE_FAILED', { paths: droppedSecrets });
+  }
+
   const updated = await prisma.botManagerIdentity.update({
     where: { id: existing.id },
     data: {
@@ -2525,8 +2581,8 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       ...(parsed.data.roleTitle !== undefined ? { roleTitle: parsed.data.roleTitle } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
       ...profileImagePatch,
-      ...(parsed.data.channels !== undefined ? { channels: encryptSensitiveConfig(parsed.data.channels, existing.channels) as Prisma.InputJsonValue } : {}),
-      ...(parsed.data.settings !== undefined ? { settings: encryptSensitiveConfig(parsed.data.settings, existing.settings) as Prisma.InputJsonValue } : {}),
+      ...(nextChannels !== undefined ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
+      ...(nextSettings !== undefined ? { settings: nextSettings as Prisma.InputJsonValue } : {}),
       updatedBy: req.user!.username
     },
     include: { files: true }
@@ -2538,27 +2594,6 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       mode: 'safe',
       includeHistory: false
     });
-  }
-  if (parsed.data.channels !== undefined || parsed.data.settings !== undefined) {
-    const storedChannels = parsed.data.channels !== undefined
-      ? mergeSubmittedSecretsForStorage(updated.channels, parsed.data.channels)
-      : updated.channels;
-    const storedSettings = parsed.data.settings !== undefined
-      ? mergeSubmittedSecretsForStorage(updated.settings, parsed.data.settings)
-      : updated.settings;
-    const needsSecretPersist =
-      JSON.stringify(storedChannels) !== JSON.stringify(updated.channels) ||
-      JSON.stringify(storedSettings) !== JSON.stringify(updated.settings);
-    if (needsSecretPersist) {
-      await prisma.botManagerIdentity.update({
-        where: { id: updated.id },
-        data: {
-          channels: storedChannels as Prisma.InputJsonValue,
-          settings: storedSettings as Prisma.InputJsonValue,
-          updatedBy: req.user!.username
-        }
-      });
-    }
   }
   await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
   const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } }));
