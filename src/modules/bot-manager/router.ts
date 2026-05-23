@@ -32,7 +32,7 @@ const credentialGateSchema = z.object({
 
 const credentialSchema = credentialGateSchema.extend({
   provider: z.enum(providers),
-  apiKey: z.string().trim().min(1).max(4096),
+  apiKey: z.string().trim().max(4096).optional().default(''),
   apiBase: z.string().trim().url().optional().or(z.literal('')),
   modelId: z.string().trim().min(1).max(160)
 });
@@ -297,6 +297,12 @@ const encryptedSecret = (value: string): EncryptedSecretEnvelope => ({
   preview: keyPreview(value)
 });
 
+const preservedEncryptedSecret = (existing: unknown) => {
+  if (isEncryptedSecretEnvelope(existing)) return existing;
+  if (typeof existing === 'string' && existing.trim()) return encryptedSecret(existing);
+  return '';
+};
+
 const publicSecret = (preview = '', configured = true) => ({
   [publicSecretFlag]: true,
   configured: Boolean(configured && preview),
@@ -304,7 +310,7 @@ const publicSecret = (preview = '', configured = true) => ({
 });
 
 const normalizeSecretForStorage = (incoming: unknown, existing: unknown) => {
-  const preservedSecret = isEncryptedSecretEnvelope(existing) ? existing : '';
+  const preservedSecret = preservedEncryptedSecret(existing);
   if (isPublicSecretMarker(incoming)) {
     if (incoming[publicSecretAction] === 'clear') return '';
     return preservedSecret;
@@ -1932,8 +1938,22 @@ botManagerRouter.put('/credentials', async (req, res) => {
 
   try {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerCredential.findUnique({ where: { provider: parsed.data.provider } });
+    let existingValue: Record<string, unknown> = {};
+    if (existing) {
+      try {
+        const decrypted = decryptJson<unknown>(existing.encryptedValue);
+        existingValue = isPlainRecord(decrypted) ? decrypted : {};
+      } catch {
+        existingValue = {};
+      }
+    }
+    const preservedApiKey = typeof existingValue.apiKey === 'string' ? existingValue.apiKey : '';
+    const nextApiKey = parsed.data.apiKey || preservedApiKey;
+    if (!nextApiKey) return fail(res, 422, 'API key is required for provider credentials', 'VALIDATION_ERROR');
     const value = {
-      apiKey: parsed.data.apiKey,
+      ...existingValue,
+      apiKey: nextApiKey,
       apiBase: parsed.data.apiBase || null,
       modelId: parsed.data.modelId
     };
@@ -1941,18 +1961,19 @@ botManagerRouter.put('/credentials', async (req, res) => {
       apiBaseConfigured: Boolean(parsed.data.apiBase),
       modelId: parsed.data.modelId
     };
+    const nextKeyPreview = parsed.data.apiKey ? keyPreview(parsed.data.apiKey) : existing?.keyPreview ?? keyPreview(nextApiKey);
     const saved = await prisma.botManagerCredential.upsert({
       where: { provider: parsed.data.provider },
       create: {
         provider: parsed.data.provider,
         encryptedValue: encryptJson(value),
-        keyPreview: keyPreview(parsed.data.apiKey),
+        keyPreview: nextKeyPreview,
         metadata,
         updatedBy: req.user!.username
       },
       update: {
         encryptedValue: encryptJson(value),
-        keyPreview: keyPreview(parsed.data.apiKey),
+        keyPreview: nextKeyPreview,
         metadata,
         updatedBy: req.user!.username
       }
