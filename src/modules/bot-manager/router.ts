@@ -304,13 +304,14 @@ const publicSecret = (preview = '', configured = true) => ({
 });
 
 const normalizeSecretForStorage = (incoming: unknown, existing: unknown) => {
+  const preservedSecret = isEncryptedSecretEnvelope(existing) ? existing : '';
   if (isPublicSecretMarker(incoming)) {
-    if (incoming[publicSecretAction] === 'clear' || incoming.configured === false) return '';
-    return isEncryptedSecretEnvelope(existing) ? existing : '';
+    if (incoming[publicSecretAction] === 'clear') return '';
+    return preservedSecret;
   }
-  if (isEncryptedSecretEnvelope(incoming)) return isEncryptedSecretEnvelope(existing) ? existing : '';
-  if (typeof incoming === 'string') return incoming ? encryptedSecret(incoming) : '';
-  if (incoming === null) return '';
+  if (isEncryptedSecretEnvelope(incoming)) return preservedSecret;
+  if (typeof incoming === 'string') return incoming ? encryptedSecret(incoming) : preservedSecret;
+  if (incoming === null) return preservedSecret;
   return incoming;
 };
 
