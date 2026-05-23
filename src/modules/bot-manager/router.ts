@@ -347,6 +347,24 @@ const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown =
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, sanitizeSensitiveConfig(entry, key)]));
 };
 
+const applySubmittedSecretPreviews = (sanitized: unknown, submitted: unknown, currentKey?: string): unknown => {
+  if (currentKey && isSensitiveConfigKey(currentKey)) {
+    const sanitizedSecret = isPublicSecretMarker(sanitized) ? sanitized : null;
+    if (sanitizedSecret?.configured || sanitizedSecret?.[publicSecretAction] === 'clear') return sanitized;
+    if (typeof submitted === 'string' && submitted.trim()) return publicSecret(keyPreview(submitted.trim()), true);
+    return sanitized;
+  }
+
+  if (!isPlainRecord(submitted)) return sanitized;
+  const sanitizedRecord = isPlainRecord(sanitized) ? sanitized : {};
+  return Object.fromEntries(
+    Object.entries(submitted).map(([key, value]) => [
+      key,
+      applySubmittedSecretPreviews(sanitizedRecord[key], value, key)
+    ])
+  );
+};
+
 const decryptSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
   if (isEncryptedSecretEnvelope(value)) return decryptJson<string>(value.value);
   if (currentKey && isSensitiveConfigKey(currentKey)) {
@@ -2511,7 +2529,12 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   }
   await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
   const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } }));
-  return ok(res, serializeIdentity(latest));
+  const serialized = serializeIdentity(latest);
+  return ok(res, {
+    ...serialized,
+    ...(parsed.data.channels !== undefined ? { channels: applySubmittedSecretPreviews(serialized.channels, parsed.data.channels) } : {}),
+    ...(parsed.data.settings !== undefined ? { settings: applySubmittedSecretPreviews(serialized.settings, parsed.data.settings) } : {})
+  });
 });
 
 botManagerRouter.post('/identities/:id/default-files/regenerate', async (req, res) => {
