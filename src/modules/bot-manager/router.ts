@@ -39,7 +39,7 @@ const credentialSchema = credentialGateSchema.extend({
 
 const openRouterProfileSchema = credentialGateSchema.extend({
   name: z.string().trim().min(2).max(80),
-  apiKey: z.string().trim().min(1).max(4096),
+  apiKey: z.string().trim().max(4096).optional().default(''),
   apiBase: z.string().trim().url().optional().or(z.literal('')),
   modelId: z.string().trim().min(1).max(160),
   tags: z.array(z.string().trim().min(1).max(40)).max(12).optional().default([]),
@@ -244,6 +244,116 @@ const maskSecret = (value?: string) => {
 };
 
 const keyPreview = (value: string) => maskSecret(value);
+
+const encryptedSecretFlag = '__botManagerEncryptedSecret';
+const publicSecretFlag = '__botManagerSecret';
+const publicSecretAction = '__botManagerSecretAction';
+const sensitiveConfigKeys = new Set([
+  'token',
+  'apikey',
+  'bottoken',
+  'apptoken',
+  'signingsecret',
+  'appsecret',
+  'verificationtoken',
+  'encryptkey',
+  'secret',
+  'webhookurl'
+]);
+
+type EncryptedSecretEnvelope = {
+  [encryptedSecretFlag]: true;
+  version: 1;
+  value: string;
+  preview: string;
+};
+
+type PublicSecretMarker = {
+  [publicSecretFlag]: true;
+  configured?: unknown;
+  preview?: unknown;
+  [publicSecretAction]?: unknown;
+};
+
+const normalizedConfigKey = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+const isSensitiveConfigKey = (key: string) => sensitiveConfigKeys.has(normalizedConfigKey(key));
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const isEncryptedSecretEnvelope = (value: unknown): value is EncryptedSecretEnvelope =>
+  isPlainRecord(value) &&
+  value[encryptedSecretFlag] === true &&
+  value.version === 1 &&
+  typeof value.value === 'string';
+
+const isPublicSecretMarker = (value: unknown): value is PublicSecretMarker =>
+  isPlainRecord(value) && value[publicSecretFlag] === true;
+
+const encryptedSecret = (value: string): EncryptedSecretEnvelope => ({
+  [encryptedSecretFlag]: true,
+  version: 1,
+  value: encryptJson(value),
+  preview: keyPreview(value)
+});
+
+const publicSecret = (preview = '', configured = true) => ({
+  [publicSecretFlag]: true,
+  configured: Boolean(configured && preview),
+  preview: preview || ''
+});
+
+const normalizeSecretForStorage = (incoming: unknown, existing: unknown) => {
+  if (isPublicSecretMarker(incoming)) {
+    if (incoming[publicSecretAction] === 'clear' || incoming.configured === false) return '';
+    return isEncryptedSecretEnvelope(existing) ? existing : '';
+  }
+  if (isEncryptedSecretEnvelope(incoming)) return isEncryptedSecretEnvelope(existing) ? existing : '';
+  if (typeof incoming === 'string') return incoming ? encryptedSecret(incoming) : '';
+  if (incoming === null) return '';
+  return incoming;
+};
+
+const encryptSensitiveConfig = (incoming: unknown, existing?: unknown, currentKey?: string): unknown => {
+  if (currentKey && isSensitiveConfigKey(currentKey)) return normalizeSecretForStorage(incoming, existing);
+
+  if (Array.isArray(incoming)) {
+    const existingArray = Array.isArray(existing) ? existing : [];
+    return incoming.map((item, index) => encryptSensitiveConfig(item, existingArray[index]));
+  }
+
+  if (!isPlainRecord(incoming)) return incoming;
+  if (isEncryptedSecretEnvelope(incoming) || isPublicSecretMarker(incoming)) return incoming;
+
+  const existingRecord = isPlainRecord(existing) ? existing : {};
+  return Object.fromEntries(
+    Object.entries(incoming).map(([key, value]) => [key, encryptSensitiveConfig(value, existingRecord[key], key)])
+  );
+};
+
+const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
+  if (isEncryptedSecretEnvelope(value)) return publicSecret(value.preview, true);
+  if (isPublicSecretMarker(value)) return publicSecret(typeof value.preview === 'string' ? value.preview : '', value.configured !== false);
+  if (currentKey && isSensitiveConfigKey(currentKey) && typeof value === 'string') return publicSecret(keyPreview(value), Boolean(value));
+  if (Array.isArray(value)) return value.map((item) => sanitizeSensitiveConfig(item));
+  if (!isPlainRecord(value)) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, sanitizeSensitiveConfig(entry, key)]));
+};
+
+const decryptSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
+  if (isEncryptedSecretEnvelope(value)) return decryptJson<string>(value.value);
+  if (currentKey && isSensitiveConfigKey(currentKey)) return isPublicSecretMarker(value) ? '' : value;
+  if (Array.isArray(value)) return value.map((item) => decryptSensitiveConfig(item));
+  if (!isPlainRecord(value)) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, decryptSensitiveConfig(entry, key)]));
+};
+
+const configHasLegacyPlainSecrets = (value: unknown, currentKey?: string): boolean => {
+  if (currentKey && isSensitiveConfigKey(currentKey)) return typeof value === 'string' && value.length > 0;
+  if (Array.isArray(value)) return value.some((item) => configHasLegacyPlainSecrets(item));
+  if (!isPlainRecord(value) || isEncryptedSecretEnvelope(value) || isPublicSecretMarker(value)) return false;
+  return Object.entries(value).some(([key, entry]) => configHasLegacyPlainSecrets(entry, key));
+};
 
 const hasBotManagerAccess = (req: Request) => Boolean(req.user && (isPl7Author(req.user) || isPl7Admin(req.user)));
 
@@ -487,11 +597,13 @@ const formatBotManagerBackupName = (date: Date) => {
 
 const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFile[]> => {
   const where = identityIds.length ? { id: { in: identityIds } } : {};
-  const identities = await prisma.botManagerIdentity.findMany({
-    where,
-    include: { files: true },
-    orderBy: [{ isActive: 'desc' }, { name: 'asc' }]
-  });
+  const identities = await ensureIdentityListSecretsEncrypted(
+    await prisma.botManagerIdentity.findMany({
+      where,
+      include: { files: true },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }]
+    })
+  );
   const files: ZipFile[] = [];
   const manifest = {
     generatedAt: new Date().toISOString(),
@@ -646,6 +758,35 @@ const sendBotManagerBackupDownload = async (
   return file.stream.pipe(res);
 };
 
+const ensureIdentitySecretsEncrypted = async <T extends IdentityRecord>(identity: T): Promise<T> => {
+  const channels = encryptSensitiveConfig(identity.channels);
+  const settings = encryptSensitiveConfig(identity.settings);
+  const changed =
+    configHasLegacyPlainSecrets(identity.channels) ||
+    configHasLegacyPlainSecrets(identity.settings) ||
+    JSON.stringify(channels) !== JSON.stringify(identity.channels) ||
+    JSON.stringify(settings) !== JSON.stringify(identity.settings);
+
+  if (!changed) return identity;
+
+  await prisma.botManagerIdentity.update({
+    where: { id: identity.id },
+    data: {
+      channels: channels as Prisma.InputJsonValue,
+      settings: settings as Prisma.InputJsonValue
+    }
+  });
+
+  return {
+    ...identity,
+    channels: channels as Prisma.JsonValue,
+    settings: settings as Prisma.JsonValue
+  };
+};
+
+const ensureIdentityListSecretsEncrypted = async <T extends IdentityRecord>(identities: T[]) =>
+  Promise.all(identities.map((identity) => ensureIdentitySecretsEncrypted(identity)));
+
 const serializeIdentity = (identity: IdentityRecord) => ({
   id: identity.id,
   slug: identity.slug,
@@ -655,8 +796,8 @@ const serializeIdentity = (identity: IdentityRecord) => ({
   isActive: identity.isActive,
   profileImageObjectPath: identity.profileImageObjectPath,
   profileImageUrl: identity.profileImageUrl,
-  channels: identity.channels,
-  settings: identity.settings,
+  channels: sanitizeSensitiveConfig(identity.channels),
+  settings: sanitizeSensitiveConfig(identity.settings),
   createdAt: identity.createdAt.toISOString(),
   updatedAt: identity.updatedAt.toISOString(),
   fileCount: identity.files?.length
@@ -983,11 +1124,12 @@ const conflictWorkspacePath = (workspacePath: string) => {
 };
 
 const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspacePull> => {
-  const activeIdentity = await prisma.botManagerIdentity.findFirst({
+  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({
     where: { isActive: true },
     include: { files: true }
   });
-  if (!activeIdentity) throw new Error('No active bot personality is configured');
+  if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
+  const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
 
   const generalConfig = await ensureGeneralConfig();
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
@@ -1557,9 +1699,26 @@ const buildRuntimeBundle = async () => {
     generalConfig: publicConfig,
     activeIdentity: serializeIdentity(activeIdentity),
     credentials: runtimeCredentials,
-    channels: activeIdentity.channels,
-    settings: activeIdentity.settings,
+    channels: decryptSensitiveConfig(activeIdentity.channels),
+    settings: decryptSensitiveConfig(activeIdentity.settings),
     files: await loadRuntimeIdentityFiles(activeIdentity, publicConfig)
+  };
+};
+
+const summarizeRuntimeBundle = (bundle: unknown) => {
+  const record = asJsonRecord(bundle as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const activeIdentity = asJsonRecord(record.activeIdentity as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const credentials = asJsonRecord(record.credentials as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const files = Array.isArray(record.files) ? record.files : [];
+  return {
+    generatedAt: typeof record.generatedAt === 'string' ? record.generatedAt : null,
+    fileCount: files.length,
+    credentialProviders: Object.keys(credentials),
+    activeIdentity: {
+      id: typeof activeIdentity.id === 'string' ? activeIdentity.id : null,
+      slug: typeof activeIdentity.slug === 'string' ? activeIdentity.slug : null,
+      name: typeof activeIdentity.name === 'string' ? activeIdentity.name : null
+    }
   };
 };
 
@@ -1687,12 +1846,13 @@ botManagerRouter.use(botManagerRateLimiter);
 
 botManagerRouter.get('/summary', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const [generalConfig, credentials, identities, openRouterProfiles] = await Promise.all([
+  const [generalConfig, credentials, identityRecords, openRouterProfiles] = await Promise.all([
     ensureGeneralConfig(),
     listMaskedCredentials(),
     prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] }),
     prisma.botManagerOpenRouterProfile.findMany({ orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }], take: 5 })
   ]);
+  const identities = await ensureIdentityListSecretsEncrypted(identityRecords);
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
 
   return ok(res, {
@@ -1875,6 +2035,7 @@ botManagerRouter.post('/openrouter-profiles', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = openRouterProfileSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!parsed.data.apiKey) return fail(res, 422, 'OpenRouter API key is required', 'VALIDATION_ERROR');
   try {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
     const value = {
@@ -1910,17 +2071,18 @@ botManagerRouter.put('/openrouter-profiles/:id', async (req, res) => {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
     const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
     if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
-    const value = {
-      apiKey: parsed.data.apiKey,
-      apiBase: parsed.data.apiBase || null,
-      modelId: parsed.data.modelId
-    };
+    const value = parsed.data.apiKey
+      ? {
+          apiKey: parsed.data.apiKey,
+          apiBase: parsed.data.apiBase || null,
+          modelId: parsed.data.modelId
+        }
+      : null;
     const updated = await prisma.botManagerOpenRouterProfile.update({
       where: { id: existing.id },
       data: {
         name: parsed.data.name,
-        encryptedValue: encryptJson(value),
-        keyPreview: keyPreview(parsed.data.apiKey),
+        ...(value ? { encryptedValue: encryptJson(value), keyPreview: keyPreview(parsed.data.apiKey) } : {}),
         modelId: parsed.data.modelId,
         apiBase: parsed.data.apiBase || null,
         tags: parsed.data.tags as Prisma.InputJsonValue,
@@ -2003,7 +2165,9 @@ botManagerRouter.put('/general-config', async (req, res) => {
 
 botManagerRouter.get('/identities', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const identities = await prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] });
+  const identities = await ensureIdentityListSecretsEncrypted(
+    await prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] })
+  );
   return ok(res, identities.map(serializeIdentity));
 });
 
@@ -2026,8 +2190,8 @@ botManagerRouter.post('/identities', async (req, res) => {
       roleTitle: parsed.data.roleTitle,
       description: parsed.data.description,
       profileImageUrl: parsed.data.profileImageUrl || loreCharacterProfileImage(loreCharacter) || null,
-      channels: parsed.data.channels as Prisma.InputJsonValue,
-      settings: parsed.data.settings as Prisma.InputJsonValue,
+      channels: encryptSensitiveConfig(parsed.data.channels) as Prisma.InputJsonValue,
+      settings: encryptSensitiveConfig(parsed.data.settings) as Prisma.InputJsonValue,
       isActive: activeCount === 0,
       createdBy: req.user!.username,
       updatedBy: req.user!.username
@@ -2048,8 +2212,9 @@ botManagerRouter.post('/identities', async (req, res) => {
 
 botManagerRouter.get('/identities/:id', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id }, include: { files: true } });
-  if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const identityRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id }, include: { files: true } });
+  if (!identityRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const identity = await ensureIdentitySecretsEncrypted(identityRecord);
   return ok(res, { ...serializeIdentity(identity), files: await loadIdentityFiles(identity) });
 });
 
@@ -2057,8 +2222,9 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = identityUpdateSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
-  const existing = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
-  if (!existing) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const existingRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!existingRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const existing = await ensureIdentitySecretsEncrypted(existingRecord);
   const loreCharacterId = parsed.data.loreCharacterId || '';
   const loreCharacter = loreCharacterId ? await findLoreCharacter(loreCharacterId) : null;
   if (loreCharacterId && !loreCharacter) return fail(res, 404, 'Lore character not found', 'NOT_FOUND');
@@ -2085,8 +2251,8 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       ...(parsed.data.roleTitle !== undefined ? { roleTitle: parsed.data.roleTitle } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
       ...profileImagePatch,
-      ...(parsed.data.channels !== undefined ? { channels: parsed.data.channels as Prisma.InputJsonValue } : {}),
-      ...(parsed.data.settings !== undefined ? { settings: parsed.data.settings as Prisma.InputJsonValue } : {}),
+      ...(parsed.data.channels !== undefined ? { channels: encryptSensitiveConfig(parsed.data.channels, existing.channels) as Prisma.InputJsonValue } : {}),
+      ...(parsed.data.settings !== undefined ? { settings: encryptSensitiveConfig(parsed.data.settings, existing.settings) as Prisma.InputJsonValue } : {}),
       updatedBy: req.user!.username
     },
     include: { files: true }
@@ -2100,7 +2266,7 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
     });
   }
   await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
-  const latest = await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } });
+  const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } }));
   return ok(res, serializeIdentity(latest));
 });
 
@@ -2133,8 +2299,9 @@ botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
     prisma.botManagerIdentity.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
     prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
   ]);
+  const safeActivated = await ensureIdentitySecretsEncrypted(activated);
   await markRuntimeDirty(req.user!.username, `Active personality changed: ${activated.name}`);
-  return ok(res, serializeIdentity(activated));
+  return ok(res, serializeIdentity(safeActivated));
 });
 
 botManagerRouter.delete('/identities/:id', async (req, res) => {
@@ -2253,7 +2420,7 @@ botManagerRouter.post('/identities/:id/profile-image', upload.single('file'), as
   if (identity.isActive) {
     await markRuntimeDirty(req.user!.username, `Profile image updated: ${updated.name}`);
   }
-  return ok(res, serializeIdentity(updated));
+  return ok(res, serializeIdentity(await ensureIdentitySecretsEncrypted(updated)));
 });
 
 botManagerRouter.get('/backups', async (req, res) => {
@@ -2435,7 +2602,7 @@ botManagerRouter.post('/sync', async (req, res) => {
       reason: 'Runtime reload is disabled by Bot Manager General Config',
       runtimeSync: getRuntimeSyncState(current.config),
       writeback,
-      bundle,
+      runtimeBundle: summarizeRuntimeBundle(bundle),
       nanobot: null
     });
   }
@@ -2453,7 +2620,7 @@ botManagerRouter.post('/sync', async (req, res) => {
       restartGateway,
       runtimeSync,
       writeback,
-      bundle,
+      runtimeBundle: summarizeRuntimeBundle(bundle),
       nanobot: payload
     });
   } catch (error) {
