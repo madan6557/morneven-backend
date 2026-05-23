@@ -338,6 +338,18 @@ const encryptSensitiveConfig = (incoming: unknown, existing?: unknown, currentKe
   );
 };
 
+const mergeSubmittedSecretsForStorage = (stored: unknown, submitted: unknown, currentKey?: string): unknown => {
+  if (currentKey && isSensitiveConfigKey(currentKey)) return normalizeSecretForStorage(submitted, stored);
+  if (!isPlainRecord(submitted)) return stored;
+
+  const storedRecord = isPlainRecord(stored) ? stored : {};
+  const result: Record<string, unknown> = { ...storedRecord };
+  for (const [key, value] of Object.entries(submitted)) {
+    result[key] = mergeSubmittedSecretsForStorage(storedRecord[key], value, key);
+  }
+  return result;
+};
+
 const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
   if (isEncryptedSecretEnvelope(value)) return publicSecret(value.preview, true);
   if (isPublicSecretMarker(value)) return publicSecret(typeof value.preview === 'string' ? value.preview : '', value.configured !== false);
@@ -2526,6 +2538,27 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       mode: 'safe',
       includeHistory: false
     });
+  }
+  if (parsed.data.channels !== undefined || parsed.data.settings !== undefined) {
+    const storedChannels = parsed.data.channels !== undefined
+      ? mergeSubmittedSecretsForStorage(updated.channels, parsed.data.channels)
+      : updated.channels;
+    const storedSettings = parsed.data.settings !== undefined
+      ? mergeSubmittedSecretsForStorage(updated.settings, parsed.data.settings)
+      : updated.settings;
+    const needsSecretPersist =
+      JSON.stringify(storedChannels) !== JSON.stringify(updated.channels) ||
+      JSON.stringify(storedSettings) !== JSON.stringify(updated.settings);
+    if (needsSecretPersist) {
+      await prisma.botManagerIdentity.update({
+        where: { id: updated.id },
+        data: {
+          channels: storedChannels as Prisma.InputJsonValue,
+          settings: storedSettings as Prisma.InputJsonValue,
+          updatedBy: req.user!.username
+        }
+      });
+    }
   }
   await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
   const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } }));
