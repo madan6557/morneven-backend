@@ -349,10 +349,18 @@ const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown =
 
 const decryptSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
   if (isEncryptedSecretEnvelope(value)) return decryptJson<string>(value.value);
-  if (currentKey && isSensitiveConfigKey(currentKey)) return isPublicSecretMarker(value) ? '' : value;
+  if (currentKey && isSensitiveConfigKey(currentKey)) {
+    if (isPublicSecretMarker(value)) return undefined;
+    if (typeof value === 'string' && value.trim()) return value;
+    return undefined;
+  }
   if (Array.isArray(value)) return value.map((item) => decryptSensitiveConfig(item));
   if (!isPlainRecord(value)) return value;
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, decryptSensitiveConfig(entry, key)]));
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entry]) => [key, decryptSensitiveConfig(entry, key)] as const)
+      .filter((entry) => entry[1] !== undefined)
+  );
 };
 
 const configHasLegacyPlainSecrets = (value: unknown, currentKey?: string): boolean => {
@@ -1191,7 +1199,7 @@ const mergeMissingRuntimeSecrets = (
     for (const [key, sourceValue] of Object.entries(source)) {
       const childPath = pathPrefix ? `${pathPrefix}.${key}` : key;
       const existingValue = existingRecord[key];
-      if (isSensitiveConfigKey(key) || (isPlainRecord(sourceValue) && isPlainRecord(existingValue))) {
+      if (isSensitiveConfigKey(key) || isPlainRecord(sourceValue)) {
         result[key] = mergeMissingRuntimeSecrets(sourceValue, existingValue, childPath, appliedPaths, key);
       } else if (existingValue === undefined || existingValue === '' || (Array.isArray(existingValue) && existingValue.length === 0)) {
         result[key] = sourceValue;
