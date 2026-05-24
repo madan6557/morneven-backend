@@ -255,7 +255,6 @@ const keyPreview = (value: string) => maskSecret(value);
 
 const encryptedSecretFlag = '__botManagerEncryptedSecret';
 const publicSecretFlag = '__botManagerSecret';
-const publicSecretAction = '__botManagerSecretAction';
 const sensitiveConfigKeys = new Set([
   'token',
   'apikey',
@@ -280,7 +279,6 @@ type PublicSecretMarker = {
   [publicSecretFlag]: true;
   configured?: unknown;
   preview?: unknown;
-  [publicSecretAction]?: unknown;
 };
 
 const normalizedConfigKey = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -317,6 +315,14 @@ const preservedEncryptedSecret = (existing: unknown) => {
   return '';
 };
 
+const isSecretDisplayPlaceholder = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^(encrypted|configured):/i.test(trimmed)) return true;
+  if (/^(empty|cleared)$/i.test(trimmed)) return true;
+  return trimmed.endsWith('***');
+};
+
 const publicSecret = (preview = '', configured = true) => ({
   [publicSecretFlag]: true,
   configured: Boolean(configured && preview),
@@ -326,13 +332,15 @@ const publicSecret = (preview = '', configured = true) => ({
 const normalizeSecretForStorage = (incoming: unknown, existing: unknown) => {
   const preservedSecret = preservedEncryptedSecret(existing);
   if (isPublicSecretMarker(incoming)) {
-    if (incoming[publicSecretAction] === 'clear') return '';
     return preservedSecret;
   }
-  if (isEncryptedSecretEnvelope(incoming)) return preservedSecret;
-  if (typeof incoming === 'string') return incoming ? encryptedSecret(incoming) : preservedSecret;
+  if (isEncryptedSecretEnvelope(incoming)) return preservedSecret || incoming;
+  if (typeof incoming === 'string') {
+    const trimmed = incoming.trim();
+    return isSecretDisplayPlaceholder(trimmed) ? preservedSecret : encryptedSecret(trimmed);
+  }
   if (incoming === null) return preservedSecret;
-  return incoming;
+  return preservedSecret;
 };
 
 const encryptSensitiveConfig = (incoming: unknown, existing?: unknown, currentKey?: string): unknown => {
@@ -354,7 +362,8 @@ const encryptSensitiveConfig = (incoming: unknown, existing?: unknown, currentKe
 
 const mergeSubmittedSecretsForStorage = (stored: unknown, submitted: unknown, currentKey?: string): unknown => {
   if (currentKey && isSensitiveConfigKey(currentKey)) return normalizeSecretForStorage(submitted, stored);
-  if (!isPlainRecord(submitted)) return stored;
+  if (Array.isArray(submitted)) return submitted;
+  if (!isPlainRecord(submitted)) return submitted === undefined ? stored : submitted;
 
   const storedRecord = isPlainRecord(stored) ? stored : {};
   const result: Record<string, unknown> = { ...storedRecord };
@@ -2848,10 +2857,10 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
         : {};
   const submittedChannels = parsed.data.channels !== undefined ? normalizeChannelConfigAliases(parsed.data.channels) : undefined;
   const nextChannels = submittedChannels !== undefined
-    ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(submittedChannels, existing.channels), submittedChannels)
+    ? mergeSubmittedSecretsForStorage(existing.channels, submittedChannels)
     : undefined;
   const nextSettings = parsed.data.settings !== undefined
-    ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(parsed.data.settings, existing.settings), parsed.data.settings)
+    ? mergeSubmittedSecretsForStorage(existing.settings, parsed.data.settings)
     : undefined;
   const droppedSecrets = [
     ...(nextChannels !== undefined ? collectDroppedSubmittedSecrets(nextChannels, submittedChannels, 'channels') : []),
