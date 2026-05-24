@@ -373,69 +373,120 @@ activityRouter.get('/visits', auth, async (req, res) => {
   if (!requireRegistered(req, res)) return;
 
   const range = parseVisitRange(req.query.range);
+  const category = parseCategory(req.query.category);
+  const entityTypes = category === 'all' ? contentEntityTypes : [category];
   const config = visitRangeConfig[range];
   const endBucket = floorVisitBucket(new Date(), config.bucket);
   const startBucket = addBucket(endBucket, config.bucketMs, -(config.bucketCount - 1));
   const queryEnd = addBucket(endBucket, config.bucketMs, 1);
 
-  const events = await prisma.siteVisitEvent.findMany({
-    where: {
-      bucketStart: { gte: startBucket, lt: queryEnd }
-    },
-    select: {
-      userId: true,
-      visitorKey: true,
-      bucketStart: true,
-      hits: true,
-      user: {
-        select: {
-          username: true,
-          accountStatus: true
+  const [siteEvents, contentEvents, rows] = await Promise.all([
+    prisma.siteVisitEvent.findMany({
+      where: {
+        bucketStart: { gte: startBucket, lt: queryEnd }
+      },
+      select: {
+        userId: true,
+        visitorKey: true,
+        bucketStart: true,
+        hits: true,
+        user: {
+          select: {
+            username: true,
+            accountStatus: true
+          }
         }
-      }
-    },
-    orderBy: { bucketStart: 'asc' }
-  });
+      },
+      orderBy: { bucketStart: 'asc' }
+    }),
+    prisma.contentViewEvent.findMany({
+      where: {
+        entityType: { in: [...entityTypes] },
+        bucketStart: { gte: startBucket, lt: queryEnd }
+      },
+      select: {
+        entityType: true,
+        entityId: true,
+        bucketStart: true
+      },
+      orderBy: { bucketStart: 'asc' }
+    }),
+    loadContentRows(category, '')
+  ]);
 
   const buckets = Array.from({ length: config.bucketCount }, (_, index) => addBucket(startBucket, config.bucketMs, index));
-  const eventsByBucket = new Map<string, typeof events>();
+  const siteEventsByBucket = new Map<string, typeof siteEvents>();
+  const contentEventsByBucket = new Map<string, typeof contentEvents>();
+  const contentByKey = new Map(rows.map((row) => [`${row.entityType}:${row.id}`, row]));
 
-  for (const event of events) {
+  for (const event of siteEvents) {
     const bucketStart = floorVisitBucket(event.bucketStart, config.bucket);
     const key = bucketStart.toISOString();
-    const bucketEvents = eventsByBucket.get(key) ?? [];
+    const bucketEvents = siteEventsByBucket.get(key) ?? [];
     bucketEvents.push(event);
-    eventsByBucket.set(key, bucketEvents);
+    siteEventsByBucket.set(key, bucketEvents);
+  }
+
+  for (const event of contentEvents) {
+    const bucketStart = floorVisitBucket(event.bucketStart, config.bucket);
+    const key = bucketStart.toISOString();
+    const bucketEvents = contentEventsByBucket.get(key) ?? [];
+    bucketEvents.push(event);
+    contentEventsByBucket.set(key, bucketEvents);
   }
 
   const points = buckets.map((bucketStart) => {
     const bucketKey = bucketStart.toISOString();
-    const bucketEvents = eventsByBucket.get(bucketKey) ?? [];
-    const viewerSummaries = summarizeSiteVisitors(bucketEvents);
-    const visitors = new Set(bucketEvents.map((event) => event.userId)).size;
-    const visits = bucketEvents.length;
+    const bucketSiteEvents = siteEventsByBucket.get(bucketKey) ?? [];
+    const bucketContentEvents = contentEventsByBucket.get(bucketKey) ?? [];
+    const viewerSummaries = summarizeSiteVisitors(bucketSiteEvents);
+    const visitors = new Set(bucketSiteEvents.map((event) => event.userId)).size;
+    const contentCounts = new Map<string, number>();
+
+    for (const event of bucketContentEvents) {
+      const contentKey = `${event.entityType}:${event.entityId}`;
+      contentCounts.set(contentKey, (contentCounts.get(contentKey) ?? 0) + 1);
+    }
+
+    const topContent = Array.from(contentCounts.entries())
+      .map(([contentKey, views]) => {
+        const item = contentByKey.get(contentKey);
+        if (!item) return null;
+        return {
+          id: item.id,
+          entityType: item.entityType,
+          category: item.category,
+          title: item.title,
+          thumbnail: item.thumbnail,
+          url: item.url,
+          views
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((left, right) => right.views - left.views || left.title.localeCompare(right.title))
+      .slice(0, 5);
 
     return {
       bucketStart: bucketKey,
       bucketLabel: formatVisitBucketLabel(bucketStart, config.bucket),
-      views: visitors,
+      views: bucketContentEvents.length,
       visitors,
-      visits,
+      visits: bucketSiteEvents.length,
       uniqueVisitors: visitors,
       viewers: viewerSummaries.slice(0, 20),
       viewerOverflow: Math.max(0, viewerSummaries.length - 20),
-      topContent: []
+      topContent
     };
   });
 
   return ok(res, {
     range,
     bucket: config.bucket,
-    category: 'all',
-    totalViews: points.reduce((total, point) => total + point.visitors, 0),
-    totalVisitors: new Set(events.map((event) => event.userId)).size,
-    totalVisits: events.length,
-    uniqueVisitors: new Set(events.map((event) => event.userId)).size,
+    category,
+    totalViews: contentEvents.length,
+    totalVisitors: new Set(siteEvents.map((event) => event.userId)).size,
+    totalVisits: siteEvents.length,
+    uniqueVisitors: new Set(siteEvents.map((event) => event.userId)).size,
     points
   });
 });
