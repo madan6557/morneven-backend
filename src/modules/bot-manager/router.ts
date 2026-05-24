@@ -1196,6 +1196,15 @@ const emptyRuntimeConfigSecretPull = (): RuntimeConfigSecretPull => ({
   skippedPaths: []
 });
 
+const emptyRuntimeWorkspacePull = (): RuntimeWorkspacePull => ({
+  pulledCount: 0,
+  appliedPaths: [],
+  conflictPaths: [],
+  skippedPaths: [],
+  changes: [],
+  skipped: []
+});
+
 const toRuntimeWorkspaceChanges = (payload: unknown) => {
   const record = asJsonRecord(payload as Prisma.JsonValue | null | undefined);
   const changes = Array.isArray(record.changes) ? record.changes : [];
@@ -1401,7 +1410,11 @@ const applyRuntimeConfigSecretPull = async (actor: string): Promise<RuntimeConfi
   const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({ where: { isActive: true } });
   if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
   const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
-  const { payload } = await callNanobot('/api/morneven/config-secrets');
+  const { payload, status } = await callNanobot('/api/morneven/config-secrets', { allowNotFound: true });
+  if (status === 404) {
+    result.skippedPaths.push('runtime config secrets: Nanobot endpoint unavailable');
+    return result;
+  }
   const config = asJsonRecord(payload as Prisma.JsonValue | Record<string, unknown> | null | undefined);
 
   await applyRuntimeProviderSecretPull(actor, config, result.appliedPaths, result.skippedPaths);
@@ -1443,7 +1456,14 @@ const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspac
 
   const generalConfig = await ensureGeneralConfig();
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
-  const { payload } = await callNanobot('/api/morneven/workspace/changes');
+  const { payload, status } = await callNanobot('/api/morneven/workspace/changes', { allowNotFound: true });
+  if (status === 404) {
+    return {
+      ...emptyRuntimeWorkspacePull(),
+      skippedPaths: ['workspace changes: Nanobot endpoint unavailable'],
+      skipped: [{ path: 'workspace', reason: 'Nanobot workspace changes endpoint unavailable' }]
+    };
+  }
   const parsed = toRuntimeWorkspaceChanges(payload);
   const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
   const appliedPaths: string[] = [];
@@ -2088,7 +2108,7 @@ const nanobotPayloadMessage = (payload: unknown) => {
   return null;
 };
 
-const callNanobot = async (path: string, init: { method?: string; body?: unknown } = {}) => {
+const callNanobot = async (path: string, init: { method?: string; body?: unknown; allowNotFound?: boolean } = {}) => {
   if (!env.nanobotInternalBaseUrl || !env.nanobotMornevenReloadToken) {
     throw new Error('Nanobot runtime endpoint is not configured');
   }
@@ -2107,11 +2127,14 @@ const callNanobot = async (path: string, init: { method?: string; body?: unknown
         body: init.body === undefined ? undefined : JSON.stringify(init.body)
       });
       const payload = await parseNanobotPayload(response);
+      if (response.status === 404 && init.allowNotFound) {
+        return { endpoint, payload, status: response.status };
+      }
       if (!response.ok) {
         const message = nanobotPayloadMessage(payload) ?? `Nanobot responded with ${response.status}`;
         throw new Error(`${message} (${response.status})`);
       }
-      return { endpoint, payload };
+      return { endpoint, payload, status: response.status };
     } catch (error) {
       lastError = describeNanobotFetchError(error, endpoint);
       if (error instanceof Error && !error.message.includes('fetch failed')) break;
