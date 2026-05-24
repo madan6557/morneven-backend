@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { auth, hasPl7MaintenanceAccess, isPl7Author } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
-import { saveFileToStorage } from '../../config/storage.js';
+import { listStorageObjects, saveFileToStorage } from '../../config/storage.js';
 import { readFileFromStorage } from '../../config/storage.js';
 import { readFileWithMetadataFromStorage } from '../../config/storage.js';
 import { createReadStreamFromStorage } from '../../config/storage.js';
@@ -381,7 +381,8 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     botManagerFiles,
     botManagerBackupJobs,
     loreItems,
-    docs
+    docs,
+    storageObjects
   ] = await Promise.all([
     prisma.chatMessage.findMany({ select: { attachments: true } }),
     prisma.galleryItem.findMany({ include: { tags: true } }),
@@ -392,7 +393,8 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     prisma.botManagerIdentityFile.findMany(),
     prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
     prisma.loreItem.findMany(),
-    prisma.entityDoc.findMany()
+    prisma.entityDoc.findMany(),
+    listStorageObjects()
   ]);
 
   for (const message of chatMessages) addPathSetValue(sets.chat, message.attachments);
@@ -405,6 +407,9 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
   for (const job of botManagerBackupJobs) {
     addPathSetValue(sets['bot-manager'], job.artifactPath);
     addPathSetValue(sets['bot-manager'], job.artifactUrl);
+  }
+  for (const object of storageObjects) {
+    if (object.objectPath.startsWith('bot-manager/')) sets['bot-manager'].add(object.objectPath);
   }
 
   const docsByEntity = new Map<string, typeof docs>();
