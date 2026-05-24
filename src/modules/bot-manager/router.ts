@@ -289,6 +289,12 @@ const isSensitiveConfigKey = (key: string) => sensitiveConfigKeys.has(normalized
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
+const isEmptyConfigValue = (value: unknown) =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (Array.isArray(value) && value.length === 0);
+
 const isEncryptedSecretEnvelope = (value: unknown): value is EncryptedSecretEnvelope =>
   isPlainRecord(value) &&
   value[encryptedSecretFlag] === true &&
@@ -362,6 +368,61 @@ const hasStoredSecretValue = (value: unknown) =>
   isEncryptedSecretEnvelope(value) ||
   (typeof value === 'string' && value.trim().length > 0);
 
+const channelFieldAliases: Record<string, Record<string, string>> = {
+  telegram: {
+    bot_token: 'token',
+    allow_from: 'allowFrom'
+  },
+  whatsapp: {
+    bridge_url: 'bridgeUrl',
+    allow_from: 'allowFrom'
+  },
+  discord: {
+    bot_token: 'token',
+    application_id: 'applicationId',
+    guild_ids: 'guildIds',
+    channel_ids: 'channelIds'
+  },
+  slack: {
+    bot_token: 'botToken',
+    app_token: 'appToken',
+    signing_secret: 'signingSecret',
+    channel_ids: 'channelIds'
+  },
+  feishu: {
+    app_id: 'appId',
+    app_secret: 'appSecret',
+    verification_token: 'verificationToken',
+    encrypt_key: 'encryptKey',
+    allow_from: 'allowFrom'
+  },
+  dingtalk: {
+    webhook_url: 'webhookUrl',
+    allow_from: 'allowFrom'
+  }
+};
+
+const normalizeChannelConfigAliases = (channels: unknown): unknown => {
+  if (!isPlainRecord(channels)) return channels;
+  const result: Record<string, unknown> = { ...channels };
+
+  for (const [channel, aliases] of Object.entries(channelFieldAliases)) {
+    const channelConfig = result[channel];
+    if (!isPlainRecord(channelConfig)) continue;
+    const normalizedConfig: Record<string, unknown> = { ...channelConfig };
+    for (const [alias, canonical] of Object.entries(aliases)) {
+      if (!(alias in normalizedConfig)) continue;
+      if (isEmptyConfigValue(normalizedConfig[canonical]) && !isEmptyConfigValue(normalizedConfig[alias])) {
+        normalizedConfig[canonical] = normalizedConfig[alias];
+      }
+      delete normalizedConfig[alias];
+    }
+    result[channel] = normalizedConfig;
+  }
+
+  return result;
+};
+
 const collectDroppedSubmittedSecrets = (
   stored: unknown,
   submitted: unknown,
@@ -408,24 +469,6 @@ const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown =
   if (Array.isArray(value)) return value.map((item) => sanitizeSensitiveConfig(item));
   if (!isPlainRecord(value)) return value;
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, sanitizeSensitiveConfig(entry, key)]));
-};
-
-const applySubmittedSecretPreviews = (sanitized: unknown, submitted: unknown, currentKey?: string): unknown => {
-  if (currentKey && isSensitiveConfigKey(currentKey)) {
-    const sanitizedSecret = isPublicSecretMarker(sanitized) ? sanitized : null;
-    if (sanitizedSecret?.configured || sanitizedSecret?.[publicSecretAction] === 'clear') return sanitized;
-    if (typeof submitted === 'string' && submitted.trim()) return publicSecret(keyPreview(submitted.trim()), true);
-    return sanitized;
-  }
-
-  if (!isPlainRecord(submitted)) return sanitized;
-  const sanitizedRecord = isPlainRecord(sanitized) ? sanitized : {};
-  return Object.fromEntries(
-    Object.entries(submitted).map(([key, value]) => [
-      key,
-      applySubmittedSecretPreviews(sanitizedRecord[key], value, key)
-    ])
-  );
 };
 
 const decryptSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
@@ -855,11 +898,13 @@ const sendBotManagerBackupDownload = async (
 };
 
 const ensureIdentitySecretsEncrypted = async <T extends IdentityRecord>(identity: T): Promise<T> => {
-  const channels = encryptSensitiveConfig(identity.channels);
+  const normalizedChannels = normalizeChannelConfigAliases(identity.channels);
+  const channels = encryptSensitiveConfig(normalizedChannels);
   const settings = encryptSensitiveConfig(identity.settings);
   const changed =
     configHasLegacyPlainSecrets(identity.channels) ||
     configHasLegacyPlainSecrets(identity.settings) ||
+    JSON.stringify(normalizedChannels) !== JSON.stringify(identity.channels) ||
     JSON.stringify(channels) !== JSON.stringify(identity.channels) ||
     JSON.stringify(settings) !== JSON.stringify(identity.settings);
 
@@ -892,7 +937,7 @@ const serializeIdentity = (identity: IdentityRecord) => ({
   isActive: identity.isActive,
   profileImageObjectPath: identity.profileImageObjectPath,
   profileImageUrl: identity.profileImageUrl,
-  channels: sanitizeSensitiveConfig(identity.channels),
+  channels: sanitizeSensitiveConfig(normalizeChannelConfigAliases(identity.channels)),
   settings: sanitizeSensitiveConfig(identity.settings),
   createdAt: identity.createdAt.toISOString(),
   updatedAt: identity.updatedAt.toISOString(),
@@ -1556,7 +1601,7 @@ const applyRuntimeConfigSecretPush = async (actor: string, config: Record<string
   }
 
   const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
-  const sourceChannels = asJsonRecord(config.channels as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const sourceChannels = asJsonRecord(normalizeChannelConfigAliases(config.channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const sourceTools = asJsonRecord(config.tools as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const channelPaths: string[] = [];
   const settingPaths: string[] = [];
@@ -1597,7 +1642,7 @@ const applyRuntimeConfigSecretPull = async (actor: string): Promise<RuntimeConfi
 
   await applyRuntimeProviderSecretPull(actor, config, result.appliedPaths, result.skippedPaths);
 
-  const sourceChannels = asJsonRecord(config.channels as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const sourceChannels = asJsonRecord(normalizeChannelConfigAliases(config.channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const sourceTools = asJsonRecord(config.tools as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const channelPaths: string[] = [];
   const settingPaths: string[] = [];
@@ -2165,11 +2210,12 @@ const loadIdentityFiles = async (identity: IdentityWithFiles) => {
 
 const buildRuntimeBundle = async () => {
   if (!env.botManagerSyncToken) throw new Error('BOT_MANAGER_SYNC_TOKEN is not configured');
-  const activeIdentity = await prisma.botManagerIdentity.findFirst({
+  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({
     where: { isActive: true },
     include: { files: true }
   });
-  if (!activeIdentity) throw new Error('No active bot personality is configured');
+  if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
+  const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
 
   const [generalConfig, credentials] = await Promise.all([
     ensureGeneralConfig(),
@@ -2724,10 +2770,11 @@ botManagerRouter.post('/identities', async (req, res) => {
     createUniqueSlug(parsed.data.name),
     prisma.botManagerIdentity.count({ where: { isActive: true } })
   ]);
-  const channels = encryptSensitiveConfig(parsed.data.channels);
+  const submittedChannels = normalizeChannelConfigAliases(parsed.data.channels);
+  const channels = encryptSensitiveConfig(submittedChannels);
   const settings = encryptSensitiveConfig(parsed.data.settings);
   const droppedSecrets = [
-    ...collectDroppedSubmittedSecrets(channels, parsed.data.channels, 'channels'),
+    ...collectDroppedSubmittedSecrets(channels, submittedChannels, 'channels'),
     ...collectDroppedSubmittedSecrets(settings, parsed.data.settings, 'settings')
   ];
   if (droppedSecrets.length) {
@@ -2799,14 +2846,15 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       : canAutofillProfileImage
         ? { profileImageUrl: loreCharacterProfileImage(loreCharacter) || null }
         : {};
-  const nextChannels = parsed.data.channels !== undefined
-    ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(parsed.data.channels, existing.channels), parsed.data.channels)
+  const submittedChannels = parsed.data.channels !== undefined ? normalizeChannelConfigAliases(parsed.data.channels) : undefined;
+  const nextChannels = submittedChannels !== undefined
+    ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(submittedChannels, existing.channels), submittedChannels)
     : undefined;
   const nextSettings = parsed.data.settings !== undefined
     ? mergeSubmittedSecretsForStorage(encryptSensitiveConfig(parsed.data.settings, existing.settings), parsed.data.settings)
     : undefined;
   const droppedSecrets = [
-    ...(nextChannels !== undefined ? collectDroppedSubmittedSecrets(nextChannels, parsed.data.channels, 'channels') : []),
+    ...(nextChannels !== undefined ? collectDroppedSubmittedSecrets(nextChannels, submittedChannels, 'channels') : []),
     ...(nextSettings !== undefined ? collectDroppedSubmittedSecrets(nextSettings, parsed.data.settings, 'settings') : [])
   ];
   if (droppedSecrets.length) {
@@ -2840,12 +2888,7 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   }
   await markRuntimeDirty(req.user!.username, `Personality updated: ${updated.name}`);
   const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: updated.id }, include: { files: true } }));
-  const serialized = serializeIdentity(latest);
-  return ok(res, {
-    ...serialized,
-    ...(parsed.data.channels !== undefined ? { channels: applySubmittedSecretPreviews(serialized.channels, parsed.data.channels) } : {}),
-    ...(parsed.data.settings !== undefined ? { settings: applySubmittedSecretPreviews(serialized.settings, parsed.data.settings) } : {})
-  });
+  return ok(res, serializeIdentity(latest));
 });
 
 botManagerRouter.post('/identities/:id/default-files/regenerate', async (req, res) => {
