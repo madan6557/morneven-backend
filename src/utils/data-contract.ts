@@ -62,6 +62,7 @@ export type ExportSnapshot = {
   }>;
   contentMetrics: Awaited<ReturnType<typeof prisma.contentMetric.findMany>>;
   contentViewEvents: Awaited<ReturnType<typeof prisma.contentViewEvent.findMany>>;
+  siteVisitEvents: Awaited<ReturnType<typeof prisma.siteVisitEvent.findMany>>;
   contentReactions: Awaited<ReturnType<typeof prisma.contentReaction.findMany>>;
   map: {
     mapImage: string;
@@ -88,6 +89,7 @@ export type MigrationDataset = {
   botManagerIdentities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
   botManagerIdentityFiles: Awaited<ReturnType<typeof prisma.botManagerIdentityFile.findMany>>;
   securitySessions: Awaited<ReturnType<typeof prisma.securitySession.findMany>>;
+  siteVisitEvents: Awaited<ReturnType<typeof prisma.siteVisitEvent.findMany>>;
   refreshTokens: Awaited<ReturnType<typeof prisma.refreshToken.findMany>>;
   projects: Awaited<ReturnType<typeof prisma.project.findMany>>;
   projectPatches: Awaited<ReturnType<typeof prisma.projectPatch.findMany>>;
@@ -157,6 +159,7 @@ type MigrationTableContract = {
 export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'users', sqlTable: 'User', findMany: () => prisma.user.findMany(), count: () => prisma.user.count(), deleteMany: (tx) => tx.user.deleteMany(), createMany: (tx, rows) => tx.user.createMany({ data: rows }) },
   { key: 'securitySessions', sqlTable: 'SecuritySession', findMany: () => prisma.securitySession.findMany(), count: () => prisma.securitySession.count(), deleteMany: (tx) => tx.securitySession.deleteMany(), createMany: (tx, rows) => tx.securitySession.createMany({ data: rows }) },
+  { key: 'siteVisitEvents', sqlTable: 'SiteVisitEvent', findMany: () => prisma.siteVisitEvent.findMany(), count: () => prisma.siteVisitEvent.count(), deleteMany: (tx) => tx.siteVisitEvent.deleteMany(), createMany: (tx, rows) => tx.siteVisitEvent.createMany({ data: rows }) },
   { key: 'passwordResetRequests', sqlTable: 'PasswordResetRequest', findMany: () => passwordResetRequestModel.findMany(), count: () => passwordResetRequestModel.count(), deleteMany: (tx) => (tx as any).passwordResetRequest.deleteMany(), createMany: (tx, rows) => (tx as any).passwordResetRequest.createMany({ data: rows }) },
   { key: 'commandCenterSettings', sqlTable: 'CommandCenterSettings', findMany: () => prisma.commandCenterSettings.findMany(), count: () => prisma.commandCenterSettings.count(), deleteMany: (tx) => tx.commandCenterSettings.deleteMany(), createMany: (tx, rows) => tx.commandCenterSettings.createMany({ data: rows }) },
   { key: 'botManagerCredentials', sqlTable: 'BotManagerCredential', findMany: () => prisma.botManagerCredential.findMany(), count: () => prisma.botManagerCredential.count(), deleteMany: (tx) => tx.botManagerCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerCredential.createMany({ data: rows }) },
@@ -271,6 +274,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     personnelReports,
     contentMetrics,
     contentViewEvents,
+    siteVisitEvents,
     contentReactions,
     mapMarkers,
     mapImage,
@@ -291,6 +295,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.personnelReport.findMany({ include: { reporter: true, target: true, resolvedBy: true } }),
     prisma.contentMetric.findMany(),
     prisma.contentViewEvent.findMany(),
+    prisma.siteVisitEvent.findMany(),
     prisma.contentReaction.findMany(),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
@@ -330,6 +335,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
     contentMetrics,
     contentViewEvents,
+    siteVisitEvents,
     contentReactions,
     map: {
       mapImage: mapImage?.imageUrl ?? '',

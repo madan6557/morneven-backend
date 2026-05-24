@@ -9,6 +9,7 @@ import { normalizeUserRole } from '../utils/serializers.js';
 import { recordSecurityEvent } from '../security/audit/events.js';
 import { ensureSessionAllowed } from '../security/sessions/session-service.js';
 import { restoreExpiredAccountStatus } from '../modules/personnel/service.js';
+import { recordSiteVisit } from '../modules/activity/site-visits.js';
 
 const ROLE_ADMIN = 'admin' as Role;
 const ROLE_SECURITY = 'security' as Role;
@@ -84,6 +85,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
       track: user.track,
       sessionId: payload.sid
     };
+    await recordSiteVisit(req.user);
     return next();
   } catch {
     return fail(res, 401, 'Invalid token', 'UNAUTHORIZED');

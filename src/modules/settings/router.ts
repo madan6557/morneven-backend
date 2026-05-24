@@ -547,6 +547,7 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/personnel-reports.json', content: JSON.stringify(exportedSnapshot.personnelReports, null, 2) });
     files.push({ name: 'db/content-metrics.json', content: JSON.stringify(exportedSnapshot.contentMetrics, null, 2) });
     files.push({ name: 'db/content-view-events.json', content: JSON.stringify(exportedSnapshot.contentViewEvents, null, 2) });
+    files.push({ name: 'db/site-visit-events.json', content: JSON.stringify(exportedSnapshot.siteVisitEvents, null, 2) });
     files.push({ name: 'db/content-reactions.json', content: JSON.stringify(exportedSnapshot.contentReactions, null, 2) });
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
     files.push({ name: 'db/bot-manager.json', content: JSON.stringify(exportedSnapshot.botManager, null, 2) });

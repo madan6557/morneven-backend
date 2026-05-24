@@ -89,6 +89,7 @@ model User {
 
   refreshTokens RefreshToken[]
   securitySessions SecuritySession[]
+  siteVisitEvents SiteVisitEvent[]
   news          News[]
   galleryItems  GalleryItem[]
   comments      Comment[]
@@ -273,6 +274,21 @@ model ContentViewEvent {
   @@unique([entityType, entityId, viewerKey, bucketStart])
   @@index([entityType, entityId, createdAt])
   @@index([viewerKey, createdAt])
+}
+
+model SiteVisitEvent {
+  id          String   @id @default(uuid())
+  userId      String
+  visitorKey  String
+  bucketStart DateTime
+  hits        Int      @default(1)
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([visitorKey, bucketStart])
+  @@index([userId, bucketStart])
+  @@index([bucketStart])
 }
 
 model ContentReaction {
