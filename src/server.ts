@@ -29,6 +29,7 @@ import { securityGateway, securityLimiters } from './security/index.js';
 
 const app = express();
 const serviceStartedAt = new Date().toISOString();
+const LARGE_UPLOAD_REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 
 function readPackageVersion() {
   try {
@@ -116,6 +117,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 const server = app.listen(env.port, env.host, () => {
   console.log(`Morneven backend listening on ${env.host}:${env.port}`);
 });
+server.requestTimeout = LARGE_UPLOAD_REQUEST_TIMEOUT_MS;
 
 attachRealtimeWebSocket(server);
 

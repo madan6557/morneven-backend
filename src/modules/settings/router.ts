@@ -22,6 +22,7 @@ import {
   countCurrentMigrationState,
   importMigrationDataset,
   normalizeMigrationDataset,
+  summarizeMigrationDataset,
   type ExportSnapshot,
   type MigrationDataset,
   type MigrationPayload,
@@ -41,10 +42,26 @@ import { emitToUser } from '../../realtime/events.js';
 export const settingsRouter = Router();
 
 const defaultSettings = defaultCommandCenterSettings;
+const MIGRATION_BACKUP_UPLOAD_LIMIT_MB = 1024;
 const migrationBackupUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 512 * 1024 * 1024 }
+  limits: { fileSize: MIGRATION_BACKUP_UPLOAD_LIMIT_MB * 1024 * 1024 }
 });
+const migrationBackupUploadSingle = (req: Request, res: Response, next: NextFunction) => {
+  migrationBackupUpload.single('backup')(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      fail(res, 413, `Backup archive exceeds ${MIGRATION_BACKUP_UPLOAD_LIMIT_MB} MB limit`, 'UPLOAD_TOO_LARGE');
+      return;
+    }
+
+    fail(res, 400, error instanceof Error ? error.message : 'Backup upload failed', 'UPLOAD_ERROR');
+  });
+};
 
 const settingsSchema = z.object({
   showStats: z.boolean().optional(),
@@ -129,6 +146,12 @@ const migrationSchema = z
       });
     }
   });
+
+const backupMigrationSchema = z.object({
+  confirmText: z.literal('MIGRATION'),
+  password: z.string().min(1),
+  secretKey: z.string().min(16)
+});
 
 const clearExtractionSchema = z.object({
   ids: z.array(z.string()).optional()
@@ -751,8 +774,16 @@ const parseMigrationDatasetFromBackup = (buffer: Buffer) => {
   return { files, dataset };
 };
 
-const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerification> => {
-  const { files, dataset } = parseMigrationDatasetFromBackup(buffer);
+const backupArchiveAssetCount = (files: Map<string, Buffer>) => {
+  const manifestFile = files.get('attachments/manifest.json');
+  if (!manifestFile) return 0;
+  const manifest = JSON.parse(manifestFile.toString('utf8')) as {
+    embeddedAssets?: Array<{ objectPath: string; archivePath: string; contentType?: string }>;
+  };
+  return manifest.embeddedAssets?.length ?? 0;
+};
+
+const importParsedBackupArchive = async (files: Map<string, Buffer>, dataset: MigrationDataset): Promise<MigrationVerification> => {
   await importMigrationDataset(dataset);
 
   const manifestFile = files.get('attachments/manifest.json');
@@ -794,6 +825,11 @@ const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerificatio
     uploadedAssetCount,
     failedAssets
   };
+};
+
+const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerification> => {
+  const { files, dataset } = parseMigrationDatasetFromBackup(buffer);
+  return importParsedBackupArchive(files, dataset);
 };
 
 const pullMigrationAssets = async (payload: MigrationPayload, migrationKey: string): Promise<MigrationVerification> => {
@@ -947,11 +983,9 @@ const runMigrationJob = async (
   }
 };
 
-const runBackupMigrationJob = async (
+const runBackupRestoreJob = async (
   jobId: string,
   actor: string,
-  targetUrl: string,
-  migrationKey: string,
   downloadName: string,
   backup: { originalName: string; buffer: Buffer; size: number; sha256: string }
 ) => {
@@ -979,50 +1013,42 @@ const runBackupMigrationJob = async (
         backupSha256: backup.sha256
       }
     });
-    parseMigrationDatasetFromBackup(backup.buffer);
+    const { files, dataset } = parseMigrationDatasetFromBackup(backup.buffer);
+    const expectedSummary = summarizeMigrationDataset(dataset, backupArchiveAssetCount(files));
 
-    await updateMetadata({ progress: migrationProgress(35, 'sending-backup', 'Sending backup archive to target backend') });
-    const boundary = `morneven-backup-${randomUUID()}`;
-    const safeFilename = backup.originalName.replace(/["\r\n]/g, '_');
-    const body = Buffer.concat([
-      Buffer.from(
-        `--${boundary}\r\nContent-Disposition: form-data; name="backup"; filename="${safeFilename}"\r\nContent-Type: application/zip\r\n\r\n`,
-        'utf8'
-      ),
-      backup.buffer,
-      Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8')
-    ]);
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'x-migration-key': migrationKey,
-        'content-type': `multipart/form-data; boundary=${boundary}`,
-        'content-length': String(body.length)
+    await updateMetadata({
+      summary: {
+        backupFile: backup.originalName,
+        backupSize: backup.size,
+        backupSha256: backup.sha256,
+        ...expectedSummary
       },
-      body
+      progress: migrationProgress(35, 'restoring-backup', 'Restoring backup archive into current backend')
     });
+    const verification = await importParsedBackupArchive(files, dataset);
 
-    if (!response.ok) {
-      throw new Error(`Target backend rejected backup migration with status ${response.status}`);
-    }
-
-    await updateMetadata({ progress: migrationProgress(80, 'verifying', 'Reading target verification results') });
-    const responsePayload = (await response.json()) as { success?: boolean; data?: MigrationVerification; message?: string };
-    if (!responsePayload.success || !responsePayload.data) {
-      throw new Error(responsePayload.message || 'Target backend returned an invalid backup migration response');
-    }
+    await updateMetadata({ progress: migrationProgress(80, 'verifying', 'Comparing restored data with backup manifest') });
+    const comparison = {
+      tablesMatch: Object.entries(expectedSummary.tables).every(
+        ([key, value]) => Number(verification.tables[key] ?? 0) === value
+      ),
+      assetsMatch: verification.assetCount === expectedSummary.assetCount,
+      uploadedAssetsMatch: verification.uploadedAssetCount === expectedSummary.assetCount
+    };
 
     const report = {
       exportedAt: new Date().toISOString(),
       actor,
-      targetUrl,
+      targetUrl: 'current-backend',
       method: 'backup-file',
       backup: {
         fileName: backup.originalName,
         size: backup.size,
         sha256: backup.sha256
       },
-      verification: responsePayload.data
+      expectedSummary,
+      verification,
+      comparison
     };
 
     const stored = await saveFileToStorage({
@@ -1037,14 +1063,15 @@ const runBackupMigrationJob = async (
       artifactPath: stored.objectPath,
       artifactUrl: stored.url,
       downloadName,
-      verification: responsePayload.data,
-      progress: migrationProgress(100, 'completed', 'Backup migration verification report ready')
+      verification,
+      comparison,
+      progress: migrationProgress(100, 'completed', 'Backup restored into current backend')
     });
   } catch (error) {
     await updateMetadata({
       status: 'failed',
-      error: error instanceof Error ? error.message : 'Backup migration failed',
-      progress: migrationProgress(100, 'failed', 'Backup migration failed')
+      error: error instanceof Error ? error.message : 'Backup restore failed',
+      progress: migrationProgress(100, 'failed', 'Backup restore failed')
     });
   }
 };
@@ -1052,11 +1079,6 @@ const runBackupMigrationJob = async (
 const buildDefaultMigrationReceiveUrl = (baseUrl: string) => {
   const trimmed = baseUrl.replace(/\/+$/, '');
   return /\/api$/i.test(trimmed) ? `${trimmed}/settings/migration/receive` : `${trimmed}/api/settings/migration/receive`;
-};
-
-const buildDefaultMigrationReceiveBackupUrl = (baseUrl: string) => {
-  const trimmed = baseUrl.replace(/\/+$/, '');
-  return /\/api$/i.test(trimmed) ? `${trimmed}/settings/migration/receive-backup` : `${trimmed}/api/settings/migration/receive-backup`;
 };
 
 const sendExtractionDownload = async (
@@ -1123,7 +1145,7 @@ settingsRouter.post('/migration/receive-backup', (req, res, next) => {
   } catch (error) {
     return fail(res, 403, error instanceof Error ? error.message : 'Forbidden', 'FORBIDDEN');
   }
-}, migrationBackupUpload.single('backup'), async (req, res) => {
+}, migrationBackupUploadSingle, async (req, res) => {
   try {
     if (!req.file?.buffer) return fail(res, 422, 'Backup archive is required', 'VALIDATION_ERROR');
     const verification = await importBackupArchive(req.file.buffer);
@@ -1291,10 +1313,10 @@ settingsRouter.post('/migrations', auth, async (req, res) => {
   return res.status(202).json({ success: true, data: serializeMigrationJob(job) });
 });
 
-settingsRouter.post('/migrations/from-backup', auth, migrationBackupUpload.single('backup'), async (req, res) => {
+settingsRouter.post('/migrations/from-backup', auth, migrationBackupUploadSingle, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
 
-  const parsed = migrationSchema.safeParse(req.body);
+  const parsed = backupMigrationSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   if (!req.file?.buffer) return fail(res, 422, 'Backup archive is required', 'VALIDATION_ERROR');
   if (!env.migrationKey) return fail(res, 503, 'Migration key is not configured', 'MIGRATION_UNAVAILABLE');
@@ -1305,7 +1327,6 @@ settingsRouter.post('/migrations/from-backup', auth, migrationBackupUpload.singl
   if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
   if (parsed.data.secretKey !== env.migrationKey) return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
 
-  const targetUrl = parsed.data.migrationUrl || buildDefaultMigrationReceiveBackupUrl(parsed.data.newBaseUrl || '');
   const createdAt = new Date();
   const downloadName = `morneven-migration-report-${createdAt.toISOString().slice(0, 10)}.json`;
   const backup = {
@@ -1322,7 +1343,7 @@ settingsRouter.post('/migrations/from-backup', auth, migrationBackupUpload.singl
       metadata: {
         status: 'processing',
         method: 'backup-file',
-        targetUrl,
+        targetUrl: 'current-backend',
         downloadName,
         progress: migrationProgress(0, 'queued', 'Queued')
       }
@@ -1330,7 +1351,7 @@ settingsRouter.post('/migrations/from-backup', auth, migrationBackupUpload.singl
   });
 
   setImmediate(() => {
-    void runBackupMigrationJob(job.id, req.user!.username, targetUrl, parsed.data.secretKey, downloadName, backup);
+    void runBackupRestoreJob(job.id, req.user!.username, downloadName, backup);
   });
 
   emitToUser(req.user!.username, 'settings.migration.updated', { job: serializeMigrationJob(job) as Record<string, unknown> });
