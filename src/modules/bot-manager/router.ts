@@ -3154,34 +3154,38 @@ botManagerRouter.post('/identities/:id/default-files/regenerate', async (req, re
 
 botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const existingRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
-  if (!existingRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
-  const existing = await ensureIdentitySecretsEncrypted(existingRecord);
-  const generalConfig = await ensureGeneralConfig();
-  const mode = runtimeModeFromConfig(generalConfig.config);
-  if (mode === 'multi-active-personality') {
-    try {
-      await assertNoChannelIdentifierConflict(existing.id, existing.channels);
-    } catch (error) {
-      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
-        return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+  try {
+    const existingRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+    if (!existingRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+    const existing = await ensureIdentitySecretsEncrypted(existingRecord);
+    const generalConfig = await ensureGeneralConfig();
+    const mode = runtimeModeFromConfig(generalConfig.config);
+    if (mode === 'multi-active-personality') {
+      try {
+        await assertNoChannelIdentifierConflict(existing.id, existing.channels);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
+          return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+        }
+        if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_READ_FAILED') {
+          return fail(res, 422, 'Unable to validate channel identifier secrets', 'CHANNEL_IDENTIFIER_READ_FAILED');
+        }
+        return fail(res, 500, error instanceof Error ? error.message : 'Channel identifier validation failed', 'CHANNEL_IDENTIFIER_VALIDATION_FAILED');
       }
-      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_READ_FAILED') {
-        return fail(res, 422, 'Unable to validate channel identifier secrets', 'CHANNEL_IDENTIFIER_READ_FAILED');
-      }
-      return fail(res, 500, error instanceof Error ? error.message : 'Channel identifier validation failed', 'CHANNEL_IDENTIFIER_VALIDATION_FAILED');
     }
+    const activated = mode === 'multi-active-personality'
+      ? await prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
+      : (await prisma.$transaction([
+          prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
+          prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isMain: true }, data: { isMain: false, updatedBy: req.user!.username } }),
+          prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, isMain: true, updatedBy: req.user!.username }, include: { files: true } })
+        ]))[2];
+    const safeActivated = await ensureIdentitySecretsEncrypted(activated);
+    await markRuntimeDirty(req.user!.username, `${mode === 'multi-active-personality' ? 'Active personality enabled' : 'Main personality changed'}: ${activated.name}`);
+    return ok(res, serializeIdentity(safeActivated));
+  } catch (error) {
+    return fail(res, 500, error instanceof Error ? error.message : 'Bot personality activation failed', 'BOT_IDENTITY_ACTIVATION_FAILED');
   }
-  const activated = mode === 'multi-active-personality'
-    ? await prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
-    : (await prisma.$transaction([
-        prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
-        prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isMain: true }, data: { isMain: false, updatedBy: req.user!.username } }),
-        prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, isMain: true, updatedBy: req.user!.username }, include: { files: true } })
-      ]))[2];
-  const safeActivated = await ensureIdentitySecretsEncrypted(activated);
-  await markRuntimeDirty(req.user!.username, `${mode === 'multi-active-personality' ? 'Active personality enabled' : 'Main personality changed'}: ${activated.name}`);
-  return ok(res, serializeIdentity(safeActivated));
 });
 
 botManagerRouter.patch('/identities/:id/deactivate', async (req, res) => {
