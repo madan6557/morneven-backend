@@ -23,6 +23,7 @@ const upload = multer({
 
 const providers = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter', 'deepseek', 'zhipu', 'vllm'] as const;
 const fileKinds = ['identity', 'memory', 'cron', 'skill', 'session', 'tool', 'user', 'system', 'other'] as const;
+const runtimeModes = ['single-active-personality', 'multi-active-personality'] as const;
 
 const credentialGateSchema = z.object({
   password: z.string().min(1),
@@ -59,6 +60,8 @@ const identitySchema = z.object({
   profileImageUrl: z.string().trim().max(2048).optional().or(z.literal('')),
   channels: z.record(z.unknown()).optional().default({}),
   settings: z.record(z.unknown()).optional().default({}),
+  runtimeProvider: z.enum(providers).optional().or(z.literal('')),
+  runtimeOpenRouterProfileId: z.string().trim().min(1).optional().or(z.literal('')),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
 });
 
@@ -69,6 +72,8 @@ const identityUpdateSchema = z.object({
   profileImageUrl: z.string().trim().max(2048).optional().or(z.literal('')),
   channels: z.record(z.unknown()).optional(),
   settings: z.record(z.unknown()).optional(),
+  runtimeProvider: z.enum(providers).optional().or(z.literal('')),
+  runtimeOpenRouterProfileId: z.string().trim().min(1).optional().or(z.literal('')),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
 });
 
@@ -118,6 +123,9 @@ type IdentityRecord = {
   roleTitle: string;
   description: string;
   isActive: boolean;
+  isMain: boolean;
+  runtimeProvider: string | null;
+  runtimeOpenRouterProfileId: string | null;
   profileImageObjectPath: string | null;
   profileImageUrl: string | null;
   channels: Prisma.JsonValue;
@@ -469,6 +477,47 @@ const collectEnabledChannelMissingSecrets = (channels: unknown) => {
       .filter((secretKey) => !hasStoredSecretValue(channelConfig[secretKey]))
       .map((secretKey) => `channels.${channel}.${secretKey}`);
   });
+};
+
+const channelIdentifierSecretKeys: Record<string, string[]> = {
+  telegram: ['token'],
+  discord: ['token'],
+  slack: ['botToken'],
+  feishu: ['appId'],
+  dingtalk: ['webhookUrl']
+};
+
+const channelIdentifiers = (channels: unknown) => {
+  const decrypted = asJsonRecord(decryptSensitiveConfig(channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const identifiers: Array<{ channel: string; key: string; value: string }> = [];
+  for (const [channel, secretKeys] of Object.entries(channelIdentifierSecretKeys)) {
+    const config = asJsonRecord(decrypted[channel] as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+    if (config.enabled !== true) continue;
+    for (const key of secretKeys) {
+      const value = typeof config[key] === 'string' ? config[key].trim() : '';
+      if (value) identifiers.push({ channel, key, value });
+    }
+  }
+  return identifiers;
+};
+
+const assertNoChannelIdentifierConflict = async (identityId: string, channels: unknown) => {
+  const identifiers = channelIdentifiers(channels);
+  if (!identifiers.length) return;
+  const activeIdentities = await ensureIdentityListSecretsEncrypted(
+    await prisma.botManagerIdentity.findMany({ where: { isActive: true, id: { not: identityId } } })
+  );
+  for (const activeIdentity of activeIdentities) {
+    const activeIdentifiers = channelIdentifiers(activeIdentity.channels);
+    for (const identifier of identifiers) {
+      const conflict = activeIdentifiers.find((item) => item.channel === identifier.channel && item.value === identifier.value);
+      if (conflict) {
+        const error = new Error(`${identifier.channel}.${identifier.key} is already assigned to active personality ${activeIdentity.name}`);
+        error.name = 'CHANNEL_IDENTIFIER_IN_USE';
+        throw error;
+      }
+    }
+  }
 };
 
 const sanitizeSensitiveConfig = (value: unknown, currentKey?: string): unknown => {
@@ -944,6 +993,9 @@ const serializeIdentity = (identity: IdentityRecord) => ({
   roleTitle: identity.roleTitle,
   description: identity.description,
   isActive: identity.isActive,
+  isMain: identity.isMain,
+  runtimeProvider: identity.runtimeProvider,
+  runtimeOpenRouterProfileId: identity.runtimeOpenRouterProfileId,
   profileImageObjectPath: identity.profileImageObjectPath,
   profileImageUrl: identity.profileImageUrl,
   channels: sanitizeSensitiveConfig(normalizeChannelConfigAliases(identity.channels)),
@@ -1006,6 +1058,29 @@ const ensureGeneralConfig = async () =>
     create: { id: 'default', config: attachRuntimeSyncState(defaultGeneralConfig, defaultRuntimeSyncState) },
     update: {}
   });
+
+const runtimeModeFromConfig = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const mode = asJsonRecord(config).runtimeMode;
+  return runtimeModes.includes(mode as (typeof runtimeModes)[number])
+    ? mode as (typeof runtimeModes)[number]
+    : 'single-active-personality';
+};
+
+const mainIdentityWhere = { isMain: true };
+
+const ensureMainIdentity = async (actor = 'system') => {
+  const currentMain = await prisma.botManagerIdentity.findFirst({ where: mainIdentityWhere, orderBy: { updatedAt: 'desc' } });
+  if (currentMain) return currentMain;
+  const fallback = await prisma.botManagerIdentity.findFirst({ orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] });
+  if (!fallback) return null;
+  return prisma.botManagerIdentity.update({
+    where: { id: fallback.id },
+    data: { isMain: true, isActive: true, updatedBy: actor }
+  });
+};
+
+const activeIdentityWhereForMode = (mode: (typeof runtimeModes)[number]) =>
+  mode === 'multi-active-personality' ? { isActive: true } : { isMain: true };
 
 const fileObjectPath = (slug: string, workspacePath: string) => `bot-manager/workspace/${slug}/${workspacePath}`;
 
@@ -1284,6 +1359,40 @@ const toRuntimeWorkspaceChanges = (payload: unknown) => {
       }))
       .filter((item) => item.path)
   };
+};
+
+const runtimeSecretPayloads = (payload: unknown) => {
+  const record = asJsonRecord(payload as Prisma.JsonValue | null | undefined);
+  const runtimes = Array.isArray(record.runtimes) ? record.runtimes : [];
+  if (runtimes.length) {
+    return runtimes
+      .map((item) => asJsonRecord(item as Prisma.JsonValue))
+      .map((item) => ({
+        identityId: textValue(item.identityId) || textValue(asJsonRecord(item.identity as Prisma.JsonValue | null | undefined).id),
+        config: isPlainRecord(item.config) ? asJsonRecord(item.config as Prisma.JsonValue) : item
+      }));
+  }
+  return [{
+    identityId: textValue(record.identityId) || textValue(record.activeIdentityId) || textValue(asJsonRecord(record.identity as Prisma.JsonValue | null | undefined).id),
+    config: record
+  }];
+};
+
+const runtimeWorkspacePayloads = (payload: unknown) => {
+  const record = asJsonRecord(payload as Prisma.JsonValue | null | undefined);
+  const runtimes = Array.isArray(record.runtimes) ? record.runtimes : [];
+  if (runtimes.length) {
+    return runtimes
+      .map((item) => asJsonRecord(item as Prisma.JsonValue))
+      .map((item) => ({
+        identityId: textValue(item.identityId) || textValue(asJsonRecord(item.identity as Prisma.JsonValue | null | undefined).id),
+        payload: item
+      }));
+  }
+  return [{
+    identityId: textValue(record.identityId) || textValue(record.activeIdentityId) || textValue(asJsonRecord(record.identity as Prisma.JsonValue | null | undefined).id),
+    payload: record
+  }];
 };
 
 const conflictWorkspacePath = (workspacePath: string) => {
@@ -1602,7 +1711,14 @@ const applyRuntimeConfigSecretPush = async (actor: string, config: Record<string
   const result = emptyRuntimeConfigSecretPull();
   await applyRuntimeProviderSecretPush(actor, config, result.appliedPaths, result.skippedPaths);
 
-  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({ where: { isActive: true } });
+  const requestedIdentityId =
+    textValue(config.identityId) ||
+    textValue(config.activeIdentityId) ||
+    textValue(asJsonRecord(config.identity as Prisma.JsonValue | null | undefined).id) ||
+    textValue(asJsonRecord(asJsonRecord(config.morneven as Prisma.JsonValue | null | undefined).identity as Prisma.JsonValue | null | undefined).id);
+  const activeIdentityRecord = requestedIdentityId
+    ? await prisma.botManagerIdentity.findFirst({ where: { id: requestedIdentityId, isActive: true } })
+    : (await ensureMainIdentity(actor)) ?? await prisma.botManagerIdentity.findFirst({ where: { isActive: true } });
   if (!activeIdentityRecord) {
     result.skippedPaths.push('channels: no active bot personality is configured');
     result.importedCount = result.appliedPaths.length;
@@ -1639,52 +1755,65 @@ const applyRuntimeConfigSecretPush = async (actor: string, config: Record<string
 
 const applyRuntimeConfigSecretPull = async (actor: string): Promise<RuntimeConfigSecretPull> => {
   const result = emptyRuntimeConfigSecretPull();
-  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({ where: { isActive: true } });
-  if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
-  const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
+  const activeIdentityRecords = await prisma.botManagerIdentity.findMany({ where: { isActive: true }, orderBy: [{ isMain: 'desc' }, { updatedAt: 'desc' }] });
+  if (!activeIdentityRecords.length) throw new Error('No active bot personality is configured');
+  const activeIdentities = await ensureIdentityListSecretsEncrypted(activeIdentityRecords);
+  const activeById = new Map(activeIdentities.map((identity) => [identity.id, identity]));
   const { payload, status } = await callNanobot('/api/morneven/config-secrets', { allowNotFound: true });
   if (status === 404) {
     result.skippedPaths.push('runtime config secrets: Nanobot endpoint unavailable');
     return result;
   }
-  const config = asJsonRecord(payload as Prisma.JsonValue | Record<string, unknown> | null | undefined);
 
-  await applyRuntimeProviderSecretPull(actor, config, result.appliedPaths, result.skippedPaths);
+  for (const runtimePayload of runtimeSecretPayloads(payload)) {
+    const activeIdentity = runtimePayload.identityId ? activeById.get(runtimePayload.identityId) : activeIdentities[0];
+    if (!activeIdentity) {
+      result.skippedPaths.push(`runtime config secrets: unknown active identity ${runtimePayload.identityId || 'none'}`);
+      continue;
+    }
+    const config = runtimePayload.config;
+    await applyRuntimeProviderSecretPull(actor, config, result.appliedPaths, result.skippedPaths);
 
-  const sourceChannels = asJsonRecord(normalizeChannelConfigAliases(config.channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
-  const sourceTools = asJsonRecord(config.tools as Prisma.JsonValue | Record<string, unknown> | null | undefined);
-  const channelPaths: string[] = [];
-  const settingPaths: string[] = [];
-  const nextChannels = mergeMissingRuntimeSecrets(sourceChannels, activeIdentity.channels, 'channels', channelPaths);
-  const nextSettings = mergeMissingRuntimeSecrets({ tools: sourceTools }, activeIdentity.settings, 'settings', settingPaths);
-  const channelChanged = JSON.stringify(nextChannels) !== JSON.stringify(activeIdentity.channels);
-  const settingsChanged = JSON.stringify(nextSettings) !== JSON.stringify(activeIdentity.settings);
+    const sourceChannels = asJsonRecord(normalizeChannelConfigAliases(config.channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+    const sourceTools = asJsonRecord(config.tools as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+    const channelPaths: string[] = [];
+    const settingPaths: string[] = [];
+    const nextChannels = mergeMissingRuntimeSecrets(sourceChannels, activeIdentity.channels, 'channels', channelPaths);
+    const nextSettings = mergeMissingRuntimeSecrets({ tools: sourceTools }, activeIdentity.settings, 'settings', settingPaths);
+    const channelChanged = JSON.stringify(nextChannels) !== JSON.stringify(activeIdentity.channels);
+    const settingsChanged = JSON.stringify(nextSettings) !== JSON.stringify(activeIdentity.settings);
 
-  if (channelChanged || settingsChanged) {
-    await prisma.botManagerIdentity.update({
-      where: { id: activeIdentity.id },
-      data: {
-        ...(channelChanged ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
-        ...(settingsChanged ? { settings: nextSettings as Prisma.InputJsonValue } : {}),
-        updatedBy: actor
-      }
-    });
-    result.appliedPaths.push(...channelPaths, ...settingPaths);
+    if (channelChanged || settingsChanged) {
+      await prisma.botManagerIdentity.update({
+        where: { id: activeIdentity.id },
+        data: {
+          ...(channelChanged ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
+          ...(settingsChanged ? { settings: nextSettings as Prisma.InputJsonValue } : {}),
+          updatedBy: actor
+        }
+      });
+      result.appliedPaths.push(
+        ...channelPaths.map((path) => `${activeIdentity.slug}:${path}`),
+        ...settingPaths.map((path) => `${activeIdentity.slug}:${path}`)
+      );
+    }
+
+    if (!Object.keys(sourceChannels).length) result.skippedPaths.push(`${activeIdentity.slug}: channels: no runtime channel config returned`);
+    if (!Object.keys(sourceTools).length) result.skippedPaths.push(`${activeIdentity.slug}: settings.tools: no runtime tools config returned`);
   }
 
   result.importedCount = result.appliedPaths.length;
-  if (!Object.keys(sourceChannels).length) result.skippedPaths.push('channels: no runtime channel config returned');
-  if (!Object.keys(sourceTools).length) result.skippedPaths.push('settings.tools: no runtime tools config returned');
   return result;
 };
 
 const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspacePull> => {
-  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({
+  const activeIdentityRecords = await prisma.botManagerIdentity.findMany({
     where: { isActive: true },
     include: { files: true }
   });
-  if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
-  const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
+  if (!activeIdentityRecords.length) throw new Error('No active bot personality is configured');
+  const activeIdentities = await ensureIdentityListSecretsEncrypted(activeIdentityRecords);
+  const activeById = new Map(activeIdentities.map((identity) => [identity.id, identity]));
 
   const generalConfig = await ensureGeneralConfig();
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
@@ -1696,70 +1825,84 @@ const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspac
       skipped: [{ path: 'workspace', reason: 'Nanobot workspace changes endpoint unavailable' }]
     };
   }
-  const parsed = toRuntimeWorkspaceChanges(payload);
-  const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
   const appliedPaths: string[] = [];
   const conflictPaths: string[] = [];
   const skippedPaths: string[] = [];
+  const allChanges: RuntimeWorkspaceChange[] = [];
+  const allSkipped: Array<{ path: string; reason: string }> = [];
 
-  for (const change of parsed.changes) {
-    const workspacePath = normalizeWorkspacePath(change.path);
-    if (!workspacePath) {
-      skippedPaths.push(`${change.path}: invalid path`);
+  for (const runtimePayload of runtimeWorkspacePayloads(payload)) {
+    const activeIdentity = runtimePayload.identityId
+      ? activeById.get(runtimePayload.identityId)
+      : activeIdentities.find((identity) => identity.isMain) ?? activeIdentities[0];
+    if (!activeIdentity) {
+      skippedPaths.push(`workspace changes: unknown active identity ${runtimePayload.identityId || 'none'}`);
       continue;
     }
-    if (change.content.length > 500000) {
-      skippedPaths.push(`${workspacePath}: content too large`);
-      continue;
-    }
+    const parsed = toRuntimeWorkspaceChanges(runtimePayload.payload);
+    const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
+    allChanges.push(...parsed.changes);
+    allSkipped.push(...parsed.skipped.map((item) => ({ path: `${activeIdentity.slug}:${item.path}`, reason: item.reason })));
 
-    const storedChangeContent = toStoredWorkspaceContent(workspacePath, change.content);
-    const existing = existingByPath.get(workspacePath.toLowerCase());
-    if (!existing) {
+    for (const change of parsed.changes) {
+      const workspacePath = normalizeWorkspacePath(change.path);
+      if (!workspacePath) {
+        skippedPaths.push(`${activeIdentity.slug}:${change.path}: invalid path`);
+        continue;
+      }
+      if (change.content.length > 500000) {
+        skippedPaths.push(`${activeIdentity.slug}:${workspacePath}: content too large`);
+        continue;
+      }
+
+      const storedChangeContent = toStoredWorkspaceContent(workspacePath, change.content);
+      const existing = existingByPath.get(workspacePath.toLowerCase());
+      if (!existing) {
+        await saveIdentityFile(activeIdentity, {
+          path: workspacePath,
+          kind: change.kind,
+          content: storedChangeContent
+        }, actor);
+        appliedPaths.push(`${activeIdentity.slug}:${workspacePath}`);
+        continue;
+      }
+
+      const currentContent = await readIdentityFileContent(existing);
+      const currentStoredHash = contentHash(currentContent);
+      const currentRuntimeHash = contentHash(toRuntimeWorkspaceContent(workspacePath, currentContent, publicConfig));
+      const storedChangeHash = contentHash(storedChangeContent);
+      if (currentRuntimeHash === change.contentHash || currentStoredHash === storedChangeHash) {
+        skippedPaths.push(`${activeIdentity.slug}:${workspacePath}: already current`);
+        continue;
+      }
+      if (change.baseHash && currentRuntimeHash === change.baseHash) {
+        await saveIdentityFile(activeIdentity, {
+          path: workspacePath,
+          kind: change.kind,
+          content: storedChangeContent,
+          contentType: existing.contentType
+        }, actor);
+        appliedPaths.push(`${activeIdentity.slug}:${workspacePath}`);
+        continue;
+      }
+
+      const conflictPath = conflictWorkspacePath(workspacePath);
       await saveIdentityFile(activeIdentity, {
-        path: workspacePath,
+        path: conflictPath,
         kind: change.kind,
-        content: storedChangeContent
+        content: change.content
       }, actor);
-      appliedPaths.push(workspacePath);
-      continue;
+      conflictPaths.push(`${activeIdentity.slug}:${conflictPath}`);
     }
-
-    const currentContent = await readIdentityFileContent(existing);
-    const currentStoredHash = contentHash(currentContent);
-    const currentRuntimeHash = contentHash(toRuntimeWorkspaceContent(workspacePath, currentContent, publicConfig));
-    const storedChangeHash = contentHash(storedChangeContent);
-    if (currentRuntimeHash === change.contentHash || currentStoredHash === storedChangeHash) {
-      skippedPaths.push(`${workspacePath}: already current`);
-      continue;
-    }
-    if (change.baseHash && currentRuntimeHash === change.baseHash) {
-      await saveIdentityFile(activeIdentity, {
-        path: workspacePath,
-        kind: change.kind,
-        content: storedChangeContent,
-        contentType: existing.contentType
-      }, actor);
-      appliedPaths.push(workspacePath);
-      continue;
-    }
-
-    const conflictPath = conflictWorkspacePath(workspacePath);
-    await saveIdentityFile(activeIdentity, {
-      path: conflictPath,
-      kind: change.kind,
-      content: change.content
-    }, actor);
-    conflictPaths.push(conflictPath);
   }
 
   return {
-    pulledCount: parsed.changes.length,
+    pulledCount: allChanges.length,
     appliedPaths,
     conflictPaths,
     skippedPaths,
-    changes: parsed.changes,
-    skipped: parsed.skipped
+    changes: allChanges,
+    skipped: allSkipped
   };
 };
 
@@ -2219,63 +2362,72 @@ const loadIdentityFiles = async (identity: IdentityWithFiles) => {
 
 const buildRuntimeBundle = async () => {
   if (!env.botManagerSyncToken) throw new Error('BOT_MANAGER_SYNC_TOKEN is not configured');
-  const activeIdentityRecord = await prisma.botManagerIdentity.findFirst({
-    where: { isActive: true },
-    include: { files: true }
-  });
-  if (!activeIdentityRecord) throw new Error('No active bot personality is configured');
-  const activeIdentity = await ensureIdentitySecretsEncrypted(activeIdentityRecord);
-
+  await ensureMainIdentity();
   const [generalConfig, credentials] = await Promise.all([
     ensureGeneralConfig(),
     prisma.botManagerCredential.findMany({ orderBy: { provider: 'asc' } })
   ]);
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+  const mode = runtimeModeFromConfig(publicConfig);
+  const activeIdentityRecords = await prisma.botManagerIdentity.findMany({
+    where: activeIdentityWhereForMode(mode),
+    include: { files: true },
+    orderBy: [{ isMain: 'desc' }, { updatedAt: 'desc' }]
+  });
+  if (!activeIdentityRecords.length) throw new Error('No active bot personality is configured');
+  const activeIdentities = await ensureIdentityListSecretsEncrypted(activeIdentityRecords);
   const credentialMap = new Map(credentials.map((credential) => [credential.provider, credential]));
-  const activeProvider = typeof publicConfig.activeProvider === 'string'
-    ? publicConfig.activeProvider
-    : credentials[0]?.provider ?? null;
-  let runtimeCredentials: Record<string, unknown> = {};
+  const fallbackProvider = typeof publicConfig.activeProvider === 'string' ? publicConfig.activeProvider : credentials[0]?.provider ?? null;
+  const fallbackOpenRouterProfileId = typeof publicConfig.activeOpenRouterProfileId === 'string' ? publicConfig.activeOpenRouterProfileId : undefined;
 
-  if (activeProvider === 'openrouter') {
-    const activeOpenRouterProfileId = typeof publicConfig.activeOpenRouterProfileId === 'string'
-      ? publicConfig.activeOpenRouterProfileId
-      : undefined;
-    const openRouterProfile = activeOpenRouterProfileId
-      ? await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: activeOpenRouterProfileId } })
-      : await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
-    if (openRouterProfile) {
-      runtimeCredentials = {
-        openrouter: decryptJson<Record<string, unknown>>(openRouterProfile.encryptedValue)
-      };
+  const runtimeCredentialsForIdentity = async (identity: IdentityRecord) => {
+    const provider = identity.runtimeProvider || fallbackProvider;
+    if (!provider) return {};
+    if (provider === 'openrouter') {
+      const openRouterProfile = identity.runtimeOpenRouterProfileId || fallbackOpenRouterProfileId
+        ? await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: identity.runtimeOpenRouterProfileId || fallbackOpenRouterProfileId! } })
+        : await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
+      return openRouterProfile ? { openrouter: decryptJson<Record<string, unknown>>(openRouterProfile.encryptedValue) } : {};
     }
-  } else if (activeProvider && credentialMap.has(activeProvider)) {
-    runtimeCredentials = {
-      [activeProvider]: decryptJson<Record<string, unknown>>(credentialMap.get(activeProvider)!.encryptedValue)
-    };
-  }
+    const credential = credentialMap.get(provider);
+    return credential ? { [provider]: decryptJson<Record<string, unknown>>(credential.encryptedValue) } : {};
+  };
+
+  const runtimeIdentities = await Promise.all(activeIdentities.map(async (identity) => ({
+    identity: serializeIdentity(identity),
+    credentials: await runtimeCredentialsForIdentity(identity),
+    channels: decryptSensitiveConfig(identity.channels),
+    settings: decryptSensitiveConfig(identity.settings),
+    files: await loadRuntimeIdentityFiles(identity as IdentityWithFiles, publicConfig)
+  })));
+  const mainRuntime = runtimeIdentities.find((item) => item.identity.isMain) ?? runtimeIdentities[0];
 
   return {
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
-    mode: 'single-active-personality',
+    mode,
     generalConfig: publicConfig,
-    activeIdentity: serializeIdentity(activeIdentity),
-    credentials: runtimeCredentials,
-    channels: decryptSensitiveConfig(activeIdentity.channels),
-    settings: decryptSensitiveConfig(activeIdentity.settings),
-    files: await loadRuntimeIdentityFiles(activeIdentity, publicConfig)
+    mainIdentity: mainRuntime.identity,
+    activeIdentity: mainRuntime.identity,
+    identities: runtimeIdentities,
+    credentials: mainRuntime.credentials,
+    channels: mainRuntime.channels,
+    settings: mainRuntime.settings,
+    files: mainRuntime.files
   };
 };
 
 const summarizeRuntimeBundle = (bundle: unknown) => {
   const record = asJsonRecord(bundle as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const activeIdentity = asJsonRecord(record.activeIdentity as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const identities = Array.isArray(record.identities) ? record.identities : [];
   const credentials = asJsonRecord(record.credentials as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const files = Array.isArray(record.files) ? record.files : [];
   return {
     generatedAt: typeof record.generatedAt === 'string' ? record.generatedAt : null,
     fileCount: files.length,
+    identityCount: identities.length || (Object.keys(activeIdentity).length ? 1 : 0),
+    mode: typeof record.mode === 'string' ? record.mode : 'single-active-personality',
     credentialProviders: Object.keys(credentials),
     activeIdentity: {
       id: typeof activeIdentity.id === 'string' ? activeIdentity.id : null,
@@ -2435,6 +2587,13 @@ botManagerRouter.get('/summary', async (req, res) => {
   ]);
   const identities = await ensureIdentityListSecretsEncrypted(identityRecords);
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+  const runtimeMode = runtimeModeFromConfig(publicConfig);
+  const mainIdentity = identities.find((identity) => identity.isMain) ?? identities.find((identity) => identity.isActive) ?? null;
+  const activeIdentities = runtimeMode === 'multi-active-personality'
+    ? identities.filter((identity) => identity.isActive)
+    : mainIdentity
+      ? [mainIdentity]
+      : [];
 
   return ok(res, {
     credentials,
@@ -2444,8 +2603,11 @@ botManagerRouter.get('/summary', async (req, res) => {
     runtimeSync: getRuntimeSyncState(generalConfig.config),
     runtimeStatus: {
       nanobotConfigured: Boolean(env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken),
-      singleActivePersonality: true,
-      activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null,
+      singleActivePersonality: runtimeMode === 'single-active-personality',
+      runtimeMode,
+      activeIdentityId: mainIdentity?.id ?? activeIdentities[0]?.id ?? null,
+      activeIdentityIds: activeIdentities.map((identity) => identity.id),
+      mainIdentityId: mainIdentity?.id ?? null,
       activeProvider: typeof publicConfig.activeProvider === 'string' ? publicConfig.activeProvider : null,
       activeOpenRouterProfileId: typeof publicConfig.activeOpenRouterProfileId === 'string' ? publicConfig.activeOpenRouterProfileId : null
     }
@@ -2461,14 +2623,44 @@ botManagerRouter.get('/runtime/status', async (req, res) => {
   }
 });
 
+botManagerRouter.post('/runtime/:identityId/:action', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = runtimeActionSchema.safeParse(req.params.action);
+  if (!parsed.success) return fail(res, 422, 'Invalid nanobot runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.identityId } });
+  if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  if (!identity.isActive) return fail(res, 409, 'Runtime controls require an active personality', 'INACTIVE_PERSONALITY');
+
+  try {
+    clearNanobotStatusCache();
+    const { payload } = await callNanobot(`/api/morneven/runtimes/${identity.id}/gateway/${parsed.data}`, {
+      method: 'POST',
+      body: { requestedBy: req.user!.username }
+    });
+    setNanobotStatusCache(payload);
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: `bot-manager.runtime.${parsed.data}`,
+      entity: 'NanobotGateway',
+      entityId: identity.id,
+      metadata: { action: parsed.data, identityId: identity.id, identityName: identity.name }
+    });
+    return ok(res, payload);
+  } catch (error) {
+    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot runtime action failed', 'NANOBOT_REQUEST_FAILED');
+  }
+});
+
 botManagerRouter.post('/runtime/:action', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = runtimeActionSchema.safeParse(req.params.action);
   if (!parsed.success) return fail(res, 422, 'Invalid nanobot runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
 
   try {
+    const main = await ensureMainIdentity(req.user!.username);
+    if (!main) return fail(res, 409, 'No main bot personality is configured', 'NO_MAIN_PERSONALITY');
     clearNanobotStatusCache();
-    const { payload } = await callNanobot(`/api/morneven/gateway/${parsed.data}`, {
+    const { payload } = await callNanobot(`/api/morneven/runtimes/${main.id}/gateway/${parsed.data}`, {
       method: 'POST',
       body: { requestedBy: req.user!.username }
     });
@@ -2742,7 +2934,19 @@ botManagerRouter.put('/general-config', async (req, res) => {
   const parsed = generalConfigSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   const current = await ensureGeneralConfig();
-  const config = stripInternalGeneralConfig(parsed.data.config as Prisma.JsonValue);
+  const config = {
+    ...stripInternalGeneralConfig(parsed.data.config as Prisma.JsonValue),
+    runtimeMode: runtimeModeFromConfig(parsed.data.config as Prisma.JsonValue)
+  };
+  if (config.runtimeMode === 'single-active-personality') {
+    const main = await ensureMainIdentity(req.user!.username);
+    if (main) {
+      await prisma.$transaction([
+        prisma.botManagerIdentity.updateMany({ where: { id: { not: main.id }, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
+        prisma.botManagerIdentity.update({ where: { id: main.id }, data: { isActive: true, updatedBy: req.user!.username } })
+      ]);
+    }
+  }
   const runtimeSync = createDirtyRuntimeSyncState(getRuntimeSyncState(current.config), 'General config updated');
   const saved = await prisma.botManagerGeneralConfig.upsert({
     where: { id: 'default' },
@@ -2804,6 +3008,9 @@ botManagerRouter.post('/identities', async (req, res) => {
       channels: channels as Prisma.InputJsonValue,
       settings: settings as Prisma.InputJsonValue,
       isActive: activeCount === 0,
+      isMain: activeCount === 0,
+      runtimeProvider: parsed.data.runtimeProvider || null,
+      runtimeOpenRouterProfileId: parsed.data.runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null,
       createdBy: req.user!.username,
       updatedBy: req.user!.username
     }
@@ -2873,6 +3080,16 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   if (missingEnabledSecrets.length) {
     return fail(res, 422, 'Enabled channel is missing required secrets', 'CHANNEL_SECRET_REQUIRED', { paths: missingEnabledSecrets });
   }
+  if (nextChannels !== undefined && existing.isActive) {
+    try {
+      await assertNoChannelIdentifierConflict(existing.id, nextChannels);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
+        return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+      }
+      throw error;
+    }
+  }
 
   const updated = await prisma.botManagerIdentity.update({
     where: { id: existing.id },
@@ -2880,6 +3097,8 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
       ...(parsed.data.roleTitle !== undefined ? { roleTitle: parsed.data.roleTitle } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      ...(parsed.data.runtimeProvider !== undefined ? { runtimeProvider: parsed.data.runtimeProvider || null } : {}),
+      ...(parsed.data.runtimeOpenRouterProfileId !== undefined ? { runtimeOpenRouterProfileId: parsed.data.runtimeOpenRouterProfileId || null } : {}),
       ...profileImagePatch,
       ...(nextChannels !== undefined ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
       ...(nextSettings !== undefined ? { settings: nextSettings as Prisma.InputJsonValue } : {}),
@@ -2923,15 +3142,75 @@ botManagerRouter.post('/identities/:id/default-files/regenerate', async (req, re
 
 botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
+  const existingRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!existingRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const existing = await ensureIdentitySecretsEncrypted(existingRecord);
+  try {
+    await assertNoChannelIdentifierConflict(existing.id, existing.channels);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
+      return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+    }
+    throw error;
+  }
+  const generalConfig = await ensureGeneralConfig();
+  const mode = runtimeModeFromConfig(generalConfig.config);
+  const activated = mode === 'multi-active-personality'
+    ? await prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
+    : (await prisma.$transaction([
+        prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
+        prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isMain: true }, data: { isMain: false, updatedBy: req.user!.username } }),
+        prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, isMain: true, updatedBy: req.user!.username }, include: { files: true } })
+      ]))[2];
+  const safeActivated = await ensureIdentitySecretsEncrypted(activated);
+  await markRuntimeDirty(req.user!.username, `${mode === 'multi-active-personality' ? 'Active personality enabled' : 'Main personality changed'}: ${activated.name}`);
+  return ok(res, serializeIdentity(safeActivated));
+});
+
+botManagerRouter.patch('/identities/:id/deactivate', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
   const existing = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
   if (!existing) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
-  const [, activated] = await prisma.$transaction([
-    prisma.botManagerIdentity.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
-    prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
-  ]);
-  const safeActivated = await ensureIdentitySecretsEncrypted(activated);
-  await markRuntimeDirty(req.user!.username, `Active personality changed: ${activated.name}`);
-  return ok(res, serializeIdentity(safeActivated));
+  if (existing.isMain) return fail(res, 409, 'Main personality cannot be deactivated', 'MAIN_PERSONALITY_REQUIRED');
+  const updated = await prisma.botManagerIdentity.update({
+    where: { id: existing.id },
+    data: { isActive: false, updatedBy: req.user!.username },
+    include: { files: true }
+  });
+  await markRuntimeDirty(req.user!.username, `Active personality disabled: ${updated.name}`);
+  return ok(res, serializeIdentity(await ensureIdentitySecretsEncrypted(updated)));
+});
+
+botManagerRouter.patch('/identities/:id/main', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const existing = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!existing) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  try {
+    await assertNoChannelIdentifierConflict(existing.id, existing.channels);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
+      return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+    }
+    throw error;
+  }
+  const generalConfig = await ensureGeneralConfig();
+  const mode = runtimeModeFromConfig(generalConfig.config);
+  let main;
+  if (mode === 'single-active-personality') {
+    [, , main] = await prisma.$transaction([
+      prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isMain: true }, data: { isMain: false, updatedBy: req.user!.username } }),
+      prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
+      prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isMain: true, isActive: true, updatedBy: req.user!.username }, include: { files: true } })
+    ]);
+  } else {
+    [, , main] = await prisma.$transaction([
+      prisma.botManagerIdentity.updateMany({ where: { id: { not: existing.id }, isMain: true }, data: { isMain: false, updatedBy: req.user!.username } }),
+      prisma.botManagerIdentity.updateMany({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username } }),
+      prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isMain: true, isActive: true, updatedBy: req.user!.username }, include: { files: true } })
+    ]);
+  }
+  await markRuntimeDirty(req.user!.username, `Main personality changed: ${main.name}`);
+  return ok(res, serializeIdentity(await ensureIdentitySecretsEncrypted(main)));
 });
 
 botManagerRouter.delete('/identities/:id', async (req, res) => {
@@ -2939,6 +3218,7 @@ botManagerRouter.delete('/identities/:id', async (req, res) => {
   const existing = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id }, include: { files: true } });
   if (!existing) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
   if (existing.isActive) return fail(res, 409, 'Active personality cannot be deleted', 'ACTIVE_PERSONALITY');
+  if (existing.isMain) return fail(res, 409, 'Main personality cannot be deleted', 'MAIN_PERSONALITY_REQUIRED');
   await prisma.botManagerIdentity.delete({ where: { id: existing.id } });
   await Promise.allSettled([
     ...existing.files.map((file) => deleteFileFromStorage(file.objectPath)),

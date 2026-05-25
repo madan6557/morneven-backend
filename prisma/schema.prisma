@@ -616,6 +616,9 @@ model BotManagerIdentity {
   roleTitle              String
   description            String   @default("")
   isActive               Boolean  @default(false)
+  isMain                 Boolean  @default(false)
+  runtimeProvider        String?
+  runtimeOpenRouterProfileId String?
   profileImageObjectPath String?
   profileImageUrl        String?
   channels               Json     @default("{}")
@@ -627,6 +630,7 @@ model BotManagerIdentity {
   files                  BotManagerIdentityFile[]
 
   @@index([isActive])
+  @@index([isMain])
 }
 
 model BotManagerIdentityFile {
