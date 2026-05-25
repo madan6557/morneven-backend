@@ -1,92 +1,82 @@
 # Morneven Backend
 
-Backend implementation for Morneven Institute based on:
-- `BERequierment.md` (API + RBAC contract)
-- `Analasis BE Requierment.md` (architecture + relational schema guidance)
+Morneven Backend is the stable API, database, realtime, storage, security, extraction, backup, migration, and Bot Manager integration service for the Morneven platform.
 
-## Tech Stack
-- Node.js + Express + TypeScript
-- PostgreSQL + Prisma ORM
-- JWT authentication (`access` + `refresh` token)
-- Zod validation
+The canonical documentation lives in the shared workspace `Document/` folder.
 
-## Latest Update Alignment (Production Hardening)
-The current implementation has been updated with:
-- Security middleware: Helmet, CORS allowlist, global rate limiting (+ stricter auth limiter), and compression.
-- Fail-fast environment validation via Zod.
-- Stronger auth validation (registration password minimum 12 chars).
-- Hashed refresh token storage in DB.
-- Request body validation middleware for write endpoints.
-- Operational safeguards: 1MB JSON limit, 404 fallback, graceful shutdown hooks, request-id propagation, health + readiness probe endpoints.
+## Repository Role
 
+`morneven-backend` is responsible for:
 
-## Entry Point (Core File)
-- `src/server.ts` is the backend entry point/core runtime file in this project.
-- It plays the same role as `app.js` / `index.js` in many Node.js projects: bootstrapping middleware, probes, and route mounting.
+- Express API under `/api` and `/v1`.
+- JWT auth, refresh sessions, account status, and security sessions.
+- Personnel role and PL authority enforcement.
+- PostgreSQL persistence through Prisma.
+- Content APIs for projects, lore, gallery, news, map, management, chat, notifications, activity, and command center.
+- Authenticated object storage proxy and uploads.
+- Storage cleanup, extraction, full backup, backup restore, and migration.
+- Security module, rate limits, audit logs, blocks, sessions, and file scan records.
+- WebSocket realtime events.
+- Bot Manager data model, credentials, identities, files, backups, and Nanobot runtime sync.
 
-## Project Structure
-```text
-src/
-  config/        # env + prisma client
-  middleware/    # auth guard + RBAC rules + validation + security
-  modules/       # feature routers by domain
-    auth/
-    projects/
-    lore/
-    gallery/
-    map/
-    personnel/
-    settings/
-    news/
-    files/
-    management/
-    notifications/
-    chat/
-  types/         # shared TS types + Express augmentation
-  utils/         # shared response helper
-  server.ts      # bootstrap + route mounting
-prisma/
-  schema.prisma
-  seed.ts
-```
+Backend authorization is the source of truth. Frontend visibility is not a security boundary.
 
-## Documentation Files
-- `APIdocumentation.md` → Backend API references, RBAC notes, security behavior, and request/response examples.
-- `BERequierment.md` → Original requirement contract source.
-- `Analasis BE Requierment.md` → Technical recommendation and relational design analysis.
-- `RAILWAY_DEPLOYMENT.md` → Railway service, variable, storage, migration, seed, and smoke-test notes.
+## Related Repositories
 
-## Environment Variables
-Create `.env` from `.env.example` and fill placeholders:
+| Repository | Relationship |
+| --- | --- |
+| `morneven-website` | Consumes backend REST APIs, websocket events, and media proxy URLs |
+| `morneven-backend` | Owns data, auth, storage, security, migration, extraction, backup, and Bot Manager source of truth |
+| `morneven_nanobot` | Pulls Bot Manager runtime bundles from backend and exposes runtime control endpoints |
 
-```env
-DATABASE_URL="postgresql://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/<DB_NAME>?schema=public"
-JWT_ACCESS_SECRET="<JWT_ACCESS_SECRET_PLACEHOLDER>"
-JWT_REFRESH_SECRET="<JWT_REFRESH_SECRET_PLACEHOLDER>"
-PORT=3000
-NODE_ENV="development"
-CORS_ORIGIN="http://localhost:3000"
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=1200
-AUTH_RATE_LIMIT_WINDOW_MS=900000
-AUTH_RATE_LIMIT_MAX=100
-SECURITY_LEVEL=5
-SECURITY_BLOCK_TTL_MS=900000
-SECURITY_RETENTION_DAYS=90
-SECURITY_HASH_PEPPER="<OPTIONAL_SECURITY_HASH_PEPPER>"
-FILE_SCAN_PROVIDER="none"
-AUTH_COOKIE_ENABLED=false
-AUTH_COOKIE_DOMAIN=""
-MAX_UPLOAD_MB=20
-STORAGE_DRIVER="local"
-LOCAL_STORAGE_PATH="storage"
-LOCAL_STORAGE_BASE_PATH="/storage"
-GCS_BUCKET_NAME=""
-GCS_PROJECT_ID=""
-GCS_PUBLIC_BASE_URL=""
-```
+## Core Modules
 
-## Local Development
+| Module | Purpose |
+| --- | --- |
+| `auth` | Login, register, guest, refresh, logout, password reset |
+| `me` | Current user account snapshot |
+| `projects` | Project records, patches, docs, metadata |
+| `lore` | Characters, creatures, places, technology, events, other lore, docs, discussion |
+| `gallery` | Gallery media, tags, reactions, publisher identity |
+| `map` | Map image and markers |
+| `personnel` | Personnel list, lookup, create, update, status, moderation |
+| `settings` | Presets, extraction, backup, migration, storage cleanup, chat reset, reports |
+| `news` | News feed and attachments |
+| `files` | Upload and object proxy |
+| `management` | Personnel workflow requests |
+| `notifications` | Notification records and read state |
+| `chat` | Conversations, members, messages, attachments, realtime chat state |
+| `content-stats` | Views, likes, dislikes, stars, reactions |
+| `activity` | Visitor and content analytics |
+| `command-center` | Global command center settings |
+| `security` | Security events, blocks, sessions, file scans |
+| `bot-manager` | Bot Manager credentials, personalities, files, backups, runtime sync |
+
+## Runtime Requirements
+
+- Node.js 24 or newer.
+- npm 10 or newer.
+- PostgreSQL.
+- Prisma migrations.
+- Storage driver: local, S3-compatible, or GCS-compatible.
+
+## Environment
+
+Create `.env` from `.env.example` and fill production-safe values.
+
+Important groups:
+
+- Core: `DATABASE_URL`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`.
+- Auth: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `AUTH_COOKIE_ENABLED`, `AUTH_COOKIE_DOMAIN`.
+- Rate limits: `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_RATE_LIMIT_MAX`.
+- Security: `SECURITY_LEVEL`, `SECURITY_BLOCK_TTL_MS`, `SECURITY_RETENTION_DAYS`, `SECURITY_HASH_PEPPER`, `FILE_SCAN_PROVIDER`.
+- Storage: `STORAGE_DRIVER`, local storage vars, S3 vars, or GCS vars.
+- Upload: `MAX_UPLOAD_MB`.
+- Extraction and migration: `EXTRACTION_KEY`, `MIGRATION_KEY`.
+- Bot Manager: `BOT_MANAGER_KEY`, `BOT_MANAGER_ENCRYPTION_KEY`, `BOT_MANAGER_SYNC_TOKEN`, `NANOBOT_INTERNAL_BASE_URL`, `NANOBOT_MORNEVEN_RELOAD_TOKEN`.
+
+## Development
+
 ```bash
 npm install
 npm run prisma:generate
@@ -95,152 +85,96 @@ npm run prisma:seed
 npm run dev
 ```
 
+Validation:
 
-## File Storage (Storage Driver: local or GCS)
-- Upload handler endpoint: `POST /api/files/upload` (multipart field name: `file`).
-- Optional query: `folder` (default `uploads`).
-- `STORAGE_DRIVER=local` stores files in local disk path (`LOCAL_STORAGE_PATH`) and serves them from `LOCAL_STORAGE_BASE_PATH`.
-- `STORAGE_DRIVER=gcs` stores files in GCP Cloud Storage bucket (`GCS_*` envs).
-- Response includes `provider`, `location`, and `url` for frontend usage.
-
-
-## Deployment Readiness Checklist
-
-Before going live, validate these items:
-- Environment variables are set (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`).
-- `NODE_ENV=production` in deployment runtime.
-- Prisma migrations are applied with `npm run prisma:deploy:safe`.
-- Health probes respond with HTTP 200 at `/health` and `/ready`.
-- Storage mode is explicitly set:
-  - Railway/local: `STORAGE_DRIVER=local` + persistent volume path (`LOCAL_STORAGE_PATH=/data/storage`).
-  - GCS: `STORAGE_DRIVER=gcs` + complete `GCS_*` variables.
-- Seed is run only for non-production bootstrapping (`npm run prisma:seed`).
-
-## Security Hardening
-- Helmet security headers enabled.
-- CORS policy constrained by `CORS_ORIGIN`.
-- Global rate limiting enabled (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`) plus stricter auth endpoint limiter.
-- Recommended production launch values are `RATE_LIMIT_WINDOW_MS=900000`, `RATE_LIMIT_MAX=1200`, `AUTH_RATE_LIMIT_WINDOW_MS=900000`, and `AUTH_RATE_LIMIT_MAX=100`.
-- Modular security layer controlled by `SECURITY_LEVEL`, where `0` disables the module and `5` enables the full security posture.
-- Security event, session, temporary block, and file scan records are available through `/api/security/*` for authorized security operators.
-- Uploads are checked with MIME allowlist, file signature validation, SHA-256 hashing, and provider-ready scan abstraction.
-- Request body limit set to 1 MB.
-- Environment validation at startup (fail-fast on missing/invalid secrets).
-- Refresh tokens stored hashed in database.
-- Refresh tokens are bound to revocable security sessions when `SECURITY_LEVEL` is above `0`.
-- Graceful shutdown hooks for SIGTERM/SIGINT.
-
-## Security Module Level
-
-`SECURITY_LEVEL` is the global switch for the Morneven Security Module:
-
-| Level | Behavior |
-| --- | --- |
-| `0` | Security module off. Existing baseline middleware remains active. |
-| `1` | Observe and record security evidence. |
-| `2` | Add route-group rate limiting and session checks. |
-| `3` | Block high-risk injection and traversal probes. |
-| `4` | Enable active defense temporary blocks and session revocation responses. |
-| `5` | Full configured security posture. |
-
-## Deployment Guide
-
-### 1) Infrastructure Preparation
-- Provision a PostgreSQL instance (managed or self-hosted).
-- Create a dedicated database user with least-privilege access to the target DB.
-- Prepare runtime environment variables (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB`, `STORAGE_DRIVER`, `LOCAL_STORAGE_*` or `GCS_*` or `S3_*`).
-
-### 2) Build Artifact
 ```bash
-npm install
+npm run build
+npx prisma validate
+```
+
+## Deployment
+
+Recommended production deployment flow:
+
+```bash
+npm ci
 npm run prisma:generate
 npm run build
-```
-
-### 3) Database Migration (Production)
-Use deployment-safe migration command in production pipeline:
-```bash
-npm run prisma:deploy:safe
-```
-
-### 4) Optional Initial Seed
-Only run once for non-production or first-time staging setup:
-```bash
-npm run prisma:seed
-```
-
-### 5) Run Service
-```bash
+npm run prisma:migrate:deploy
 npm run start
 ```
 
-### 6) Health Check
-Verify service is live:
+Railway deployment uses:
+
 ```bash
-curl http://<HOST>:<PORT>/health
-curl http://<HOST>:<PORT>/ready
-```
-Expected responses:
-```json
-{ "success": true, "data": { "status": "ok", "env": "production" } }
-{ "success": true, "data": { "status": "ready" } }
+npm run start:railway
 ```
 
-### 7) Reverse Proxy / Gateway Notes
-- Route API under `/api/*` as defined by backend routers.
-- Enforce HTTPS termination at gateway/load balancer.
-- Restrict network access to PostgreSQL from backend runtime only.
+Production requirements:
 
-### 8) Rollback Strategy (Recommended)
-- Keep previous build artifact/tag.
-- Roll back app deployment first.
-- If DB migration rollback is needed, use explicit Prisma migration resolution with caution and backup snapshots.
+- `NODE_ENV=production`.
+- Strong JWT secrets.
+- Correct CORS origin.
+- Prisma migrations applied.
+- Persistent storage or object storage configured.
+- Health checks passing.
+- Backup and migration keys set before operational use.
 
+Health endpoints:
 
-## Railway Deployment (Recommended)
+```text
+/health
+/ready
+/version
+/api/health
+/api/ready
+/api/version
+/v1/health
+/v1/ready
+/v1/version
+```
 
-This repository now includes `railway.json` for zero-config deploy defaults on Railway.
+## Data Operations
 
-### Railway service settings
-- **Build Command:** handled by `railway.json` (`npm ci --no-audit --no-fund && npm run prisma:generate && npm run build`)
-- **Start Command:** handled by `railway.json` (`npm run start:railway`)
-- **Healthcheck Path:** `/health`
+Extraction and backup can export:
 
-### Required Railway environment variables
-Set these in Railway Variables:
-- `DATABASE_URL` (use Railway Postgres connection string)
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
-- `NODE_ENV=production`
-- `CORS_ORIGIN` (your frontend URL)
+- Database JSON snapshot.
+- SQL dump.
+- Attachment manifest.
+- Media files.
+- Backup README wiring instructions.
 
-### Railway storage compatibility (without GCS)
-For now you can run fully without GCS by using local storage mode on Railway:
-- `STORAGE_DRIVER=local`
-- `LOCAL_STORAGE_PATH=/data/storage` (recommended if using Railway Volume)
-- `LOCAL_STORAGE_BASE_PATH=/storage`
+Migration supports:
 
-If you attach a Railway Volume to `/data`, uploads remain persistent across deploys.
-No `GCS_*` variables are required in local mode.
+- Live backend payload to clone backend.
+- Custom migration endpoint.
+- Restore from backup ZIP into the current backend.
 
-### Notes
+Storage cleanup scans storage objects against database references. Bot Manager backup coverage includes the full `bot-manager/` storage prefix.
 
-- For one-off initial data on Railway, create a separate **Job** service with start command `npm run prisma:setup` and run it manually once after backend deploy.
-- If you only need migrations (without seed), run a Job with `npm run prisma:migrate:deploy`.
-- `PORT` is injected by Railway automatically; this app already respects it.
-- Prisma client generation is also covered by `postinstall`.
-- `start:railway` runs migrations best-effort (`npm run prisma:migrate:deploy || true`) then starts `node dist/src/server.js`, so app can still boot for healthchecks if migrations fail.
+## Security
 
-## Seed Data
-`prisma/seed.ts` now imports FE sample data from `fe-seed/` and seeds:
-- personnel -> users + settings
-- projects + patches
-- news + attachments
-- gallery + tags
-- lore entities (characters, places, technology, creatures, other, events) + docs
-- map markers + map image
+The security module includes:
 
-Default seed password for generated personnel users is `SeedPassword123` (change immediately outside dev/staging).
+- Helmet and CORS.
+- Global and route-group rate limits.
+- Security sessions.
+- Temporary blocks.
+- Security event history.
+- File scan records.
+- Upload validation.
+- History cleanup per section.
 
-## API Base URL
-Development base path uses `/api` and `/v1`.
+`SECURITY_LEVEL` ranges from `0` to `5`, where `0` disables the module and `5` enables the full configured posture.
+
+## Documentation
+
+Active shared documentation:
+
+- [Platform Architecture](../Document/Documentation/General/2026-05-25-platform-architecture-v01.md)
+- [Backend API Contract](../Document/Documentation/Backend/root-docs/2026-05-25-backend-api-contract-v01.md)
+- [Website Feature Documentation](../Document/Documentation/Website/docs/2026-05-25-website-feature-documentation-v01.md)
+- [Website Guidebook](../Document/Guide/Website/docs/2026-05-25-website-guidebook-v01.md)
+- [Document Index](../Document/Documentation/General/2026-05-25-document-index-v01.md)
+
+When API, schema, extraction, migration, backup, security, or Bot Manager behavior changes, update the active `Document/` docs with the code change.
