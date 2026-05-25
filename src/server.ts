@@ -89,6 +89,7 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/gallery`, securityLimiters.api, galleryRouter);
   app.use(`${base}/map`, mapRouter);
   app.use(`${base}/personnel`, personnelRouter);
+  app.use(`${base}/settings/migration`, securityLimiters.migration);
   app.use(`${base}/settings`, securityLimiters.admin, settingsRouter);
   app.use(`${base}/news`, newsRouter);
   app.use(`${base}/files`, securityLimiters.files, filesRouter);

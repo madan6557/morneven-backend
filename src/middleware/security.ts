@@ -5,12 +5,16 @@ import rateLimit from 'express-rate-limit';
 import { Express } from 'express';
 import { env } from '../config/env.js';
 
+const isBotManagerPath = (path: string) => path.startsWith('/api/bot-manager') || path.startsWith('/v1/bot-manager');
+const isInternalMigrationPath = (path: string) =>
+  path.startsWith('/api/settings/migration/') || path.startsWith('/v1/settings/migration/');
+
 export const globalRateLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs,
   max: env.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/api/bot-manager') || req.path.startsWith('/v1/bot-manager'),
+  skip: (req) => isBotManagerPath(req.path) || isInternalMigrationPath(req.path),
   message: {
     success: false,
     message: 'Too many requests, please try again later.',

@@ -34,6 +34,7 @@ export const securityRouteLimiter = (
   });
 
 const isAuthSessionRead = (req: Request) => req.method === 'GET' && req.path === '/me';
+const isInternalMigrationRoute = (req: Request) => req.path.startsWith('/migration/');
 
 export const securityLimiters = {
   auth: securityRouteLimiter('auth', {
@@ -44,7 +45,11 @@ export const securityLimiters = {
   files: securityRouteLimiter('files', { windowMs: env.rateLimitWindowMs, max: env.rateLimitMax }),
   chat: securityRouteLimiter('chat', { windowMs: 60 * 1000, max: 120 }),
   management: securityRouteLimiter('management', { windowMs: 15 * 60 * 1000, max: 120 }),
-  admin: securityRouteLimiter('admin', { windowMs: 15 * 60 * 1000, max: 120 }),
+  admin: securityRouteLimiter('admin', { windowMs: 15 * 60 * 1000, max: 120, skip: isInternalMigrationRoute }),
+  migration: securityRouteLimiter('migration', {
+    windowMs: env.migrationRateLimitWindowMs,
+    max: env.migrationRateLimitMax
+  }),
   botManagerRead: securityRouteLimiter('bot-manager-read', { windowMs: 60 * 1000, max: 180 }),
   botManagerWrite: securityRouteLimiter('bot-manager-write', { windowMs: 15 * 60 * 1000, max: 120 }),
   security: securityRouteLimiter('security', { windowMs: 15 * 60 * 1000, max: 240 }),

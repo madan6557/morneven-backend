@@ -680,6 +680,8 @@ const runExtractionJob = async (
 };
 
 const migrationProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
+const MIGRATION_ASSET_PULL_MAX_ATTEMPTS = 4;
+const MIGRATION_ASSET_PULL_BASE_DELAY_MS = 750;
 
 const requireMigrationKey = (key?: string | null) => {
   if (!env.migrationKey) throw new Error('MIGRATION_KEY is not configured on this backend');
@@ -838,6 +840,52 @@ const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerificatio
   return importParsedBackupArchive(files, dataset);
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseRetryAfterMs = (value: string | null) => {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(value);
+  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  return null;
+};
+
+const retryableMigrationAssetStatuses = new Set([408, 429, 500, 502, 503, 504]);
+
+const migrationAssetFailureMessage = async (response: globalThis.Response) => {
+  let detail = '';
+  try {
+    const payload = await response.text();
+    detail = payload ? `: ${payload.slice(0, 240)}` : '';
+  } catch {
+    detail = '';
+  }
+  return `Source asset responded with ${response.status}${detail}`;
+};
+
+const fetchMigrationAsset = async (url: string, migrationKey: string) => {
+  for (let attempt = 1; attempt <= MIGRATION_ASSET_PULL_MAX_ATTEMPTS; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        'x-migration-key': migrationKey
+      }
+    });
+
+    if (response.ok) return response;
+
+    const shouldRetry = retryableMigrationAssetStatuses.has(response.status) && attempt < MIGRATION_ASSET_PULL_MAX_ATTEMPTS;
+    if (!shouldRetry) {
+      throw new Error(await migrationAssetFailureMessage(response));
+    }
+
+    const retryAfter = parseRetryAfterMs(response.headers.get('retry-after'));
+    await sleep(retryAfter ?? MIGRATION_ASSET_PULL_BASE_DELAY_MS * attempt);
+  }
+
+  throw new Error('Source asset transfer failed');
+};
+
 const pullMigrationAssets = async (payload: MigrationPayload, migrationKey: string): Promise<MigrationVerification> => {
   let uploadedAssetCount = 0;
   const failedAssets: Array<{ objectPath: string; error: string }> = [];
@@ -845,14 +893,7 @@ const pullMigrationAssets = async (payload: MigrationPayload, migrationKey: stri
   for (const asset of payload.assets) {
     try {
       const url = `${payload.source.assetEndpoint}?path=${encodeURIComponent(asset.objectPath)}`;
-      const response = await fetch(url, {
-        headers: {
-          'x-migration-key': migrationKey
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`Source asset responded with ${response.status}`);
-      }
+      const response = await fetchMigrationAsset(url, migrationKey);
       const arrayBuffer = await response.arrayBuffer();
       const contentType = response.headers.get('content-type') || 'application/octet-stream';
       await saveFileToStorage({
@@ -1117,14 +1158,36 @@ const sendExtractionDownload = async (
   return file.stream.pipe(res);
 };
 
+const getStorageReadStatus = (error: unknown) => {
+  const record = error as {
+    code?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+    name?: unknown;
+    $metadata?: { httpStatusCode?: unknown };
+  };
+  const status = Number(record.status ?? record.statusCode ?? record.$metadata?.httpStatusCode);
+  const name = typeof record.name === 'string' ? record.name : '';
+  if (record.code === 'ENOENT' || record.code === 'NoSuchKey' || name === 'NoSuchKey' || status === 404) return 404;
+  if (status === 403) return 403;
+  return 500;
+};
+
 settingsRouter.get('/migration/assets', async (req, res) => {
   try {
     requireMigrationKey(req.header('x-migration-key'));
     const objectPath = extractStorageObjectPath(String(req.query.path ?? ''));
     if (!objectPath) return fail(res, 422, 'Invalid object path', 'VALIDATION_ERROR');
-    const stored = await readFileWithMetadataFromStorage(objectPath);
-    res.setHeader('Content-Type', stored.contentType ?? 'application/octet-stream');
-    return res.send(stored.buffer);
+    try {
+      const stored = await readFileWithMetadataFromStorage(objectPath);
+      res.setHeader('Content-Type', stored.contentType ?? 'application/octet-stream');
+      return res.send(stored.buffer);
+    } catch (error) {
+      const status = getStorageReadStatus(error);
+      if (status === 404) return fail(res, 404, 'Storage object not found', 'STORAGE_OBJECT_NOT_FOUND');
+      if (status === 403) return fail(res, 403, 'Storage object is not readable', 'STORAGE_FORBIDDEN');
+      return fail(res, 500, 'Storage object read failed', 'STORAGE_ERROR');
+    }
   } catch (error) {
     return fail(res, 403, error instanceof Error ? error.message : 'Forbidden', 'FORBIDDEN');
   }
