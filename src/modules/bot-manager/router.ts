@@ -488,7 +488,14 @@ const channelIdentifierSecretKeys: Record<string, string[]> = {
 };
 
 const channelIdentifiers = (channels: unknown) => {
-  const decrypted = asJsonRecord(decryptSensitiveConfig(channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  let decrypted: Record<string, unknown>;
+  try {
+    decrypted = asJsonRecord(decryptSensitiveConfig(channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  } catch (error) {
+    const readError = new Error(error instanceof Error ? error.message : 'Unable to read channel identifiers');
+    readError.name = 'CHANNEL_IDENTIFIER_READ_FAILED';
+    throw readError;
+  }
   const identifiers: Array<{ channel: string; key: string; value: string }> = [];
   for (const [channel, secretKeys] of Object.entries(channelIdentifierSecretKeys)) {
     const config = asJsonRecord(decrypted[channel] as Prisma.JsonValue | Record<string, unknown> | null | undefined);
@@ -3080,14 +3087,19 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
   if (missingEnabledSecrets.length) {
     return fail(res, 422, 'Enabled channel is missing required secrets', 'CHANNEL_SECRET_REQUIRED', { paths: missingEnabledSecrets });
   }
-  if (nextChannels !== undefined && existing.isActive) {
+  const generalConfig = await ensureGeneralConfig();
+  const runtimeMode = runtimeModeFromConfig(generalConfig.config);
+  if (nextChannels !== undefined && existing.isActive && runtimeMode === 'multi-active-personality') {
     try {
       await assertNoChannelIdentifierConflict(existing.id, nextChannels);
     } catch (error) {
       if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
         return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
       }
-      throw error;
+      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_READ_FAILED') {
+        return fail(res, 422, 'Unable to validate channel identifier secrets', 'CHANNEL_IDENTIFIER_READ_FAILED');
+      }
+      return fail(res, 500, error instanceof Error ? error.message : 'Channel identifier validation failed', 'CHANNEL_IDENTIFIER_VALIDATION_FAILED');
     }
   }
 
@@ -3145,16 +3157,21 @@ botManagerRouter.patch('/identities/:id/activate', async (req, res) => {
   const existingRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
   if (!existingRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
   const existing = await ensureIdentitySecretsEncrypted(existingRecord);
-  try {
-    await assertNoChannelIdentifierConflict(existing.id, existing.channels);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
-      return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
-    }
-    throw error;
-  }
   const generalConfig = await ensureGeneralConfig();
   const mode = runtimeModeFromConfig(generalConfig.config);
+  if (mode === 'multi-active-personality') {
+    try {
+      await assertNoChannelIdentifierConflict(existing.id, existing.channels);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
+        return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+      }
+      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_READ_FAILED') {
+        return fail(res, 422, 'Unable to validate channel identifier secrets', 'CHANNEL_IDENTIFIER_READ_FAILED');
+      }
+      return fail(res, 500, error instanceof Error ? error.message : 'Channel identifier validation failed', 'CHANNEL_IDENTIFIER_VALIDATION_FAILED');
+    }
+  }
   const activated = mode === 'multi-active-personality'
     ? await prisma.botManagerIdentity.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username }, include: { files: true } })
     : (await prisma.$transaction([
@@ -3185,16 +3202,21 @@ botManagerRouter.patch('/identities/:id/main', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const existing = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
   if (!existing) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
-  try {
-    await assertNoChannelIdentifierConflict(existing.id, existing.channels);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
-      return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
-    }
-    throw error;
-  }
   const generalConfig = await ensureGeneralConfig();
   const mode = runtimeModeFromConfig(generalConfig.config);
+  if (mode === 'multi-active-personality') {
+    try {
+      await assertNoChannelIdentifierConflict(existing.id, existing.channels);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_IN_USE') {
+        return fail(res, 409, error.message, 'CHANNEL_IDENTIFIER_IN_USE');
+      }
+      if (error instanceof Error && error.name === 'CHANNEL_IDENTIFIER_READ_FAILED') {
+        return fail(res, 422, 'Unable to validate channel identifier secrets', 'CHANNEL_IDENTIFIER_READ_FAILED');
+      }
+      return fail(res, 500, error instanceof Error ? error.message : 'Channel identifier validation failed', 'CHANNEL_IDENTIFIER_VALIDATION_FAILED');
+    }
+  }
   let main;
   if (mode === 'single-active-personality') {
     [, , main] = await prisma.$transaction([
