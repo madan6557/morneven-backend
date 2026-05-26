@@ -12,7 +12,7 @@ import { scanUploadBuffer } from '../../security/files/scanner.js';
 import { securityLimiters } from '../../security/rate-limit/limiters.js';
 import { fail, ok } from '../../utils/response.js';
 import { writeAudit } from '../../utils/audit.js';
-import { makeZip, ZipFile } from '../../utils/zip.js';
+import { makeZip, readZip, ZipFile } from '../../utils/zip.js';
 
 export const botManagerRouter = Router();
 
@@ -20,6 +20,27 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
+
+const backupUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 250 * 1024 * 1024 }
+});
+
+const backupUploadSingle = (req: Request, res: Response, next: NextFunction) => {
+  backupUpload.single('backup')(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      fail(res, 413, 'Bot Manager backup archive exceeds 250 MB limit', 'UPLOAD_TOO_LARGE');
+      return;
+    }
+
+    fail(res, 400, error instanceof Error ? error.message : 'Bot Manager backup upload failed', 'UPLOAD_ERROR');
+  });
+};
 
 const providers = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter', 'deepseek', 'zhipu', 'vllm'] as const;
 const fileKinds = ['identity', 'memory', 'cron', 'skill', 'session', 'tool', 'user', 'system', 'other'] as const;
@@ -91,6 +112,12 @@ const fileDeleteSchema = z.object({
 const backupSchema = z.object({
   mode: z.enum(['full', 'custom']),
   identityIds: z.array(z.string()).optional().default([]),
+  confirmText: z.literal('PERSONALITY'),
+  password: z.string().min(1),
+  secretKey: z.string().min(16)
+});
+
+const backupImportSchema = z.object({
   confirmText: z.literal('PERSONALITY'),
   password: z.string().min(1),
   secretKey: z.string().min(16)
@@ -858,6 +885,11 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
     activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null
   };
   addArchiveFile({ name: 'manifest.json', content: JSON.stringify(manifest, null, 2) });
+  const generalConfig = await ensureGeneralConfig();
+  addArchiveFile({
+    name: 'configs/general.json',
+    content: JSON.stringify(stripInternalGeneralConfig(generalConfig.config), null, 2)
+  });
 
   for (const identity of identities) {
     addArchiveFile({
@@ -923,6 +955,210 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
   });
 
   return files;
+};
+
+const stripPublicSecretMarkersForImport = (value: unknown): unknown => {
+  if (isPublicSecretMarker(value)) return '';
+  if (Array.isArray(value)) return value.map((item) => stripPublicSecretMarkersForImport(item));
+  if (!isPlainRecord(value)) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, stripPublicSecretMarkersForImport(entry)]));
+};
+
+const inferWorkspaceFileKind = (workspacePath: string): (typeof fileKinds)[number] => {
+  const lower = workspacePath.toLowerCase();
+  if (lower === 'agents.md' || lower === 'soul.md' || lower === 'lore.md') return 'identity';
+  if (lower === 'memory.md' || lower.startsWith('memory/')) return 'memory';
+  if (lower.startsWith('cron/')) return 'cron';
+  if (lower.startsWith('sessions/')) return 'session';
+  if (lower.startsWith('skills/')) return 'skill';
+  if (lower === 'tools.md' || lower.startsWith('tools/')) return 'tool';
+  if (lower === 'user.md') return 'user';
+  if (lower === 'heartbeat.md') return 'system';
+  return 'other';
+};
+
+const contentTypeForWorkspacePath = (workspacePath: string) => {
+  const lower = workspacePath.toLowerCase();
+  if (lower.endsWith('.json') || lower.endsWith('.jsonl')) return 'application/json';
+  if (lower.endsWith('.md')) return 'text/markdown';
+  return 'text/plain';
+};
+
+const contentTypeForProfileArchivePath = (archivePath: string) => {
+  const lower = archivePath.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return 'application/octet-stream';
+};
+
+const parseBackupJson = <T>(entry: Buffer, label: string): T => {
+  try {
+    return JSON.parse(entry.toString('utf8')) as T;
+  } catch {
+    throw new Error(`Invalid backup JSON: ${label}`);
+  }
+};
+
+const createImportSlug = async (preferredSlug: string, name: string) => {
+  const base = slugify(preferredSlug || name);
+  const existing = await prisma.botManagerIdentity.findUnique({ where: { slug: base }, select: { id: true } });
+  if (!existing) return base;
+  return createUniqueSlug(name);
+};
+
+const importBotManagerBackupArchive = async (buffer: Buffer, actor: string) => {
+  const entries = readZip(buffer);
+  const entryMap = new Map(entries.map((entry) => [entry.name, entry.content]));
+  const identityEntries = entries
+    .map((entry) => ({ entry, match: entry.name.match(/^identities\/([^/]+)\/identity\.json$/) }))
+    .filter((item): item is { entry: { name: string; content: Buffer }; match: RegExpMatchArray } => Boolean(item.match));
+
+  if (!identityEntries.length) throw new Error('Backup archive does not include Bot Manager identities');
+
+  const existingIdentityCount = await prisma.botManagerIdentity.count();
+  const importIntoEmpty = existingIdentityCount === 0;
+  const result = {
+    importedIdentities: 0,
+    createdIdentities: 0,
+    updatedIdentities: 0,
+    importedFiles: 0,
+    importedProfiles: 0,
+    generalConfigImported: false,
+    skippedFiles: [] as Array<{ path: string; reason: string }>
+  };
+
+  const generalConfigEntry = entryMap.get('configs/general.json');
+  if (generalConfigEntry) {
+    const importedConfig = parseBackupJson<Record<string, unknown>>(generalConfigEntry, 'configs/general.json');
+    const current = await ensureGeneralConfig();
+    await prisma.botManagerGeneralConfig.update({
+      where: { id: 'default' },
+      data: {
+        config: attachRuntimeSyncState(stripInternalGeneralConfig(importedConfig), getRuntimeSyncState(current.config)) as Prisma.InputJsonValue,
+        updatedBy: actor
+      }
+    });
+    result.generalConfigImported = true;
+  }
+
+  for (const { entry, match } of identityEntries) {
+    const archiveSlug = match[1];
+    const importedIdentity = parseBackupJson<Record<string, unknown>>(entry.content, entry.name);
+    const importedId = typeof importedIdentity.id === 'string' ? importedIdentity.id : '';
+    const importedSlug = typeof importedIdentity.slug === 'string' ? importedIdentity.slug : archiveSlug;
+    const name = typeof importedIdentity.name === 'string' && importedIdentity.name.trim() ? importedIdentity.name.trim() : importedSlug;
+    const roleTitle = typeof importedIdentity.roleTitle === 'string' && importedIdentity.roleTitle.trim()
+      ? importedIdentity.roleTitle.trim()
+      : 'Morneven assistant';
+    const description = typeof importedIdentity.description === 'string' ? importedIdentity.description : '';
+    const profileImageUrl = typeof importedIdentity.profileImageUrl === 'string' && importedIdentity.profileImageUrl ? importedIdentity.profileImageUrl : null;
+    const runtimeProvider = providers.includes(importedIdentity.runtimeProvider as (typeof providers)[number])
+      ? importedIdentity.runtimeProvider as string
+      : null;
+    const runtimeOpenRouterProfileId = typeof importedIdentity.runtimeOpenRouterProfileId === 'string' && importedIdentity.runtimeOpenRouterProfileId
+      ? importedIdentity.runtimeOpenRouterProfileId
+      : null;
+    const submittedChannels = stripPublicSecretMarkersForImport(normalizeChannelConfigAliases(importedIdentity.channels));
+    const submittedSettings = stripPublicSecretMarkersForImport(importedIdentity.settings);
+    const existingFilters = [
+      importedId ? { id: importedId } : null,
+      importedSlug ? { slug: importedSlug } : null
+    ].filter(Boolean) as Prisma.BotManagerIdentityWhereInput[];
+    const existing = existingFilters.length
+      ? await prisma.botManagerIdentity.findFirst({ where: { OR: existingFilters } })
+      : null;
+    const importedIsActive = importIntoEmpty && importedIdentity.isActive === true;
+    const importedIsMain = importIntoEmpty && importedIdentity.isMain === true;
+
+    const identity = existing
+      ? await prisma.botManagerIdentity.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          roleTitle,
+          description,
+          profileImageUrl: profileImageUrl ?? existing.profileImageUrl,
+          channels: mergeSubmittedSecretsForStorage(existing.channels, submittedChannels) as Prisma.InputJsonValue,
+          settings: mergeSubmittedSecretsForStorage(existing.settings, submittedSettings) as Prisma.InputJsonValue,
+          runtimeProvider,
+          runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null,
+          updatedBy: actor
+        }
+      })
+      : await prisma.botManagerIdentity.create({
+        data: {
+          slug: await createImportSlug(importedSlug, name),
+          name,
+          roleTitle,
+          description,
+          profileImageUrl,
+          channels: encryptSensitiveConfig(submittedChannels) as Prisma.InputJsonValue,
+          settings: encryptSensitiveConfig(submittedSettings) as Prisma.InputJsonValue,
+          isActive: importedIsActive,
+          isMain: importedIsMain,
+          runtimeProvider,
+          runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null,
+          createdBy: actor,
+          updatedBy: actor
+        }
+      });
+
+    result.importedIdentities += 1;
+    result.updatedIdentities += existing ? 1 : 0;
+    result.createdIdentities += existing ? 0 : 1;
+
+    const workspacePrefix = `identities/${archiveSlug}/workspace/`;
+    for (const workspaceEntry of entries.filter((item) => item.name.startsWith(workspacePrefix))) {
+      const relativePath = workspaceEntry.name.slice(workspacePrefix.length);
+      const workspacePath = normalizeWorkspacePath(relativePath);
+      if (!workspacePath || workspacePath.endsWith('.missing.txt')) {
+        result.skippedFiles.push({ path: workspaceEntry.name, reason: 'Invalid workspace path' });
+        continue;
+      }
+      await saveIdentityFile(identity, {
+        path: workspacePath,
+        kind: inferWorkspaceFileKind(workspacePath),
+        content: workspaceEntry.content.toString('utf8'),
+        contentType: contentTypeForWorkspacePath(workspacePath)
+      }, actor);
+      result.importedFiles += 1;
+    }
+
+    const profileEntry = entries.find((item) => item.name.startsWith(`identities/${archiveSlug}/profile/`) && !item.name.endsWith('/missing.txt'));
+    if (profileEntry) {
+      const safeName = (profileEntry.name.split('/').pop() ?? 'profile-image').replace(/[^a-zA-Z0-9._-]/g, '_') || 'profile-image';
+      const contentType = contentTypeForProfileArchivePath(safeName);
+      const objectPath = `bot-manager/profiles/${identity.id}/${Date.now()}-${safeName}`;
+      const scan = await scanUploadBuffer({ objectPath, buffer: profileEntry.content, mime: contentType });
+      if (scan.verdict === 'blocked' || scan.verdict === 'quarantined') {
+        result.skippedFiles.push({ path: profileEntry.name, reason: scan.reason ?? 'Profile image blocked' });
+      } else {
+        const stored = await saveFileToStorage({ objectPath, buffer: profileEntry.content, contentType });
+        await prisma.botManagerIdentity.update({
+          where: { id: identity.id },
+          data: {
+            profileImageObjectPath: stored.objectPath,
+            profileImageUrl: stored.url,
+            updatedBy: actor
+          }
+        });
+        result.importedProfiles += 1;
+      }
+    }
+  }
+
+  if (importIntoEmpty) await ensureMainIdentity(actor);
+  await markRuntimeDirty(actor, 'Bot Manager backup imported');
+  await writeAudit(prisma, {
+    actor,
+    action: 'bot-manager.backup.import',
+    entity: 'BotManagerIdentity',
+    metadata: result
+  });
+
+  return result;
 };
 
 const runBotManagerBackupJob = async (jobId: string, actor: string, identityIds: string[], downloadName: string) => {
@@ -3492,6 +3728,33 @@ botManagerRouter.post('/backups', async (req, res) => {
     void runBotManagerBackupJob(job.id, req.user!.username, identityIds, downloadName);
   });
   return res.status(202).json({ success: true, data: serializeBackupJob(job) });
+});
+
+botManagerRouter.post('/backups/import', backupUploadSingle, async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = backupImportSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!req.file?.buffer) return fail(res, 422, 'Backup archive is required', 'VALIDATION_ERROR');
+
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+    await verifyAccountPassword(req, parsed.data.password);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Backup import authorization failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN');
+  }
+
+  try {
+    const result = await importBotManagerBackupArchive(req.file.buffer, req.user!.username);
+    return ok(res, {
+      ...result,
+      fileName: req.file.originalname || 'bot-manager-backup.zip',
+      size: req.file.size,
+      sha256: createHash('sha256').update(req.file.buffer).digest('hex')
+    });
+  } catch (error) {
+    return fail(res, 400, error instanceof Error ? error.message : 'Bot Manager backup import failed', 'BACKUP_IMPORT_FAILED');
+  }
 });
 
 botManagerRouter.get('/backups/:id', async (req, res) => {

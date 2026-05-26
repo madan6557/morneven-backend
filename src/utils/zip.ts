@@ -1,3 +1,5 @@
+import { inflateRawSync } from 'node:zlib';
+
 const crcTable = (() => {
   const table = new Uint32Array(256);
   for (let i = 0; i < 256; i += 1) {
@@ -28,6 +30,60 @@ const le = (value: number, bytes: number) => {
 export type ZipFile = {
   name: string;
   content: string | Buffer;
+};
+
+export type ZipEntry = {
+  name: string;
+  content: Buffer;
+};
+
+const normalizeZipEntryName = (name: string) => {
+  const normalized = name.replace(/\\/g, '/');
+  if (!normalized || normalized.includes('\0')) throw new Error('Invalid ZIP entry name');
+  if (normalized.startsWith('/') || /^[a-zA-Z]:/.test(normalized)) throw new Error('Invalid ZIP entry path');
+  const segments = normalized.split('/');
+  if (segments.some((segment) => segment === '..')) throw new Error('Invalid ZIP entry path');
+  return normalized;
+};
+
+export const readZip = (archive: Buffer): ZipEntry[] => {
+  const entries: ZipEntry[] = [];
+  let offset = 0;
+
+  while (offset + 30 <= archive.length) {
+    const signature = archive.readUInt32LE(offset);
+    if (signature === 0x02014b50 || signature === 0x06054b50) break;
+    if (signature !== 0x04034b50) throw new Error('Unsupported ZIP archive structure');
+
+    const flags = archive.readUInt16LE(offset + 6);
+    const method = archive.readUInt16LE(offset + 8);
+    if (flags & 0x08) throw new Error('ZIP data descriptors are not supported');
+    if (method !== 0 && method !== 8) throw new Error('ZIP entry compression is not supported');
+
+    const compressedSize = archive.readUInt32LE(offset + 18);
+    const uncompressedSize = archive.readUInt32LE(offset + 22);
+    const fileNameLength = archive.readUInt16LE(offset + 26);
+    const extraLength = archive.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + fileNameLength + extraLength;
+    const dataEnd = dataStart + compressedSize;
+
+    if (nameStart + fileNameLength > archive.length || dataEnd > archive.length) {
+      throw new Error('ZIP archive is truncated');
+    }
+
+    const name = normalizeZipEntryName(archive.subarray(nameStart, nameStart + fileNameLength).toString('utf8'));
+    if (!name.endsWith('/')) {
+      const compressed = archive.subarray(dataStart, dataEnd);
+      const content = method === 8 ? inflateRawSync(compressed) : Buffer.from(compressed);
+      if (content.length !== uncompressedSize) throw new Error(`ZIP entry size mismatch: ${name}`);
+      entries.push({ name, content });
+    }
+
+    offset = dataEnd;
+  }
+
+  return entries;
 };
 
 export const makeZip = (files: ZipFile[]) => {
