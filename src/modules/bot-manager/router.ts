@@ -799,7 +799,8 @@ const formatBotManagerBackupName = (date: Date) => {
   return `bot-manager_${dd}${mm}${yy}${hh}${ss}.zip`;
 };
 
-const identityWorkspaceObjectPrefix = (slug: string) => `bot-manager/workspace/${slug}/`;
+const botManagerWorkspaceObjectPrefix = 'bot-manager/workspace/';
+const identityWorkspaceObjectPrefix = (slug: string) => `${botManagerWorkspaceObjectPrefix}${slug}/`;
 
 const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFile[]> => {
   const where = identityIds.length ? { id: { in: identityIds } } : {};
@@ -815,10 +816,40 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
   ]);
   const files: ZipFile[] = [];
   const archivePaths = new Set<string>();
+  const archivedWorkspaceObjectPaths = new Set<string>();
+  const workspaceObjectManifest: Array<{
+    objectPath: string;
+    archivePath: string;
+    identitySlug: string | null;
+    tracked: boolean;
+  }> = [];
   const addArchiveFile = (file: ZipFile) => {
     if (archivePaths.has(file.name)) return;
     archivePaths.add(file.name);
     files.push(file);
+  };
+  const addWorkspaceObjectFile = async (
+    objectPath: string,
+    archivePath: string,
+    details: { identitySlug: string | null; tracked: boolean }
+  ) => {
+    if (archivedWorkspaceObjectPaths.has(objectPath)) return;
+    archivedWorkspaceObjectPaths.add(objectPath);
+    workspaceObjectManifest.push({
+      objectPath,
+      archivePath,
+      identitySlug: details.identitySlug,
+      tracked: details.tracked
+    });
+    try {
+      const stored = await readFileWithMetadataFromStorage(objectPath);
+      addArchiveFile({ name: archivePath, content: stored.buffer });
+    } catch {
+      addArchiveFile({
+        name: `${archivePath}.missing.txt`,
+        content: `Storage object not found: ${objectPath}`
+      });
+    }
   };
   const manifest = {
     generatedAt: new Date().toISOString(),
@@ -835,18 +866,11 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
     });
     const trackedObjectPaths = new Set(identity.files.map((file) => file.objectPath));
     for (const workspaceFile of identity.files.sort((left, right) => left.path.localeCompare(right.path))) {
-      try {
-        const stored = await readFileWithMetadataFromStorage(workspaceFile.objectPath);
-        addArchiveFile({
-          name: `identities/${identity.slug}/workspace/${workspaceFile.path}`,
-          content: stored.buffer
-        });
-      } catch {
-        addArchiveFile({
-          name: `identities/${identity.slug}/workspace/${workspaceFile.path}.missing.txt`,
-          content: `Storage object not found: ${workspaceFile.objectPath}`
-        });
-      }
+      await addWorkspaceObjectFile(
+        workspaceFile.objectPath,
+        `identities/${identity.slug}/workspace/${workspaceFile.path}`,
+        { identitySlug: identity.slug, tracked: true }
+      );
     }
 
     const workspacePrefix = identityWorkspaceObjectPrefix(identity.slug);
@@ -854,18 +878,11 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
       if (trackedObjectPaths.has(object.objectPath)) continue;
       const relativePath = object.objectPath.slice(workspacePrefix.length);
       if (!relativePath) continue;
-      try {
-        const stored = await readFileWithMetadataFromStorage(object.objectPath);
-        addArchiveFile({
-          name: `identities/${identity.slug}/workspace/${relativePath}`,
-          content: stored.buffer
-        });
-      } catch {
-        addArchiveFile({
-          name: `identities/${identity.slug}/workspace/${relativePath}.missing.txt`,
-          content: `Storage object not found: ${object.objectPath}`
-        });
-      }
+      await addWorkspaceObjectFile(
+        object.objectPath,
+        `identities/${identity.slug}/workspace/${relativePath}`,
+        { identitySlug: identity.slug, tracked: false }
+      );
     }
 
     if (identity.profileImageObjectPath) {
@@ -883,6 +900,27 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
       }
     }
   }
+
+  if (!identityIds.length) {
+    for (const object of storageObjects.filter((item) => item.objectPath.startsWith(botManagerWorkspaceObjectPrefix))) {
+      const relativePath = object.objectPath.slice(botManagerWorkspaceObjectPrefix.length);
+      if (!relativePath) continue;
+      await addWorkspaceObjectFile(
+        object.objectPath,
+        `workspace-objects/${relativePath}`,
+        { identitySlug: null, tracked: false }
+      );
+    }
+  }
+
+  addArchiveFile({
+    name: 'workspace-objects/manifest.json',
+    content: JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      workspaceObjectCount: workspaceObjectManifest.length,
+      objects: workspaceObjectManifest
+    }, null, 2)
+  });
 
   return files;
 };
