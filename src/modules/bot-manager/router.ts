@@ -6,7 +6,7 @@ import { EntityType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { prisma } from '../../config/prisma.js';
-import { createReadStreamFromStorage, deleteFileFromStorage, readFileWithMetadataFromStorage, saveFileToStorage } from '../../config/storage.js';
+import { createReadStreamFromStorage, deleteFileFromStorage, listStorageObjects, readFileWithMetadataFromStorage, saveFileToStorage } from '../../config/storage.js';
 import { auth, isPl7Admin, isPl7Author } from '../../middleware/auth.js';
 import { scanUploadBuffer } from '../../security/files/scanner.js';
 import { securityLimiters } from '../../security/rate-limit/limiters.js';
@@ -799,52 +799,84 @@ const formatBotManagerBackupName = (date: Date) => {
   return `bot-manager_${dd}${mm}${yy}${hh}${ss}.zip`;
 };
 
+const identityWorkspaceObjectPrefix = (slug: string) => `bot-manager/workspace/${slug}/`;
+
 const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFile[]> => {
   const where = identityIds.length ? { id: { in: identityIds } } : {};
-  const identities = await ensureIdentityListSecretsEncrypted(
-    await prisma.botManagerIdentity.findMany({
-      where,
-      include: { files: true },
-      orderBy: [{ isActive: 'desc' }, { name: 'asc' }]
-    })
-  );
+  const [identities, storageObjects] = await Promise.all([
+    ensureIdentityListSecretsEncrypted(
+      await prisma.botManagerIdentity.findMany({
+        where,
+        include: { files: true },
+        orderBy: [{ isActive: 'desc' }, { name: 'asc' }]
+      })
+    ),
+    listStorageObjects()
+  ]);
   const files: ZipFile[] = [];
+  const archivePaths = new Set<string>();
+  const addArchiveFile = (file: ZipFile) => {
+    if (archivePaths.has(file.name)) return;
+    archivePaths.add(file.name);
+    files.push(file);
+  };
   const manifest = {
     generatedAt: new Date().toISOString(),
     mode: identityIds.length ? 'custom' : 'full',
     identityCount: identities.length,
     activeIdentityId: identities.find((identity) => identity.isActive)?.id ?? null
   };
-  files.push({ name: 'manifest.json', content: JSON.stringify(manifest, null, 2) });
+  addArchiveFile({ name: 'manifest.json', content: JSON.stringify(manifest, null, 2) });
 
   for (const identity of identities) {
-    files.push({
+    addArchiveFile({
       name: `identities/${identity.slug}/identity.json`,
       content: JSON.stringify(serializeIdentity(identity), null, 2)
     });
+    const trackedObjectPaths = new Set(identity.files.map((file) => file.objectPath));
     for (const workspaceFile of identity.files.sort((left, right) => left.path.localeCompare(right.path))) {
       try {
         const stored = await readFileWithMetadataFromStorage(workspaceFile.objectPath);
-        files.push({
+        addArchiveFile({
           name: `identities/${identity.slug}/workspace/${workspaceFile.path}`,
           content: stored.buffer
         });
       } catch {
-        files.push({
+        addArchiveFile({
           name: `identities/${identity.slug}/workspace/${workspaceFile.path}.missing.txt`,
           content: `Storage object not found: ${workspaceFile.objectPath}`
         });
       }
     }
+
+    const workspacePrefix = identityWorkspaceObjectPrefix(identity.slug);
+    for (const object of storageObjects.filter((item) => item.objectPath.startsWith(workspacePrefix))) {
+      if (trackedObjectPaths.has(object.objectPath)) continue;
+      const relativePath = object.objectPath.slice(workspacePrefix.length);
+      if (!relativePath) continue;
+      try {
+        const stored = await readFileWithMetadataFromStorage(object.objectPath);
+        addArchiveFile({
+          name: `identities/${identity.slug}/workspace/${relativePath}`,
+          content: stored.buffer
+        });
+      } catch {
+        addArchiveFile({
+          name: `identities/${identity.slug}/workspace/${relativePath}.missing.txt`,
+          content: `Storage object not found: ${object.objectPath}`
+        });
+      }
+    }
+
     if (identity.profileImageObjectPath) {
       try {
         const stored = await readFileWithMetadataFromStorage(identity.profileImageObjectPath);
-        files.push({
+        addArchiveFile({
           name: `identities/${identity.slug}/profile/${identity.profileImageObjectPath.split('/').pop() ?? 'profile-image'}`,
           content: stored.buffer
         });
       } catch {
-        files.push({
+        addArchiveFile({
           name: `identities/${identity.slug}/profile/missing.txt`,
           content: `Storage object not found: ${identity.profileImageObjectPath}`
         });

@@ -49,6 +49,7 @@ const STORAGE_URL_RE = /https?:\/\/(?:[^/]+\.)?storageapi\.dev\/[^/]+\/(.+)/i;
 const S3_URL_RE = /https?:\/\/[^/]+\.s3\.(?:amazonaws\.com|[^/]+)\/(.+)/i;
 const S3_PROTOCOL_RE = /s3:\/\/[^/]+\/(.+)/i;
 const APP_ROUTE_RE = /^(?:lore\/(?:characters\/char-|creatures\/creature-|places\/place-|technology\/tech-|events\/(?:evt-|event-)|other\/other-)|projects\/proj-|gallery\/gal-|news\/news-|maps?|chat)(?:[a-z0-9_-]+)?$/i;
+const BOT_MANAGER_WORKSPACE_PREFIX = 'bot-manager/workspace/';
 
 const asObject = (value: unknown): JsonRecord => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -209,7 +210,8 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     extractionJobs,
     botManagerIdentities,
     botManagerFiles,
-    botManagerBackupJobs
+    botManagerBackupJobs,
+    storageObjects
   ] = await Promise.all([
     prisma.project.findMany({ select: { thumbnail: true, docs: true, meta: true } }),
     prisma.loreItem.findMany({ select: { id: true, category: true, thumbnail: true, metadata: true } }),
@@ -221,7 +223,8 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
     prisma.botManagerIdentity.findMany({ select: { profileImageObjectPath: true, profileImageUrl: true } }),
     prisma.botManagerIdentityFile.findMany({ select: { objectPath: true } }),
-    prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } })
+    prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
+    listStorageObjects()
   ]);
 
   const docsByEntity = new Map<string, Array<{ url: string; thumbnail?: string | null }>>();
@@ -282,6 +285,12 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
   for (const job of botManagerBackupJobs) {
     addPath(paths, job.artifactPath);
     addPath(paths, job.artifactUrl);
+  }
+
+  for (const object of storageObjects) {
+    if (object.objectPath.startsWith(BOT_MANAGER_WORKSPACE_PREFIX)) {
+      paths.add(object.objectPath);
+    }
   }
 
   return paths;
