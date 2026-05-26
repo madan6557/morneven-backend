@@ -175,6 +175,7 @@ Active shared documentation:
 - [Backend API Contract](../Document/Documentation/Backend/root-docs/2026-05-25-backend-api-contract-v01.md)
 - [Website Feature Documentation](../Document/Documentation/Website/docs/2026-05-25-website-feature-documentation-v01.md)
 - [Website Guidebook](../Document/Guide/Website/docs/2026-05-25-website-guidebook-v01.md)
-- [Document Index](../Document/Documentation/General/2026-05-25-document-index-v01.md)
+- [Bot Manager Guide](../Document/Guide/General/2026-05-27-bot-manager-guide-v01.md)
+- [Document Index](../Document/Documentation/General/2026-05-27-document-index-v02.md)
 
 When API, schema, extraction, migration, backup, security, or Bot Manager behavior changes, update the active `Document/` docs with the code change.
