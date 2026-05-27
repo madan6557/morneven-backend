@@ -1497,7 +1497,7 @@ const telegramMainTopicId = 'main';
 const normalizeTelegramTopicId = (value: unknown) => {
   if (value === undefined || value === null || value === '') return telegramMainTopicId;
   const text = String(value).trim();
-  if (!text || text === '0' || text.toLowerCase() === telegramMainTopicId) return telegramMainTopicId;
+  if (!text || text === '0' || text === '1' || text.toLowerCase() === telegramMainTopicId) return telegramMainTopicId;
   return text;
 };
 
@@ -1506,43 +1506,49 @@ const isTelegramMainTopic = (value: unknown) => normalizeTelegramTopicId(value) 
 const normalizeTelegramTopicLock = (value: unknown) => {
   const record = asJsonRecord(value as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const groups = Array.isArray(record.groups) ? record.groups : [];
+  const normalizedGroups = groups
+    .map((entry) => asJsonRecord(entry as Prisma.JsonValue))
+    .map((entry) => {
+      const chatId = textValue(entry.chatId ?? entry.chat_id);
+      if (!chatId) return null;
+      const allowedTopicIds = Array.isArray(entry.allowedTopicIds)
+        ? entry.allowedTopicIds
+          .map((topicId) => normalizeTelegramTopicId(topicId))
+          .filter((topicId) => topicId !== telegramMainTopicId)
+        : [];
+      const allowMainTopic = typeof entry.allowMainTopic === 'boolean' ? entry.allowMainTopic : true;
+      const allowedTopicSet = new Set(allowedTopicIds);
+      const rawPrimaryTopicId = normalizeTelegramTopicId(entry.primaryTopicId ?? entry.primary_thread_id ?? entry.primaryTopic);
+      const primaryTopicAllowed = rawPrimaryTopicId === telegramMainTopicId ? allowMainTopic : allowedTopicSet.has(rawPrimaryTopicId);
+      const fallbackPrimaryTopicId = allowedTopicIds[0] ?? (allowMainTopic ? telegramMainTopicId : '');
+      return {
+        chatId,
+        title: textValue(entry.title),
+        isForum: typeof entry.isForum === 'boolean' ? entry.isForum : true,
+        allowedTopicIds: Array.from(new Set(allowedTopicIds)),
+        allowMainTopic,
+        primaryTopicId: primaryTopicAllowed ? rawPrimaryTopicId : fallbackPrimaryTopicId,
+        updatedAt: textValue(entry.updatedAt) || new Date().toISOString()
+      };
+    })
+    .filter((entry): entry is {
+      chatId: string;
+      title: string;
+      isForum: boolean;
+      allowedTopicIds: string[];
+      allowMainTopic: boolean;
+      primaryTopicId: string;
+      updatedAt: string;
+    } => Boolean(entry));
+  const hasGroupRules = normalizedGroups.some((group) =>
+    group.allowMainTopic === false ||
+    group.allowedTopicIds.length > 0 ||
+    Boolean(group.primaryTopicId && group.primaryTopicId !== telegramMainTopicId)
+  );
   return {
-    enabled: record.enabled === true,
+    enabled: record.enabled === true || hasGroupRules,
     defaultPolicy: 'allow' as const,
-    groups: groups
-      .map((entry) => asJsonRecord(entry as Prisma.JsonValue))
-      .map((entry) => {
-        const chatId = textValue(entry.chatId ?? entry.chat_id);
-        if (!chatId) return null;
-        const allowedTopicIds = Array.isArray(entry.allowedTopicIds)
-          ? entry.allowedTopicIds
-            .map((topicId) => normalizeTelegramTopicId(topicId))
-            .filter((topicId) => topicId !== telegramMainTopicId)
-          : [];
-        const allowMainTopic = typeof entry.allowMainTopic === 'boolean' ? entry.allowMainTopic : true;
-        const allowedTopicSet = new Set(allowedTopicIds);
-        const rawPrimaryTopicId = normalizeTelegramTopicId(entry.primaryTopicId ?? entry.primary_thread_id ?? entry.primaryTopic);
-        const primaryTopicAllowed = rawPrimaryTopicId === telegramMainTopicId ? allowMainTopic : allowedTopicSet.has(rawPrimaryTopicId);
-        const fallbackPrimaryTopicId = allowedTopicIds[0] ?? (allowMainTopic ? telegramMainTopicId : '');
-        return {
-          chatId,
-          title: textValue(entry.title),
-          isForum: typeof entry.isForum === 'boolean' ? entry.isForum : true,
-          allowedTopicIds: Array.from(new Set(allowedTopicIds)),
-          allowMainTopic,
-          primaryTopicId: primaryTopicAllowed ? rawPrimaryTopicId : fallbackPrimaryTopicId,
-          updatedAt: textValue(entry.updatedAt) || new Date().toISOString()
-        };
-      })
-      .filter((entry): entry is {
-        chatId: string;
-        title: string;
-        isForum: boolean;
-        allowedTopicIds: string[];
-        allowMainTopic: boolean;
-        primaryTopicId: string;
-        updatedAt: string;
-      } => Boolean(entry))
+    groups: normalizedGroups
   };
 };
 
