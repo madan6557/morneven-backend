@@ -165,6 +165,7 @@ type IdentityRecord = {
 const defaultGeneralConfig = {
   runtimeMode: 'single-active-personality',
   timezone: 'Asia/Singapore',
+  generalInformation: '',
   globalRules: 'Follow Morneven website policy and active personality files.',
   gateway: {
     restartAfterSync: false,
@@ -1496,50 +1497,80 @@ const contentHash = (content: string) => createHash('sha256').update(content).di
 
 const runtimeGlobalRulesStart = '<!-- MORNEVEN_GLOBAL_RULES_START -->';
 const runtimeGlobalRulesEnd = '<!-- MORNEVEN_GLOBAL_RULES_END -->';
+const runtimeGeneralInformationStart = '<!-- MORNEVEN_GENERAL_INFORMATION_START -->';
+const runtimeGeneralInformationEnd = '<!-- MORNEVEN_GENERAL_INFORMATION_END -->';
 const runtimeGlobalRulesBlockPattern = new RegExp(
   `\\n*${escapeRegExp(runtimeGlobalRulesStart)}[\\s\\S]*?${escapeRegExp(runtimeGlobalRulesEnd)}\\n*`,
   'g'
 );
+const runtimeGeneralInformationBlockPattern = new RegExp(
+  `\\n*${escapeRegExp(runtimeGeneralInformationStart)}[\\s\\S]*?${escapeRegExp(runtimeGeneralInformationEnd)}\\n*`,
+  'g'
+);
+
+const getGeneralInformation = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const value = asJsonRecord(config).generalInformation;
+  return typeof value === 'string' ? value.trim() : '';
+};
 
 const getGlobalRules = (config: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
   const value = asJsonRecord(config).globalRules;
   return typeof value === 'string' ? value.trim() : '';
 };
 
-const stripRuntimeGlobalRulesBlock = (content: string) =>
-  content.replace(runtimeGlobalRulesBlockPattern, '\n\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+const stripRuntimeManagedBlocks = (content: string) =>
+  content
+    .replace(runtimeGeneralInformationBlockPattern, '\n\n')
+    .replace(runtimeGlobalRulesBlockPattern, '\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd();
 
-const injectRuntimeGlobalRules = (
+const injectRuntimeGeneralConfig = (
   content: string,
   config: Prisma.JsonValue | Record<string, unknown> | null | undefined
 ) => {
+  const generalInformation = getGeneralInformation(config);
   const globalRules = getGlobalRules(config);
-  const baseContent = stripRuntimeGlobalRulesBlock(content);
-  if (!globalRules) return baseContent;
+  const baseContent = stripRuntimeManagedBlocks(content);
+  const blocks = [baseContent];
 
-  return [
-    baseContent,
-    '',
-    runtimeGlobalRulesStart,
-    '## Morneven Global Rules',
-    '',
-    globalRules,
-    '',
-    'These rules come from Bot Manager General Config and override lower priority personality notes when they conflict.',
-    runtimeGlobalRulesEnd
-  ].filter((line) => line !== '').join('\n').trimEnd();
+  if (generalInformation) {
+    blocks.push(
+      '',
+      runtimeGeneralInformationStart,
+      '## Morneven General Information',
+      '',
+      generalInformation,
+      runtimeGeneralInformationEnd
+    );
+  }
+
+  if (globalRules) {
+    blocks.push(
+      '',
+      runtimeGlobalRulesStart,
+      '## Morneven Global Rules',
+      '',
+      globalRules,
+      '',
+      'These rules come from Bot Manager General Config and override lower priority personality notes when they conflict.',
+      runtimeGlobalRulesEnd
+    );
+  }
+
+  return blocks.filter((line) => line !== '').join('\n').trimEnd();
 };
 
 const isAgentsWorkspacePath = (workspacePath: string) => workspacePath.toLowerCase() === 'agents.md';
 
 const toStoredWorkspaceContent = (workspacePath: string, content: string) =>
-  isAgentsWorkspacePath(workspacePath) ? stripRuntimeGlobalRulesBlock(content) : content;
+  isAgentsWorkspacePath(workspacePath) ? stripRuntimeManagedBlocks(content) : content;
 
 const toRuntimeWorkspaceContent = (
   workspacePath: string,
   content: string,
   config: Prisma.JsonValue | Record<string, unknown> | null | undefined
-) => (isAgentsWorkspacePath(workspacePath) ? injectRuntimeGlobalRules(content, config) : content);
+) => (isAgentsWorkspacePath(workspacePath) ? injectRuntimeGeneralConfig(content, config) : content);
 
 const formatSkillList = (skills: ReturnType<typeof asLoreSkills>) =>
   markdownList(
@@ -2639,8 +2670,8 @@ const loadRuntimeIdentityFiles = async (
     });
   }
 
-  if (!hasAgentsFile && getGlobalRules(config)) {
-    const content = injectRuntimeGlobalRules(`# ${identity.name} Agent\n\nUse the active Morneven personality workspace.`, config);
+  if (!hasAgentsFile && (getGeneralInformation(config) || getGlobalRules(config))) {
+    const content = injectRuntimeGeneralConfig(`# ${identity.name} Agent\n\nUse the active Morneven personality workspace.`, config);
     files.unshift({
       id: 'runtime-managed-agents',
       path: 'AGENTS.md',
