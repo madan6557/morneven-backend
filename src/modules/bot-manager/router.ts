@@ -1623,10 +1623,14 @@ const mergeTelegramTopicRegistry = (existing: unknown, incoming: unknown) => {
       groupsByChat.set(group.chatId, group);
       continue;
     }
-    currentGroup.title = group.title || currentGroup.title;
+    if (group.source === 'manual') {
+      currentGroup.title = group.title || currentGroup.title;
+    } else if (currentGroup.source !== 'manual') {
+      currentGroup.title = group.title || currentGroup.title;
+    }
     currentGroup.isForum = group.isForum;
     currentGroup.lastSeenAt = group.lastSeenAt || currentGroup.lastSeenAt;
-    currentGroup.source = currentGroup.source === 'manual' ? 'manual' : group.source;
+    currentGroup.source = currentGroup.source === 'manual' || group.source === 'manual' ? 'manual' : group.source;
     const topicsById = new Map(currentGroup.topics.map((topic) => [topic.messageThreadId, topic]));
     for (const topic of group.topics) {
       const currentTopic = topicsById.get(topic.messageThreadId);
@@ -1634,9 +1638,13 @@ const mergeTelegramTopicRegistry = (existing: unknown, incoming: unknown) => {
         currentGroup.topics.push(topic);
         continue;
       }
-      currentTopic.title = topic.title || currentTopic.title;
+      if (topic.source === 'manual') {
+        currentTopic.title = topic.title || currentTopic.title;
+      } else if (currentTopic.source !== 'manual') {
+        currentTopic.title = topic.title || currentTopic.title;
+      }
       currentTopic.lastSeenAt = topic.lastSeenAt || currentTopic.lastSeenAt;
-      currentTopic.source = currentTopic.source === 'manual' ? 'manual' : topic.source;
+      currentTopic.source = currentTopic.source === 'manual' || topic.source === 'manual' ? 'manual' : topic.source;
     }
   }
 
