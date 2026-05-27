@@ -148,6 +148,7 @@ const telegramTopicLockGroupSchema = z.object({
   isForum: z.boolean().optional().default(true),
   allowedTopicIds: z.array(z.union([z.string(), z.number()])).optional().default([]),
   allowMainTopic: z.boolean().optional().default(true),
+  primaryTopicId: z.union([z.string(), z.number()]).optional().nullable(),
   updatedAt: z.string().datetime().optional()
 });
 
@@ -1518,12 +1519,18 @@ const normalizeTelegramTopicLock = (value: unknown) => {
             .map((topicId) => normalizeTelegramTopicId(topicId))
             .filter((topicId) => topicId !== telegramMainTopicId)
           : [];
+        const allowMainTopic = typeof entry.allowMainTopic === 'boolean' ? entry.allowMainTopic : true;
+        const allowedTopicSet = new Set(allowedTopicIds);
+        const rawPrimaryTopicId = normalizeTelegramTopicId(entry.primaryTopicId ?? entry.primary_thread_id ?? entry.primaryTopic);
+        const primaryTopicAllowed = rawPrimaryTopicId === telegramMainTopicId ? allowMainTopic : allowedTopicSet.has(rawPrimaryTopicId);
+        const fallbackPrimaryTopicId = allowedTopicIds[0] ?? (allowMainTopic ? telegramMainTopicId : '');
         return {
           chatId,
           title: textValue(entry.title),
           isForum: typeof entry.isForum === 'boolean' ? entry.isForum : true,
           allowedTopicIds: Array.from(new Set(allowedTopicIds)),
-          allowMainTopic: typeof entry.allowMainTopic === 'boolean' ? entry.allowMainTopic : true,
+          allowMainTopic,
+          primaryTopicId: primaryTopicAllowed ? rawPrimaryTopicId : fallbackPrimaryTopicId,
           updatedAt: textValue(entry.updatedAt) || new Date().toISOString()
         };
       })
@@ -1533,6 +1540,7 @@ const normalizeTelegramTopicLock = (value: unknown) => {
         isForum: boolean;
         allowedTopicIds: string[];
         allowMainTopic: boolean;
+        primaryTopicId: string;
         updatedAt: string;
       } => Boolean(entry))
   };
