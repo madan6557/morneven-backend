@@ -142,6 +142,29 @@ const syncTokenSchema = z.object({
 
 const runtimeActionSchema = z.enum(['start', 'stop', 'restart']);
 
+const telegramTopicLockGroupSchema = z.object({
+  chatId: z.string().trim().min(1).max(80),
+  title: z.string().trim().max(160).optional().default(''),
+  isForum: z.boolean().optional().default(true),
+  allowedTopicIds: z.array(z.union([z.string(), z.number()])).optional().default([]),
+  allowMainTopic: z.boolean().optional().default(true),
+  updatedAt: z.string().datetime().optional()
+});
+
+const telegramTopicLockSchema = z.object({
+  enabled: z.boolean().optional().default(false),
+  defaultPolicy: z.literal('allow').optional().default('allow'),
+  groups: z.array(telegramTopicLockGroupSchema).optional().default([])
+});
+
+const telegramManualTopicSchema = z.object({
+  chatId: z.string().trim().min(1).max(80),
+  title: z.string().trim().max(160).optional().default(''),
+  isForum: z.boolean().optional().default(true),
+  messageThreadId: z.union([z.string(), z.number()]).optional().nullable(),
+  topicTitle: z.string().trim().max(160).optional().default('')
+});
+
 type IdentityWithFiles = Prisma.BotManagerIdentityGetPayload<{ include: { files: true } }>;
 type IdentityRecord = {
   id: string;
@@ -1468,6 +1491,163 @@ type GeneratedDefaultFile = {
 
 const textValue = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
+const telegramMainTopicId = 'main';
+
+const normalizeTelegramTopicId = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return telegramMainTopicId;
+  const text = String(value).trim();
+  if (!text || text === '0' || text.toLowerCase() === telegramMainTopicId) return telegramMainTopicId;
+  return text;
+};
+
+const isTelegramMainTopic = (value: unknown) => normalizeTelegramTopicId(value) === telegramMainTopicId;
+
+const normalizeTelegramTopicLock = (value: unknown) => {
+  const record = asJsonRecord(value as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const groups = Array.isArray(record.groups) ? record.groups : [];
+  return {
+    enabled: record.enabled === true,
+    defaultPolicy: 'allow' as const,
+    groups: groups
+      .map((entry) => asJsonRecord(entry as Prisma.JsonValue))
+      .map((entry) => {
+        const chatId = textValue(entry.chatId ?? entry.chat_id);
+        if (!chatId) return null;
+        const allowedTopicIds = Array.isArray(entry.allowedTopicIds)
+          ? entry.allowedTopicIds
+            .map((topicId) => normalizeTelegramTopicId(topicId))
+            .filter((topicId) => topicId !== telegramMainTopicId)
+          : [];
+        return {
+          chatId,
+          title: textValue(entry.title),
+          isForum: typeof entry.isForum === 'boolean' ? entry.isForum : true,
+          allowedTopicIds: Array.from(new Set(allowedTopicIds)),
+          allowMainTopic: typeof entry.allowMainTopic === 'boolean' ? entry.allowMainTopic : true,
+          updatedAt: textValue(entry.updatedAt) || new Date().toISOString()
+        };
+      })
+      .filter((entry): entry is {
+        chatId: string;
+        title: string;
+        isForum: boolean;
+        allowedTopicIds: string[];
+        allowMainTopic: boolean;
+        updatedAt: string;
+      } => Boolean(entry))
+  };
+};
+
+const normalizeTelegramTopicRegistry = (value: unknown) => {
+  const record = asJsonRecord(value as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const groups = Array.isArray(record.groups) ? record.groups : [];
+  return {
+    groups: groups
+      .map((entry) => asJsonRecord(entry as Prisma.JsonValue))
+      .map((entry) => {
+        const chatId = textValue(entry.chatId ?? entry.chat_id);
+        if (!chatId) return null;
+        const topics = Array.isArray(entry.topics) ? entry.topics : [];
+        const normalizedTopics = topics
+          .map((topic) => asJsonRecord(topic as Prisma.JsonValue))
+          .map((topic) => ({
+            messageThreadId: normalizeTelegramTopicId(topic.messageThreadId ?? topic.message_thread_id),
+            title: textValue(topic.title),
+            lastSeenAt: textValue(topic.lastSeenAt) || new Date().toISOString(),
+            source: textValue(topic.source) === 'manual' ? 'manual' as const : 'observed' as const
+          }));
+        return {
+          chatId,
+          title: textValue(entry.title),
+          isForum: typeof entry.isForum === 'boolean' ? entry.isForum : true,
+          lastSeenAt: textValue(entry.lastSeenAt) || new Date().toISOString(),
+          source: textValue(entry.source) === 'manual' ? 'manual' as const : 'observed' as const,
+          topics: normalizedTopics.length
+            ? normalizedTopics
+            : [{
+              messageThreadId: telegramMainTopicId,
+              title: 'Main topic',
+              lastSeenAt: textValue(entry.lastSeenAt) || new Date().toISOString(),
+              source: textValue(entry.source) === 'manual' ? 'manual' as const : 'observed' as const
+            }]
+        };
+      })
+      .filter((entry): entry is {
+        chatId: string;
+        title: string;
+        isForum: boolean;
+        lastSeenAt: string;
+        source: 'observed' | 'manual';
+        topics: Array<{ messageThreadId: string; title: string; lastSeenAt: string; source: 'observed' | 'manual' }>;
+      } => Boolean(entry))
+  };
+};
+
+const getTelegramChannelConfig = (channels: unknown) =>
+  asJsonRecord(asJsonRecord(normalizeChannelConfigAliases(channels) as Prisma.JsonValue | Record<string, unknown> | null | undefined).telegram as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+
+const serializeTelegramTopics = (identity: IdentityRecord) => {
+  const telegram = getTelegramChannelConfig(identity.channels);
+  return {
+    identityId: identity.id,
+    topicLock: normalizeTelegramTopicLock(telegram.topicLock),
+    topicRegistry: normalizeTelegramTopicRegistry(telegram.topicRegistry)
+  };
+};
+
+const mergeTelegramTopicRegistry = (existing: unknown, incoming: unknown) => {
+  const current = normalizeTelegramTopicRegistry(existing);
+  const next = normalizeTelegramTopicRegistry(incoming);
+  const groupsByChat = new Map(current.groups.map((group) => [group.chatId, {
+    ...group,
+    topics: [...group.topics]
+  }]));
+
+  for (const group of next.groups) {
+    const currentGroup = groupsByChat.get(group.chatId);
+    if (!currentGroup) {
+      groupsByChat.set(group.chatId, group);
+      continue;
+    }
+    currentGroup.title = group.title || currentGroup.title;
+    currentGroup.isForum = group.isForum;
+    currentGroup.lastSeenAt = group.lastSeenAt || currentGroup.lastSeenAt;
+    currentGroup.source = currentGroup.source === 'manual' ? 'manual' : group.source;
+    const topicsById = new Map(currentGroup.topics.map((topic) => [topic.messageThreadId, topic]));
+    for (const topic of group.topics) {
+      const currentTopic = topicsById.get(topic.messageThreadId);
+      if (!currentTopic) {
+        currentGroup.topics.push(topic);
+        continue;
+      }
+      currentTopic.title = topic.title || currentTopic.title;
+      currentTopic.lastSeenAt = topic.lastSeenAt || currentTopic.lastSeenAt;
+      currentTopic.source = currentTopic.source === 'manual' ? 'manual' : topic.source;
+    }
+  }
+
+  return { groups: Array.from(groupsByChat.values()) };
+};
+
+const mergeTelegramTopicIntoRegistry = (
+  existing: unknown,
+  input: { chatId: string; title?: string; isForum?: boolean; messageThreadId?: string | number | null; topicTitle?: string; source: 'observed' | 'manual' }
+) => mergeTelegramTopicRegistry(existing, {
+  groups: [{
+    chatId: input.chatId,
+    title: input.title ?? '',
+    isForum: input.isForum ?? true,
+    lastSeenAt: new Date().toISOString(),
+    source: input.source,
+    topics: [{
+      messageThreadId: normalizeTelegramTopicId(input.messageThreadId),
+      title: input.topicTitle || (isTelegramMainTopic(input.messageThreadId) ? 'Main topic' : ''),
+      lastSeenAt: new Date().toISOString(),
+      source: input.source
+    }]
+  }]
+});
+
 const truncateText = (value: string, maxLength = 240) => {
   const normalized = value.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) return normalized;
@@ -2147,6 +2327,99 @@ const applyRuntimeConfigSecretPull = async (actor: string): Promise<RuntimeConfi
   }
 
   result.importedCount = result.appliedPaths.length;
+  return result;
+};
+
+type RuntimeTelegramTopicPull = {
+  importedCount: number;
+  appliedPaths: string[];
+  skippedPaths: string[];
+};
+
+const emptyRuntimeTelegramTopicPull = (): RuntimeTelegramTopicPull => ({
+  importedCount: 0,
+  appliedPaths: [],
+  skippedPaths: []
+});
+
+const runtimeTelegramTopicPayloads = (payload: unknown) => {
+  const record = asJsonRecord(payload as Prisma.JsonValue | null | undefined);
+  const runtimes = Array.isArray(record.runtimes) ? record.runtimes : [];
+  if (runtimes.length) {
+    return runtimes
+      .map((item) => asJsonRecord(item as Prisma.JsonValue))
+      .map((item) => ({
+        identityId: textValue(item.identityId) || textValue(asJsonRecord(item.identity as Prisma.JsonValue | null | undefined).id),
+        registry: {
+          groups: Array.isArray(item.groups)
+            ? item.groups
+            : Array.isArray(asJsonRecord(item.topicRegistry as Prisma.JsonValue | null | undefined).groups)
+              ? asJsonRecord(item.topicRegistry as Prisma.JsonValue).groups
+              : []
+        }
+      }));
+  }
+  return [{
+    identityId: textValue(record.identityId) || textValue(record.activeIdentityId) || textValue(asJsonRecord(record.identity as Prisma.JsonValue | null | undefined).id),
+    registry: {
+      groups: Array.isArray(record.groups)
+        ? record.groups
+        : Array.isArray(asJsonRecord(record.topicRegistry as Prisma.JsonValue | null | undefined).groups)
+          ? asJsonRecord(record.topicRegistry as Prisma.JsonValue).groups
+          : []
+    }
+  }];
+};
+
+const applyRuntimeTelegramTopicPull = async (actor: string, identityId?: string): Promise<RuntimeTelegramTopicPull> => {
+  const result = emptyRuntimeTelegramTopicPull();
+  const where = identityId ? { id: identityId } : { isActive: true };
+  const identityRecords = await prisma.botManagerIdentity.findMany({ where });
+  if (!identityRecords.length) {
+    result.skippedPaths.push(identityId ? `telegram topics: identity ${identityId} not found` : 'telegram topics: no active identity');
+    return result;
+  }
+  const identities = await ensureIdentityListSecretsEncrypted(identityRecords);
+  const byId = new Map(identities.map((identity) => [identity.id, identity]));
+
+  const { payload, status } = await callNanobot('/api/morneven/telegram/topics', { allowNotFound: true });
+  if (status === 404) {
+    result.skippedPaths.push('telegram topics: Nanobot endpoint unavailable');
+    return result;
+  }
+
+  for (const runtimePayload of runtimeTelegramTopicPayloads(payload)) {
+    const identity = runtimePayload.identityId
+      ? byId.get(runtimePayload.identityId)
+      : identities.find((item) => item.isMain) ?? identities[0];
+    if (!identity) {
+      result.skippedPaths.push(`telegram topics: unknown identity ${runtimePayload.identityId || 'none'}`);
+      continue;
+    }
+    const telegram = getTelegramChannelConfig(identity.channels);
+    const mergedRegistry = mergeTelegramTopicRegistry(telegram.topicRegistry, runtimePayload.registry);
+    if (JSON.stringify(mergedRegistry) === JSON.stringify(normalizeTelegramTopicRegistry(telegram.topicRegistry))) {
+      continue;
+    }
+    const nextChannels = {
+      ...asJsonRecord(identity.channels as Prisma.JsonValue | Record<string, unknown> | null | undefined),
+      telegram: {
+        ...telegram,
+        topicRegistry: mergedRegistry
+      }
+    };
+    await prisma.botManagerIdentity.update({
+      where: { id: identity.id },
+      data: {
+        channels: nextChannels as Prisma.InputJsonValue,
+        updatedBy: actor
+      }
+    });
+    const count = mergedRegistry.groups.reduce((total, group) => total + group.topics.length, 0);
+    result.appliedPaths.push(`${identity.slug}:telegram.topicRegistry`);
+    result.importedCount += count;
+  }
+
   return result;
 };
 
@@ -3372,6 +3645,95 @@ botManagerRouter.post('/identities', async (req, res) => {
   return res.status(201).json({ success: true, data: serializeIdentity(created) });
 });
 
+botManagerRouter.get('/identities/:id/telegram/topics', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const identityRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identityRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const identity = await ensureIdentitySecretsEncrypted(identityRecord);
+  return ok(res, serializeTelegramTopics(identity));
+});
+
+botManagerRouter.put('/identities/:id/telegram/topic-lock', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = telegramTopicLockSchema.safeParse(req.body?.topicLock ?? req.body ?? {});
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const identityRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identityRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const identity = await ensureIdentitySecretsEncrypted(identityRecord);
+  const telegram = getTelegramChannelConfig(identity.channels);
+  const nextLock = normalizeTelegramTopicLock({
+    ...parsed.data,
+    groups: parsed.data.groups.map((group) => ({
+      ...group,
+      updatedAt: group.updatedAt ?? new Date().toISOString()
+    }))
+  });
+  const nextChannels = {
+    ...asJsonRecord(identity.channels as Prisma.JsonValue | Record<string, unknown> | null | undefined),
+    telegram: {
+      ...telegram,
+      topicLock: nextLock,
+      topicRegistry: normalizeTelegramTopicRegistry(telegram.topicRegistry)
+    }
+  };
+  const updated = await prisma.botManagerIdentity.update({
+    where: { id: identity.id },
+    data: {
+      channels: nextChannels as Prisma.InputJsonValue,
+      updatedBy: req.user!.username
+    }
+  });
+  const runtimeSync = await markRuntimeDirty(req.user!.username, `Telegram topic lock updated: ${identity.name}`);
+  return ok(res, { ...serializeTelegramTopics(await ensureIdentitySecretsEncrypted(updated)), runtimeSync });
+});
+
+botManagerRouter.post('/identities/:id/telegram/topics/manual', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = telegramManualTopicSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const identityRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identityRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const identity = await ensureIdentitySecretsEncrypted(identityRecord);
+  const telegram = getTelegramChannelConfig(identity.channels);
+  const nextRegistry = mergeTelegramTopicIntoRegistry(telegram.topicRegistry, {
+    chatId: parsed.data.chatId,
+    title: parsed.data.title,
+    isForum: parsed.data.isForum,
+    messageThreadId: parsed.data.messageThreadId,
+    topicTitle: parsed.data.topicTitle,
+    source: 'manual'
+  });
+  const nextChannels = {
+    ...asJsonRecord(identity.channels as Prisma.JsonValue | Record<string, unknown> | null | undefined),
+    telegram: {
+      ...telegram,
+      topicRegistry: nextRegistry,
+      topicLock: normalizeTelegramTopicLock(telegram.topicLock)
+    }
+  };
+  const updated = await prisma.botManagerIdentity.update({
+    where: { id: identity.id },
+    data: {
+      channels: nextChannels as Prisma.InputJsonValue,
+      updatedBy: req.user!.username
+    }
+  });
+  return ok(res, serializeTelegramTopics(await ensureIdentitySecretsEncrypted(updated)));
+});
+
+botManagerRouter.post('/identities/:id/telegram/topics/refresh', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const identityRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identityRecord) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  try {
+    const pull = await applyRuntimeTelegramTopicPull(req.user!.username, identityRecord.id);
+    const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: identityRecord.id } }));
+    return ok(res, { ...serializeTelegramTopics(latest), pull });
+  } catch (error) {
+    return fail(res, 502, error instanceof Error ? error.message : 'Telegram topic refresh failed', 'NANOBOT_TOPIC_REFRESH_FAILED');
+  }
+});
+
 botManagerRouter.get('/identities/:id', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const identityRecord = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id }, include: { files: true } });
@@ -3879,15 +4241,17 @@ botManagerRouter.post('/sync', async (req, res) => {
     skipped: []
   };
   let configBackfill = emptyRuntimeConfigSecretPull();
+  let telegramTopics = emptyRuntimeTelegramTopicPull();
   try {
     configBackfill = await applyRuntimeConfigSecretPull(req.user!.username);
+    telegramTopics = await applyRuntimeTelegramTopicPull(req.user!.username);
     writeback = await applyRuntimeWorkspacePull(req.user!.username);
     await markRuntimePullResult(req.user!.username, writeback);
     bundle = await buildRuntimeBundle();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Nanobot runtime pull failed';
     const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
-    return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, configBackfill, writeback });
+    return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, configBackfill, telegramTopics, writeback });
   }
 
   const bundleRecord = asJsonRecord(bundle as Record<string, unknown>);
@@ -3904,6 +4268,7 @@ botManagerRouter.post('/sync', async (req, res) => {
       reason: 'Runtime reload is disabled by Bot Manager General Config',
       runtimeSync: getRuntimeSyncState(current.config),
       configBackfill,
+      telegramTopics,
       writeback,
       runtimeBundle: summarizeRuntimeBundle(bundle),
       nanobot: null
@@ -3923,6 +4288,7 @@ botManagerRouter.post('/sync', async (req, res) => {
       restartGateway,
       runtimeSync,
       configBackfill,
+      telegramTopics,
       writeback,
       runtimeBundle: summarizeRuntimeBundle(bundle),
       nanobot: payload
