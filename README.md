@@ -179,3 +179,9 @@ Active shared documentation:
 - [Document Index](../Document/Documentation/General/2026-05-27-document-index-v02.md)
 
 When API, schema, extraction, migration, backup, security, or Bot Manager behavior changes, update the active `Document/` docs with the code change.
+
+## License
+
+Copyright (c) 2026 madan6557.
+
+No license is granted to use, copy, modify, or distribute this repository's contents without explicit written permission from the owner.
