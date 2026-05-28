@@ -43,6 +43,7 @@ const backupUploadSingle = (req: Request, res: Response, next: NextFunction) => 
 };
 
 const providers = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter', 'deepseek', 'zhipu', 'vllm'] as const;
+type BotProvider = (typeof providers)[number];
 const fileKinds = ['identity', 'memory', 'cron', 'skill', 'session', 'tool', 'user', 'system', 'other'] as const;
 const runtimeModes = ['single-active-personality', 'multi-active-personality'] as const;
 
@@ -58,6 +59,17 @@ const credentialSchema = credentialGateSchema.extend({
   apiBase: z.string().trim().url().optional().or(z.literal('')),
   modelId: z.string().trim().min(1).max(160)
 });
+
+const analyticsCredentialSchema = credentialGateSchema.extend({
+  provider: z.enum(providers),
+  apiKey: z.string().trim().max(4096).optional().default(''),
+  organizationId: z.string().trim().max(160).optional().default(''),
+  projectId: z.string().trim().max(160).optional().default(''),
+  apiKeyId: z.string().trim().max(160).optional().default(''),
+  billingAccountId: z.string().trim().max(160).optional().default('')
+});
+
+const analyticsRangeSchema = z.enum(['7d', '30d', '90d']).default('30d');
 
 const openRouterProfileSchema = credentialGateSchema.extend({
   name: z.string().trim().min(2).max(80),
@@ -658,6 +670,19 @@ const asJsonRecord = (value: Prisma.JsonValue | Record<string, unknown> | null |
 const asStringArray = (value: Prisma.JsonValue | unknown): string[] => Array.isArray(value)
   ? value.filter((item): item is string => typeof item === 'string')
   : [];
+
+const textValue = (value: unknown, fallback = '') => (typeof value === 'string' ? value.trim() : fallback);
+
+const numberValue = (value: unknown, fallback = 0) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+};
+
+const intValue = (value: unknown, fallback = 0) => Math.max(Math.trunc(numberValue(value, fallback)), 0);
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -1390,6 +1415,432 @@ const listMaskedCredentials = async () => {
   });
 };
 
+const serializeAnalyticsCredential = (credential: { provider: string; keyPreview?: string | null; metadata?: Prisma.JsonValue | null; updatedAt: Date }) => ({
+  provider: credential.provider,
+  configured: true,
+  keyPreview: credential.keyPreview ?? '***',
+  metadata: credential.metadata ?? {},
+  updatedAt: credential.updatedAt.toISOString()
+});
+
+const listMaskedAnalyticsCredentials = async () => {
+  const configured = await prisma.botManagerProviderAnalyticsCredential.findMany({ orderBy: { provider: 'asc' } });
+  const byProvider = new Map(configured.map((credential) => [credential.provider, serializeAnalyticsCredential(credential)]));
+  return providers.map((provider) => byProvider.get(provider) ?? {
+    provider,
+    configured: false,
+    keyPreview: '',
+    metadata: {},
+    updatedAt: null
+  });
+};
+
+type ProviderUsagePoint = {
+  date: string;
+  requests: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cachedTokens: number;
+  cost: number;
+};
+
+type ProviderRemoteAnalytics = {
+  status: 'ok' | 'not_configured' | 'needs_analytics_key' | 'unsupported' | 'provider_error';
+  statusMessage: string;
+  source: 'provider_api' | 'local' | 'unsupported';
+  currency?: string;
+  creditBalance?: number | null;
+  creditLimit?: number | null;
+  monthlySpend?: number | null;
+  points?: ProviderUsagePoint[];
+  fetchedAt: string;
+};
+
+const providerAnalyticsCache = new Map<string, { expiresAt: number; data: ProviderRemoteAnalytics }>();
+const providerAnalyticsCacheMs = 5 * 60 * 1000;
+
+const providerAnalyticsCapabilities: Record<BotProvider, { requiresAnalyticsCredential: boolean; providerBalance: boolean; message: string }> = {
+  deepseek: { requiresAnalyticsCredential: false, providerBalance: true, message: 'Balance from DeepSeek API, usage chart from local runtime events.' },
+  openrouter: { requiresAnalyticsCredential: false, providerBalance: true, message: 'Limit and remaining credit from OpenRouter, usage chart from local runtime events.' },
+  openai: { requiresAnalyticsCredential: true, providerBalance: false, message: 'Usage and cost require an OpenAI admin key.' },
+  anthropic: { requiresAnalyticsCredential: true, providerBalance: false, message: 'Usage and cost require an Anthropic admin key.' },
+  gemini: { requiresAnalyticsCredential: false, providerBalance: false, message: 'Gemini v1 shows local runtime usage only.' },
+  groq: { requiresAnalyticsCredential: false, providerBalance: false, message: 'Groq v1 shows local runtime usage only.' },
+  zhipu: { requiresAnalyticsCredential: false, providerBalance: false, message: 'Zhipu v1 shows local runtime usage only.' },
+  vllm: { requiresAnalyticsCredential: false, providerBalance: false, message: 'vLLM v1 shows local runtime usage only.' }
+};
+
+const rangeDays = (range: '7d' | '30d' | '90d') => range === '7d' ? 7 : range === '90d' ? 90 : 30;
+
+const utcDayKey = (date: Date) => date.toISOString().slice(0, 10);
+
+const dayStartUtc = (date: Date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
+const analyticsRangeWindow = (range: '7d' | '30d' | '90d') => {
+  const end = dayStartUtc(new Date());
+  end.setUTCDate(end.getUTCDate() + 1);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - rangeDays(range));
+  return { start, end };
+};
+
+const emptyUsagePoints = (start: Date, days: number): ProviderUsagePoint[] =>
+  Array.from({ length: days }, (_, index) => {
+    const date = new Date(start);
+    date.setUTCDate(date.getUTCDate() + index);
+    return {
+      date: utcDayKey(date),
+      requests: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      cachedTokens: 0,
+      cost: 0
+    };
+  });
+
+const normalizedProviderName = (value: unknown): BotProvider | '' => {
+  const raw = textValue(value).trim().toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('openrouter')) return 'openrouter';
+  if (raw.includes('deepseek')) return 'deepseek';
+  if (raw.includes('anthropic') || raw.includes('claude')) return 'anthropic';
+  if (raw.includes('gemini') || raw.includes('google')) return 'gemini';
+  if (raw.includes('groq')) return 'groq';
+  if (raw.includes('zhipu') || raw.includes('glm')) return 'zhipu';
+  if (raw.includes('vllm')) return 'vllm';
+  if (raw.includes('openai') || raw.includes('gpt')) return 'openai';
+  return providers.includes(raw as BotProvider) ? raw as BotProvider : '';
+};
+
+const decryptCredentialRecord = (encryptedValue?: string | null): Record<string, unknown> => {
+  if (!encryptedValue) return {};
+  try {
+    const decrypted = decryptJson<unknown>(encryptedValue);
+    return isPlainRecord(decrypted) ? decrypted : {};
+  } catch {
+    return {};
+  }
+};
+
+const providerApiKeyFromCredential = (credential?: { encryptedValue: string } | null) => {
+  const value = decryptCredentialRecord(credential?.encryptedValue);
+  return textValue(value.apiKey).trim();
+};
+
+const providerApiBaseFromCredential = (credential?: { encryptedValue: string } | null) => {
+  const value = decryptCredentialRecord(credential?.encryptedValue);
+  return textValue(value.apiBase).trim();
+};
+
+const fetchProviderJson = async (url: string, init: RequestInit = {}) => {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      accept: 'application/json',
+      ...(init.headers ?? {})
+    }
+  });
+  const bodyText = await response.text();
+  let payload: unknown = {};
+  if (bodyText) {
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      payload = { raw: bodyText };
+    }
+  }
+  if (!response.ok) {
+    const message = textValue(asJsonRecord(payload as Prisma.JsonValue).error) ||
+      textValue(asJsonRecord(asJsonRecord(payload as Prisma.JsonValue).error as Prisma.JsonValue).message) ||
+      `Provider API returned ${response.status}`;
+    throw new Error(message);
+  }
+  return payload;
+};
+
+const fetchDeepSeekAnalytics = async (credential?: { encryptedValue: string } | null): Promise<ProviderRemoteAnalytics> => {
+  const apiKey = providerApiKeyFromCredential(credential);
+  if (!apiKey) {
+    return { status: 'not_configured', statusMessage: 'DeepSeek credential is missing.', source: 'local', fetchedAt: new Date().toISOString() };
+  }
+  const baseUrl = providerApiBaseFromCredential(credential) || 'https://api.deepseek.com';
+  const payload = await fetchProviderJson(`${baseUrl.replace(/\/+$/, '')}/user/balance`, {
+    headers: { authorization: `Bearer ${apiKey}` }
+  });
+  const record = asJsonRecord(payload as Prisma.JsonValue);
+  const balances = Array.isArray(record.balance_infos) ? record.balance_infos : [];
+  const balance = balances
+    .map((item) => asJsonRecord(item as Prisma.JsonValue))
+    .find((item) => textValue(item.currency).toUpperCase() === 'USD') ?? asJsonRecord(balances[0] as Prisma.JsonValue);
+  const total = balance ? numberValue(balance.total_balance, numberValue(balance.topped_up_balance, null as unknown as number)) : null;
+  return {
+    status: 'ok',
+    statusMessage: record.is_available === false ? 'DeepSeek reports the account is unavailable.' : 'DeepSeek balance loaded.',
+    source: 'provider_api',
+    currency: textValue(balance.currency, 'USD') || 'USD',
+    creditBalance: total,
+    fetchedAt: new Date().toISOString()
+  };
+};
+
+const fetchOpenRouterAnalytics = async (profile?: { encryptedValue: string } | null): Promise<ProviderRemoteAnalytics> => {
+  const apiKey = providerApiKeyFromCredential(profile);
+  if (!apiKey) {
+    return { status: 'not_configured', statusMessage: 'OpenRouter active profile is missing.', source: 'local', fetchedAt: new Date().toISOString() };
+  }
+  const payload = await fetchProviderJson('https://openrouter.ai/api/v1/key', {
+    headers: { authorization: `Bearer ${apiKey}` }
+  });
+  const data = asJsonRecord(asJsonRecord(payload as Prisma.JsonValue).data as Prisma.JsonValue);
+  const usage = numberValue(data.usage, 0);
+  const limit = data.limit === null ? null : numberValue(data.limit, null as unknown as number);
+  const remaining = data.limit_remaining === null ? null : numberValue(data.limit_remaining, limit === null ? null as unknown as number : Math.max(limit - usage, 0));
+  return {
+    status: 'ok',
+    statusMessage: 'OpenRouter key limit loaded.',
+    source: 'provider_api',
+    currency: 'USD',
+    creditBalance: remaining,
+    creditLimit: limit,
+    monthlySpend: usage,
+    fetchedAt: new Date().toISOString()
+  };
+};
+
+const openAiBucketDate = (bucket: Record<string, unknown>) => {
+  const raw = bucket.start_time ?? bucket.startTime;
+  if (typeof raw === 'number') return utcDayKey(new Date(raw * 1000));
+  if (typeof raw === 'string') return utcDayKey(new Date(raw));
+  return '';
+};
+
+const sumOpenAiAmount = (bucket: Record<string, unknown>) => {
+  const results = Array.isArray(bucket.results) ? bucket.results : [];
+  return results.reduce((sum, item) => {
+    const record = asJsonRecord(item as Prisma.JsonValue);
+    const amount = asJsonRecord(record.amount as Prisma.JsonValue);
+    return sum + numberValue(amount.value, numberValue(record.amount, 0));
+  }, 0);
+};
+
+const sumOpenAiUsageTokens = (bucket: Record<string, unknown>) => {
+  const results = Array.isArray(bucket.results) ? bucket.results : [];
+  return results.reduce((sum, item) => {
+    const record = asJsonRecord(item as Prisma.JsonValue);
+    return {
+      requests: sum.requests + intValue(record.num_model_requests ?? record.requests, 0),
+      promptTokens: sum.promptTokens + intValue(record.input_tokens, 0),
+      completionTokens: sum.completionTokens + intValue(record.output_tokens, 0),
+      totalTokens: sum.totalTokens + intValue(record.input_tokens, 0) + intValue(record.output_tokens, 0),
+      cachedTokens: sum.cachedTokens + intValue(record.input_cached_tokens, 0)
+    };
+  }, { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cachedTokens: 0 });
+};
+
+const fetchOpenAiAnalytics = async (
+  credential: { encryptedValue: string; metadata?: Prisma.JsonValue | null } | null | undefined,
+  range: '7d' | '30d' | '90d'
+): Promise<ProviderRemoteAnalytics> => {
+  const apiKey = providerApiKeyFromCredential(credential);
+  if (!apiKey) {
+    return { status: 'needs_analytics_key', statusMessage: 'OpenAI admin key is required for provider usage.', source: 'local', fetchedAt: new Date().toISOString() };
+  }
+  const { start, end } = analyticsRangeWindow(range);
+  const params = new URLSearchParams({
+    start_time: String(Math.floor(start.getTime() / 1000)),
+    end_time: String(Math.floor(end.getTime() / 1000)),
+    bucket_width: '1d'
+  });
+  const headers: Record<string, string> = { authorization: `Bearer ${apiKey}` };
+  const metadata = asJsonRecord(credential?.metadata);
+  const organizationId = textValue(metadata.organizationId).trim();
+  const projectId = textValue(metadata.projectId).trim();
+  if (organizationId) headers['OpenAI-Organization'] = organizationId;
+  if (projectId) headers['OpenAI-Project'] = projectId;
+  const [costPayload, usagePayload] = await Promise.all([
+    fetchProviderJson(`https://api.openai.com/v1/organization/costs?${params.toString()}`, { headers }),
+    fetchProviderJson(`https://api.openai.com/v1/organization/usage/completions?${params.toString()}`, { headers })
+  ]);
+  const usageBuckets = Array.isArray(asJsonRecord(usagePayload as Prisma.JsonValue).data) ? asJsonRecord(usagePayload as Prisma.JsonValue).data as unknown[] : [];
+  const costBuckets = Array.isArray(asJsonRecord(costPayload as Prisma.JsonValue).data) ? asJsonRecord(costPayload as Prisma.JsonValue).data as unknown[] : [];
+  const points = emptyUsagePoints(start, rangeDays(range));
+  const pointMap = new Map(points.map((point) => [point.date, point]));
+  for (const bucket of usageBuckets) {
+    const record = asJsonRecord(bucket as Prisma.JsonValue);
+    const point = pointMap.get(openAiBucketDate(record));
+    if (!point) continue;
+    const usage = sumOpenAiUsageTokens(record);
+    Object.assign(point, usage);
+  }
+  for (const bucket of costBuckets) {
+    const record = asJsonRecord(bucket as Prisma.JsonValue);
+    const point = pointMap.get(openAiBucketDate(record));
+    if (!point) continue;
+    point.cost = sumOpenAiAmount(record);
+  }
+  return {
+    status: 'ok',
+    statusMessage: 'OpenAI organization usage loaded.',
+    source: 'provider_api',
+    currency: 'USD',
+    monthlySpend: points.reduce((sum, point) => sum + point.cost, 0),
+    points,
+    fetchedAt: new Date().toISOString()
+  };
+};
+
+const fetchAnthropicAnalytics = async (
+  credential: { encryptedValue: string; metadata?: Prisma.JsonValue | null } | null | undefined,
+  range: '7d' | '30d' | '90d'
+): Promise<ProviderRemoteAnalytics> => {
+  const apiKey = providerApiKeyFromCredential(credential);
+  if (!apiKey) {
+    return { status: 'needs_analytics_key', statusMessage: 'Anthropic admin key is required for provider usage.', source: 'local', fetchedAt: new Date().toISOString() };
+  }
+  const { start, end } = analyticsRangeWindow(range);
+  const params = new URLSearchParams({
+    starting_at: utcDayKey(start),
+    ending_at: utcDayKey(end),
+    bucket_width: '1d'
+  });
+  const headers = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01'
+  };
+  const [usagePayload, costPayload] = await Promise.all([
+    fetchProviderJson(`https://api.anthropic.com/v1/organizations/usage_report/messages?${params.toString()}`, { headers }),
+    fetchProviderJson(`https://api.anthropic.com/v1/organizations/cost_report?${params.toString()}`, { headers })
+  ]);
+  const points = emptyUsagePoints(start, rangeDays(range));
+  const pointMap = new Map(points.map((point) => [point.date, point]));
+  const usageBuckets = Array.isArray(asJsonRecord(usagePayload as Prisma.JsonValue).data) ? asJsonRecord(usagePayload as Prisma.JsonValue).data as unknown[] : [];
+  const costBuckets = Array.isArray(asJsonRecord(costPayload as Prisma.JsonValue).data) ? asJsonRecord(costPayload as Prisma.JsonValue).data as unknown[] : [];
+  for (const bucket of usageBuckets) {
+    const record = asJsonRecord(bucket as Prisma.JsonValue);
+    const date = textValue(record.date) || textValue(record.starting_at) || textValue(record.start_time);
+    const point = pointMap.get(date.slice(0, 10));
+    if (!point) continue;
+    point.requests = intValue(record.requests ?? record.message_count, point.requests);
+    point.promptTokens = intValue(record.input_tokens, point.promptTokens);
+    point.completionTokens = intValue(record.output_tokens, point.completionTokens);
+    point.cachedTokens = intValue(record.cache_read_input_tokens, point.cachedTokens) + intValue(record.cache_creation_input_tokens, 0);
+    point.totalTokens = point.promptTokens + point.completionTokens + point.cachedTokens;
+  }
+  for (const bucket of costBuckets) {
+    const record = asJsonRecord(bucket as Prisma.JsonValue);
+    const date = textValue(record.date) || textValue(record.starting_at) || textValue(record.start_time);
+    const point = pointMap.get(date.slice(0, 10));
+    if (!point) continue;
+    point.cost = numberValue(record.amount, numberValue(record.cost, numberValue(record.total_cost, 0)));
+  }
+  return {
+    status: 'ok',
+    statusMessage: 'Anthropic organization usage loaded.',
+    source: 'provider_api',
+    currency: 'USD',
+    monthlySpend: points.reduce((sum, point) => sum + point.cost, 0),
+    points,
+    fetchedAt: new Date().toISOString()
+  };
+};
+
+const fetchRemoteAnalytics = async (
+  provider: BotProvider,
+  range: '7d' | '30d' | '90d',
+  credentials: Map<string, { encryptedValue: string }>,
+  analyticsCredentials: Map<string, { encryptedValue: string; metadata?: Prisma.JsonValue | null }>,
+  openRouterProfile?: { encryptedValue: string } | null
+): Promise<ProviderRemoteAnalytics> => {
+  const cacheKey = `${provider}:${range}:${openRouterProfile ? 'profile' : 'default'}`;
+  const cached = providerAnalyticsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  try {
+    let data: ProviderRemoteAnalytics;
+    if (provider === 'deepseek') data = await fetchDeepSeekAnalytics(credentials.get(provider));
+    else if (provider === 'openrouter') data = await fetchOpenRouterAnalytics(openRouterProfile);
+    else if (provider === 'openai') data = await fetchOpenAiAnalytics(analyticsCredentials.get(provider), range);
+    else if (provider === 'anthropic') data = await fetchAnthropicAnalytics(analyticsCredentials.get(provider), range);
+    else {
+      data = {
+        status: 'unsupported',
+        statusMessage: providerAnalyticsCapabilities[provider].message,
+        source: 'local',
+        fetchedAt: new Date().toISOString()
+      };
+    }
+    providerAnalyticsCache.set(cacheKey, { expiresAt: Date.now() + providerAnalyticsCacheMs, data });
+    return data;
+  } catch (error) {
+    return {
+      status: 'provider_error',
+      statusMessage: error instanceof Error ? error.message : 'Provider analytics request failed.',
+      source: 'local',
+      fetchedAt: new Date().toISOString()
+    };
+  }
+};
+
+const localUsagePoints = async (provider: BotProvider, range: '7d' | '30d' | '90d') => {
+  const { start, end } = analyticsRangeWindow(range);
+  const points = emptyUsagePoints(start, rangeDays(range));
+  const pointMap = new Map(points.map((point) => [point.date, point]));
+  const events = await prisma.botManagerProviderUsageEvent.findMany({
+    where: { provider, recordedAt: { gte: start, lt: end } },
+    orderBy: { recordedAt: 'asc' }
+  });
+  for (const event of events) {
+    const point = pointMap.get(utcDayKey(event.recordedAt));
+    if (!point) continue;
+    point.requests += event.requestCount;
+    point.promptTokens += event.promptTokens;
+    point.completionTokens += event.completionTokens;
+    point.totalTokens += event.totalTokens;
+    point.cachedTokens += event.cachedTokens;
+  }
+  return points;
+};
+
+const ingestNanobotProviderUsage = async (range: '7d' | '30d' | '90d') => {
+  try {
+    const { start, end } = analyticsRangeWindow(range);
+    const query = new URLSearchParams({ from: start.toISOString(), to: end.toISOString() });
+    const { payload } = await callNanobot(`/api/morneven/provider-usage?${query.toString()}`, { allowNotFound: true });
+    const events = Array.isArray(asJsonRecord(payload as Prisma.JsonValue).events) ? asJsonRecord(payload as Prisma.JsonValue).events as unknown[] : [];
+    const rows = events.flatMap((item) => {
+      const event = asJsonRecord(item as Prisma.JsonValue);
+      const provider = normalizedProviderName(event.provider);
+      const recordedAt = new Date(textValue(event.recordedAt));
+      if (!provider || !Number.isFinite(recordedAt.getTime())) return [];
+      return [{
+        eventId: textValue(event.eventId) || createHash('sha256').update(JSON.stringify(event)).digest('hex'),
+        provider,
+        runtimeId: textValue(event.runtimeId) || null,
+        runtimeName: textValue(event.runtimeName) || null,
+        modelId: textValue(event.model) || textValue(event.modelId) || null,
+        sessionKey: textValue(event.sessionKey) || null,
+        recordedAt,
+        promptTokens: intValue(event.promptTokens),
+        completionTokens: intValue(event.completionTokens),
+        totalTokens: intValue(event.totalTokens, intValue(event.promptTokens) + intValue(event.completionTokens)),
+        cachedTokens: intValue(event.cachedTokens),
+        requestCount: intValue(event.requestCount, 1) || 1,
+        stopReason: textValue(event.stopReason) || null,
+        error: textValue(event.error) || null,
+        metadata: {
+          source: 'nanobot',
+          rawUsage: isPlainRecord(event.usage) ? event.usage : undefined
+        } as Prisma.InputJsonValue
+      }];
+    });
+    if (rows.length) await prisma.botManagerProviderUsageEvent.createMany({ data: rows, skipDuplicates: true });
+    return { ok: true, imported: rows.length };
+  } catch (error) {
+    return { ok: false, imported: 0, error: error instanceof Error ? error.message : 'Nanobot usage ingest failed' };
+  }
+};
+
 const ensureGeneralConfig = async () =>
   prisma.botManagerGeneralConfig.upsert({
     where: { id: 'default' },
@@ -1489,8 +1940,6 @@ type GeneratedDefaultFile = {
   content: string;
   contentType?: string;
 };
-
-const textValue = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
 const telegramMainTopicId = 'main';
 
@@ -3218,9 +3667,10 @@ botManagerRouter.use(botManagerRateLimiter);
 
 botManagerRouter.get('/summary', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const [generalConfig, credentials, identityRecords, openRouterProfiles] = await Promise.all([
+  const [generalConfig, credentials, analyticsCredentials, identityRecords, openRouterProfiles] = await Promise.all([
     ensureGeneralConfig(),
     listMaskedCredentials(),
+    listMaskedAnalyticsCredentials(),
     prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] }),
     prisma.botManagerOpenRouterProfile.findMany({ orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }], take: 5 })
   ]);
@@ -3236,6 +3686,7 @@ botManagerRouter.get('/summary', async (req, res) => {
 
   return ok(res, {
     credentials,
+    analyticsCredentials,
     openRouterProfiles: openRouterProfiles.map(serializeOpenRouterProfile),
     generalConfig: publicConfig,
     identities: identities.map(serializeIdentity),

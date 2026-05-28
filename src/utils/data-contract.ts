@@ -1,8 +1,9 @@
-import { EntityType, MediaType, Prisma } from '@prisma/client';
+import { EntityType, Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import {
   serializeGalleryItem,
   serializeLoreItem,
+  serializeNewsItem,
   serializeProject,
   serializeUser
 } from './serializers.js';
@@ -26,6 +27,7 @@ export type ExportSnapshot = {
     id: string;
     text: string;
     date: string;
+    createdAt: string;
     hasDetail: boolean;
     thumbnail?: string;
     body?: string;
@@ -71,6 +73,8 @@ export type ExportSnapshot = {
   botManager: {
     credentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
     openRouterProfiles: Awaited<ReturnType<typeof prisma.botManagerOpenRouterProfile.findMany>>;
+    analyticsCredentials: Awaited<ReturnType<typeof prisma.botManagerProviderAnalyticsCredential.findMany>>;
+    usageEvents: Awaited<ReturnType<typeof prisma.botManagerProviderUsageEvent.findMany>>;
     backupJobs: Awaited<ReturnType<typeof prisma.botManagerBackupJob.findMany>>;
     generalConfig: Awaited<ReturnType<typeof prisma.botManagerGeneralConfig.findMany>>;
     identities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
@@ -84,6 +88,8 @@ export type MigrationDataset = {
   commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
   botManagerCredentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
   botManagerOpenRouterProfiles: Awaited<ReturnType<typeof prisma.botManagerOpenRouterProfile.findMany>>;
+  botManagerProviderAnalyticsCredentials: Awaited<ReturnType<typeof prisma.botManagerProviderAnalyticsCredential.findMany>>;
+  botManagerProviderUsageEvents: Awaited<ReturnType<typeof prisma.botManagerProviderUsageEvent.findMany>>;
   botManagerBackupJobs: Awaited<ReturnType<typeof prisma.botManagerBackupJob.findMany>>;
   botManagerGeneralConfigs: Awaited<ReturnType<typeof prisma.botManagerGeneralConfig.findMany>>;
   botManagerIdentities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
@@ -164,6 +170,8 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'commandCenterSettings', sqlTable: 'CommandCenterSettings', findMany: () => prisma.commandCenterSettings.findMany(), count: () => prisma.commandCenterSettings.count(), deleteMany: (tx) => tx.commandCenterSettings.deleteMany(), createMany: (tx, rows) => tx.commandCenterSettings.createMany({ data: rows }) },
   { key: 'botManagerCredentials', sqlTable: 'BotManagerCredential', findMany: () => prisma.botManagerCredential.findMany(), count: () => prisma.botManagerCredential.count(), deleteMany: (tx) => tx.botManagerCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerCredential.createMany({ data: rows }) },
   { key: 'botManagerOpenRouterProfiles', sqlTable: 'BotManagerOpenRouterProfile', findMany: () => prisma.botManagerOpenRouterProfile.findMany(), count: () => prisma.botManagerOpenRouterProfile.count(), deleteMany: (tx) => tx.botManagerOpenRouterProfile.deleteMany(), createMany: (tx, rows) => tx.botManagerOpenRouterProfile.createMany({ data: rows }) },
+  { key: 'botManagerProviderAnalyticsCredentials', sqlTable: 'BotManagerProviderAnalyticsCredential', findMany: () => prisma.botManagerProviderAnalyticsCredential.findMany(), count: () => prisma.botManagerProviderAnalyticsCredential.count(), deleteMany: (tx) => tx.botManagerProviderAnalyticsCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderAnalyticsCredential.createMany({ data: rows }) },
+  { key: 'botManagerProviderUsageEvents', sqlTable: 'BotManagerProviderUsageEvent', findMany: () => prisma.botManagerProviderUsageEvent.findMany(), count: () => prisma.botManagerProviderUsageEvent.count(), deleteMany: (tx) => tx.botManagerProviderUsageEvent.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderUsageEvent.createMany({ data: rows, skipDuplicates: true }) },
   { key: 'botManagerGeneralConfigs', sqlTable: 'BotManagerGeneralConfig', findMany: () => prisma.botManagerGeneralConfig.findMany(), count: () => prisma.botManagerGeneralConfig.count(), deleteMany: (tx) => tx.botManagerGeneralConfig.deleteMany(), createMany: (tx, rows) => tx.botManagerGeneralConfig.createMany({ data: rows }) },
   { key: 'botManagerIdentities', sqlTable: 'BotManagerIdentity', findMany: () => prisma.botManagerIdentity.findMany(), count: () => prisma.botManagerIdentity.count(), deleteMany: (tx) => tx.botManagerIdentity.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentity.createMany({ data: rows }) },
   { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: () => prisma.botManagerIdentityFile.findMany(), count: () => prisma.botManagerIdentityFile.count(), deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
@@ -202,20 +210,6 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'fileScanRecords', sqlTable: 'FileScanRecord', findMany: () => prisma.fileScanRecord.findMany(), count: () => prisma.fileScanRecord.count(), deleteMany: (tx) => tx.fileScanRecord.deleteMany(), createMany: (tx, rows) => tx.fileScanRecord.createMany({ data: rows }) },
   { key: 'personnelReports', sqlTable: 'PersonnelReport', findMany: () => prisma.personnelReport.findMany(), count: () => prisma.personnelReport.count(), deleteMany: (tx) => tx.personnelReport.deleteMany(), createMany: (tx, rows) => tx.personnelReport.createMany({ data: rows }) }
 ];
-
-const serializeNewsForExtraction = (item: Prisma.NewsGetPayload<{ include: { attachments: true } }>): ExportSnapshot['news'][number] => ({
-  id: item.id,
-  text: item.text,
-  date: item.publishDate.toISOString().slice(0, 10),
-  hasDetail: item.hasDetail,
-  thumbnail: item.thumbnail ?? undefined,
-  body: item.body ?? undefined,
-  attachments: item.attachments.map((attachment) => ({
-    type: attachment.type === MediaType.link ? 'link' : attachment.type === MediaType.video ? 'video' : 'image',
-    url: attachment.url,
-    caption: attachment.caption ?? undefined
-  }))
-});
 
 const serializePasswordResetRequestForExtraction = (
   item: {
@@ -280,6 +274,8 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     mapImage,
     botManagerCredentials,
     botManagerOpenRouterProfiles,
+    botManagerProviderAnalyticsCredentials,
+    botManagerProviderUsageEvents,
     botManagerBackupJobs,
     botManagerGeneralConfig,
     botManagerIdentities,
@@ -301,6 +297,8 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
     prisma.botManagerCredential.findMany(),
     prisma.botManagerOpenRouterProfile.findMany(),
+    prisma.botManagerProviderAnalyticsCredential.findMany(),
+    prisma.botManagerProviderUsageEvent.findMany(),
     prisma.botManagerBackupJob.findMany(),
     prisma.botManagerGeneralConfig.findMany(),
     prisma.botManagerIdentity.findMany(),
@@ -329,7 +327,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     events: loreByType(EntityType.event),
     others: loreByType(EntityType.other),
     gallery: gallery.map((item) => serializeGalleryItem(item)),
-    news: news.map(serializeNewsForExtraction),
+    news: news.map(serializeNewsItem),
     personnel: personnel.map(serializeUser),
     passwordResetRequests: passwordResetRequests.map(serializePasswordResetRequestForExtraction),
     personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
@@ -344,6 +342,8 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     botManager: {
       credentials: botManagerCredentials,
       openRouterProfiles: botManagerOpenRouterProfiles,
+      analyticsCredentials: botManagerProviderAnalyticsCredentials,
+      usageEvents: botManagerProviderUsageEvents,
       backupJobs: botManagerBackupJobs,
       generalConfig: botManagerGeneralConfig,
       identities: botManagerIdentities,

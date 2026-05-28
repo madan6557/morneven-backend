@@ -1,0 +1,8 @@
+ALTER TABLE "News" ADD COLUMN "createdAt" TIMESTAMP(3);
+
+UPDATE "News"
+SET "createdAt" = "publishDate"
+WHERE "createdAt" IS NULL;
+
+ALTER TABLE "News" ALTER COLUMN "createdAt" SET NOT NULL;
+ALTER TABLE "News" ALTER COLUMN "createdAt" SET DEFAULT CURRENT_TIMESTAMP;

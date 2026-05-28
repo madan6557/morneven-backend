@@ -133,6 +133,22 @@ export const serializeUser = (user: SerializableUser) => {
 };
 
 type GalleryWithTags = Prisma.GalleryItemGetPayload<{ include: { tags: true; uploader: true } }>;
+type NewsWithAttachments = Prisma.NewsGetPayload<{ include: { attachments: true } }>;
+
+export const serializeNewsItem = (item: NewsWithAttachments) => ({
+  id: item.id,
+  text: item.text,
+  date: dateOnly(item.publishDate),
+  createdAt: item.createdAt.toISOString(),
+  hasDetail: item.hasDetail,
+  thumbnail: item.thumbnail ?? undefined,
+  body: item.body ?? undefined,
+  attachments: item.attachments.map((attachment) => ({
+    type: (attachment.type === MediaType.link ? 'link' : attachment.type === MediaType.video ? 'video' : 'image') as 'link' | 'video' | 'image',
+    url: attachment.url,
+    caption: attachment.caption ?? undefined
+  }))
+});
 
 export const serializeGalleryItem = (
   item: GalleryWithTags,

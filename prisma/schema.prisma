@@ -183,6 +183,7 @@ model News {
   authorId    String
   text        String
   publishDate DateTime
+  createdAt   DateTime @default(now())
   hasDetail   Boolean  @default(false)
   thumbnail   String?
   body        String?
@@ -580,6 +581,40 @@ model BotManagerOpenRouterProfile {
 
   @@index([isActive])
   @@index([updatedAt])
+}
+
+model BotManagerProviderAnalyticsCredential {
+  id             String   @id @default(uuid())
+  provider       String   @unique
+  encryptedValue String
+  keyPreview     String?
+  metadata       Json     @default("{}")
+  updatedBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model BotManagerProviderUsageEvent {
+  id               String   @id @default(uuid())
+  eventId          String   @unique
+  provider         String
+  runtimeId        String?
+  runtimeName      String?
+  modelId          String?
+  sessionKey       String?
+  recordedAt       DateTime
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  cachedTokens     Int      @default(0)
+  requestCount     Int      @default(1)
+  stopReason       String?
+  error            String?
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now())
+
+  @@index([provider, recordedAt])
+  @@index([runtimeId, recordedAt])
 }
 
 model BotManagerBackupJob {
