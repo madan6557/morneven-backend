@@ -3713,6 +3713,118 @@ botManagerRouter.get('/runtime/status', async (req, res) => {
   }
 });
 
+botManagerRouter.get('/providers/analytics', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const provider = z.enum(providers).safeParse(req.query.provider);
+  const range = analyticsRangeSchema.safeParse(req.query.range ?? '30d');
+  if (!provider.success || !range.success) return fail(res, 422, 'Invalid provider analytics query', 'VALIDATION_ERROR');
+
+  const [generalConfig, credentialRows, analyticsCredentialRows, activeOpenRouterProfile] = await Promise.all([
+    ensureGeneralConfig(),
+    prisma.botManagerCredential.findMany(),
+    prisma.botManagerProviderAnalyticsCredential.findMany(),
+    prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } })
+  ]);
+  const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+  const credentialMap = new Map(credentialRows.map((credential) => [credential.provider, credential]));
+  const analyticsCredentialMap = new Map(analyticsCredentialRows.map((credential) => [credential.provider, credential]));
+  const ingest = await ingestNanobotProviderUsage(range.data);
+  const localPoints = await localUsagePoints(provider.data, range.data);
+  const remote = await fetchRemoteAnalytics(provider.data, range.data, credentialMap, analyticsCredentialMap, activeOpenRouterProfile);
+  const capability = providerAnalyticsCapabilities[provider.data];
+  const configured = provider.data === 'openrouter'
+    ? Boolean(activeOpenRouterProfile)
+    : Boolean(credentialMap.get(provider.data));
+  const analyticsCredentialConfigured = Boolean(analyticsCredentialMap.get(provider.data));
+  const useRemotePoints = remote.status === 'ok' && Array.isArray(remote.points) && remote.points.length > 0;
+  const points = useRemotePoints ? remote.points! : localPoints;
+  const totals = points.reduce((sum, point) => ({
+    requests: sum.requests + point.requests,
+    promptTokens: sum.promptTokens + point.promptTokens,
+    completionTokens: sum.completionTokens + point.completionTokens,
+    totalTokens: sum.totalTokens + point.totalTokens,
+    cachedTokens: sum.cachedTokens + point.cachedTokens,
+    cost: sum.cost + point.cost
+  }), { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, cachedTokens: 0, cost: 0 });
+
+  return ok(res, {
+    provider: provider.data,
+    range: range.data,
+    status: remote.status,
+    statusMessage: remote.statusMessage || capability.message,
+    source: useRemotePoints ? remote.source : 'local',
+    configured,
+    active: publicConfig.activeProvider === provider.data,
+    analyticsCredentialConfigured,
+    requiresAnalyticsCredential: capability.requiresAnalyticsCredential,
+    supportsProviderBalance: capability.providerBalance,
+    currency: remote.currency ?? 'USD',
+    creditBalance: remote.creditBalance ?? null,
+    creditLimit: remote.creditLimit ?? null,
+    monthlySpend: remote.monthlySpend ?? (totals.cost || null),
+    localRequestCount: totals.requests,
+    localTotalTokens: totals.totalTokens,
+    localPromptTokens: totals.promptTokens,
+    localCompletionTokens: totals.completionTokens,
+    localCachedTokens: totals.cachedTokens,
+    runtimeUsageIngest: ingest,
+    points,
+    fetchedAt: remote.fetchedAt
+  });
+});
+
+botManagerRouter.put('/providers/analytics-credentials', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = analyticsCredentialSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerProviderAnalyticsCredential.findUnique({ where: { provider: parsed.data.provider } });
+    const existingValue = decryptCredentialRecord(existing?.encryptedValue);
+    const preservedApiKey = textValue(existingValue.apiKey).trim();
+    const nextApiKey = parsed.data.apiKey || preservedApiKey;
+    if (!nextApiKey) return fail(res, 422, 'Analytics API key is required', 'VALIDATION_ERROR');
+    const metadata = {
+      organizationId: parsed.data.organizationId || null,
+      projectId: parsed.data.projectId || null,
+      apiKeyId: parsed.data.apiKeyId || null,
+      billingAccountId: parsed.data.billingAccountId || null
+    };
+    const encryptedValue = encryptJson({ apiKey: nextApiKey, ...metadata });
+    const saved = await prisma.botManagerProviderAnalyticsCredential.upsert({
+      where: { provider: parsed.data.provider },
+      create: {
+        provider: parsed.data.provider,
+        encryptedValue,
+        keyPreview: parsed.data.apiKey ? keyPreview(parsed.data.apiKey) : existing?.keyPreview ?? keyPreview(nextApiKey),
+        metadata,
+        updatedBy: req.user!.username
+      },
+      update: {
+        encryptedValue,
+        keyPreview: parsed.data.apiKey ? keyPreview(parsed.data.apiKey) : existing?.keyPreview ?? keyPreview(nextApiKey),
+        metadata,
+        updatedBy: req.user!.username
+      }
+    });
+    providerAnalyticsCache.delete(`${parsed.data.provider}:7d:default`);
+    providerAnalyticsCache.delete(`${parsed.data.provider}:30d:default`);
+    providerAnalyticsCache.delete(`${parsed.data.provider}:90d:default`);
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.provider.analytics-credential.update',
+      entity: 'BotManagerProviderAnalyticsCredential',
+      entityId: saved.id,
+      metadata: { provider: saved.provider }
+    });
+    return ok(res, serializeAnalyticsCredential(saved));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Analytics credential update failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
 botManagerRouter.post('/runtime/:identityId/:action', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = runtimeActionSchema.safeParse(req.params.action);
