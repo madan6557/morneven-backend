@@ -1516,6 +1516,40 @@ const normalizedProviderName = (value: unknown): BotProvider | '' => {
   return providers.includes(raw as BotProvider) ? raw as BotProvider : '';
 };
 
+const nullableNumberValue = (value: unknown): number | null => {
+  const parsed = numberValue(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const usageCostFromMetadata = (metadata: Prisma.JsonValue | Record<string, unknown> | null | undefined) => {
+  const rawUsage = asJsonRecord(asJsonRecord(metadata).rawUsage as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  return nullableNumberValue(rawUsage.cost) ??
+    nullableNumberValue(rawUsage.total_cost) ??
+    nullableNumberValue(rawUsage.response_cost) ??
+    nullableNumberValue(rawUsage.estimated_cost);
+};
+
+const localUsageCostRates = (provider: BotProvider, modelId?: string | null) => {
+  const model = textValue(modelId).toLowerCase();
+  if (provider !== 'deepseek') return null;
+  if (model.includes('v4-pro')) return { cacheHit: 0.003625, cacheMiss: 0.435, output: 0.87 };
+  return { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 };
+};
+
+const estimateLocalUsageCost = (
+  provider: BotProvider,
+  event: { promptTokens: number; completionTokens: number; cachedTokens: number; modelId?: string | null; metadata?: Prisma.JsonValue | null }
+) => {
+  const recordedCost = usageCostFromMetadata(event.metadata);
+  if (recordedCost !== null) return recordedCost;
+  const rates = localUsageCostRates(provider, event.modelId);
+  if (!rates) return 0;
+  const rawUsage = asJsonRecord(asJsonRecord(event.metadata).rawUsage as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const cacheHitTokens = intValue(rawUsage.prompt_cache_hit_tokens, event.cachedTokens);
+  const cacheMissTokens = intValue(rawUsage.prompt_cache_miss_tokens, Math.max(event.promptTokens - cacheHitTokens, 0));
+  return (cacheHitTokens * rates.cacheHit + cacheMissTokens * rates.cacheMiss + event.completionTokens * rates.output) / 1_000_000;
+};
+
 const decryptCredentialRecord = (encryptedValue?: string | null): Record<string, unknown> => {
   if (!encryptedValue) return {};
   try {
@@ -1807,6 +1841,7 @@ const localUsagePoints = async (provider: BotProvider, range: '7d' | '30d' | '90
     point.completionTokens += event.completionTokens;
     point.totalTokens += event.totalTokens;
     point.cachedTokens += event.cachedTokens;
+    point.cost += estimateLocalUsageCost(provider, event);
   }
   return points;
 };
@@ -3770,7 +3805,7 @@ botManagerRouter.get('/providers/analytics', async (req, res) => {
     currency: remote.currency ?? 'USD',
     creditBalance: remote.creditBalance ?? null,
     creditLimit: remote.creditLimit ?? null,
-    currentSpend: remote.currentSpend ?? remote.monthlySpend ?? (totals.cost || null),
+    currentSpend: remote.currentSpend ?? (totals.cost || null),
     topUpAmount: remote.topUpAmount ?? null,
     monthlySpend: remote.monthlySpend ?? (totals.cost || null),
     localRequestCount: totals.requests,
