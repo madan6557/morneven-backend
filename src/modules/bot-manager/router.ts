@@ -1452,6 +1452,8 @@ type ProviderRemoteAnalytics = {
   currency?: string;
   creditBalance?: number | null;
   creditLimit?: number | null;
+  currentSpend?: number | null;
+  topUpAmount?: number | null;
   monthlySpend?: number | null;
   points?: ProviderUsagePoint[];
   fetchedAt: string;
@@ -1575,12 +1577,17 @@ const fetchDeepSeekAnalytics = async (credential?: { encryptedValue: string } | 
     .map((item) => asJsonRecord(item as Prisma.JsonValue))
     .find((item) => textValue(item.currency).toUpperCase() === 'USD') ?? asJsonRecord(balances[0] as Prisma.JsonValue);
   const total = balance ? numberValue(balance.total_balance, numberValue(balance.topped_up_balance, null as unknown as number)) : null;
+  const toppedUp = balance ? numberValue(balance.topped_up_balance, null as unknown as number) : null;
   return {
     status: 'ok',
     statusMessage: record.is_available === false ? 'DeepSeek reports the account is unavailable.' : 'DeepSeek balance loaded.',
     source: 'provider_api',
     currency: textValue(balance.currency, 'USD') || 'USD',
     creditBalance: total,
+    creditLimit: null,
+    currentSpend: null,
+    topUpAmount: toppedUp,
+    monthlySpend: null,
     fetchedAt: new Date().toISOString()
   };
 };
@@ -1604,6 +1611,8 @@ const fetchOpenRouterAnalytics = async (profile?: { encryptedValue: string } | n
     currency: 'USD',
     creditBalance: remaining,
     creditLimit: limit,
+    currentSpend: usage,
+    topUpAmount: limit,
     monthlySpend: usage,
     fetchedAt: new Date().toISOString()
   };
@@ -3761,6 +3770,8 @@ botManagerRouter.get('/providers/analytics', async (req, res) => {
     currency: remote.currency ?? 'USD',
     creditBalance: remote.creditBalance ?? null,
     creditLimit: remote.creditLimit ?? null,
+    currentSpend: remote.currentSpend ?? remote.monthlySpend ?? (totals.cost || null),
+    topUpAmount: remote.topUpAmount ?? null,
     monthlySpend: remote.monthlySpend ?? (totals.cost || null),
     localRequestCount: totals.requests,
     localTotalTokens: totals.totalTokens,
