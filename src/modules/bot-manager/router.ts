@@ -1611,7 +1611,6 @@ const fetchDeepSeekAnalytics = async (credential?: { encryptedValue: string } | 
     .map((item) => asJsonRecord(item as Prisma.JsonValue))
     .find((item) => textValue(item.currency).toUpperCase() === 'USD') ?? asJsonRecord(balances[0] as Prisma.JsonValue);
   const total = balance ? numberValue(balance.total_balance, numberValue(balance.topped_up_balance, null as unknown as number)) : null;
-  const toppedUp = balance ? numberValue(balance.topped_up_balance, null as unknown as number) : null;
   return {
     status: 'ok',
     statusMessage: record.is_available === false ? 'DeepSeek reports the account is unavailable.' : 'DeepSeek balance loaded.',
@@ -1620,7 +1619,7 @@ const fetchDeepSeekAnalytics = async (credential?: { encryptedValue: string } | 
     creditBalance: total,
     creditLimit: null,
     currentSpend: null,
-    topUpAmount: toppedUp,
+    topUpAmount: null,
     monthlySpend: null,
     fetchedAt: new Date().toISOString()
   };
@@ -1646,7 +1645,7 @@ const fetchOpenRouterAnalytics = async (profile?: { encryptedValue: string } | n
     creditBalance: remaining,
     creditLimit: limit,
     currentSpend: usage,
-    topUpAmount: limit,
+    topUpAmount: null,
     monthlySpend: usage,
     fetchedAt: new Date().toISOString()
   };
