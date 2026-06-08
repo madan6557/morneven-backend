@@ -2444,10 +2444,9 @@ const zeroClawCronAlias = (value: string, fallback: string) => {
   return normalized || fallback;
 };
 
-const parseJsonRecord = (content: string) => {
+const parseJsonValue = (content: string): unknown => {
   try {
-    const parsed = JSON.parse(content);
-    return isPlainRecord(parsed) ? parsed : null;
+    return JSON.parse(content);
   } catch {
     return null;
   }
@@ -2464,25 +2463,50 @@ const cronScheduleFromRecord = (record: Record<string, unknown>) => {
   return null;
 };
 
-const cronRecordFromFile = (file: RuntimeIdentityFilePayload): { job?: Record<string, unknown>; skipped?: { path: string; reason: string } } | null => {
-  if (!file.path.toLowerCase().startsWith('cron/')) return null;
-  const jsonRecord = parseJsonRecord(file.content);
-  if (!jsonRecord) return {
-    skipped: {
-      path: file.path,
-      reason: 'Cron file is not JSON, archived as workspace reference only'
-    }
+const normalizeZeroClawDeliveryChannel = (channel: string) =>
+  channel.includes('.') ? channel : `${channel}.default`;
+
+const cronDeliveryFromRecord = (record: Record<string, unknown>) => {
+  if (isPlainRecord(record.delivery)) {
+    const delivery = { ...record.delivery } as Record<string, unknown>;
+    const channel = textValue(delivery.channel);
+    if (channel) delivery.channel = normalizeZeroClawDeliveryChannel(channel);
+    return delivery;
+  }
+  const payload = asJsonRecord(record.payload as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const channel = textValue(payload.channel ?? record.channel);
+  const to = textValue(payload.to ?? record.to);
+  if (!channel || !to) return null;
+  const channelMeta = asJsonRecord(payload.channelMeta as Prisma.JsonValue | Record<string, unknown> | null | undefined);
+  const threadId = textValue(channelMeta.message_thread_id ?? channelMeta.messageThreadId ?? payload.threadId ?? payload.thread_id);
+  return {
+    mode: 'announce',
+    channel: normalizeZeroClawDeliveryChannel(channel),
+    to,
+    ...(threadId ? { threadId } : {}),
+    bestEffort: true
   };
+};
+
+const cronJobFromRecord = (
+  file: RuntimeIdentityFilePayload,
+  jsonRecord: Record<string, unknown>,
+  fallbackSuffix = ''
+): { job?: Record<string, unknown>; skipped?: { path: string; reason: string } } => {
+  const payload = asJsonRecord(jsonRecord.payload as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const schedule = cronScheduleFromRecord(jsonRecord);
-  const prompt = textValue(jsonRecord.prompt ?? jsonRecord.task ?? jsonRecord.message);
-  const command = textValue(jsonRecord.command ?? jsonRecord.shell);
+  const prompt = textValue(jsonRecord.prompt ?? jsonRecord.task ?? jsonRecord.message ?? payload.prompt ?? payload.task ?? payload.message);
+  const command = textValue(jsonRecord.command ?? jsonRecord.shell ?? payload.command ?? payload.shell);
   if (!schedule || (!prompt && !command)) return {
     skipped: {
-      path: file.path,
+      path: fallbackSuffix ? `${file.path}#${fallbackSuffix}` : file.path,
       reason: 'Cron file is missing a supported schedule and prompt or command'
     }
   };
-  const alias = zeroClawCronAlias(textValue(jsonRecord.id ?? jsonRecord.alias ?? jsonRecord.name), file.path.replace(/^cron\//i, '').replace(/\.[^.]+$/, ''));
+  const alias = zeroClawCronAlias(
+    textValue(jsonRecord.id ?? jsonRecord.alias ?? jsonRecord.name),
+    `${file.path.replace(/^cron\//i, '').replace(/\.[^.]+$/, '')}${fallbackSuffix ? `-${fallbackSuffix}` : ''}`
+  );
   const job: Record<string, unknown> = {
     id: alias,
     name: textValue(jsonRecord.name) || alias,
@@ -2499,18 +2523,47 @@ const cronRecordFromFile = (file: RuntimeIdentityFilePayload): { job?: Record<st
   if (model) job.model = model;
   const sessionTarget = textValue(jsonRecord.sessionTarget ?? jsonRecord.session_target);
   if (sessionTarget) job.sessionTarget = sessionTarget;
-  if (isPlainRecord(jsonRecord.delivery)) job.delivery = jsonRecord.delivery;
+  const delivery = cronDeliveryFromRecord(jsonRecord);
+  if (delivery) job.delivery = delivery;
   return { job };
+};
+
+const cronRecordsFromFile = (file: RuntimeIdentityFilePayload): { jobs: Array<Record<string, unknown>>; skipped: Array<{ path: string; reason: string }> } | null => {
+  if (!file.path.toLowerCase().startsWith('cron/')) return null;
+  const parsed = parseJsonValue(file.content);
+  if (!parsed) return {
+    jobs: [],
+    skipped: [{
+      path: file.path,
+      reason: 'Cron file is not JSON, archived as workspace reference only'
+    }]
+  };
+  const records = Array.isArray(parsed) ? parsed : [parsed];
+  const jobs: Array<Record<string, unknown>> = [];
+  const skipped: Array<{ path: string; reason: string }> = [];
+  records.forEach((record, index) => {
+    if (!isPlainRecord(record)) {
+      skipped.push({
+        path: `${file.path}#${index}`,
+        reason: 'Cron entry is not a JSON object'
+      });
+      return;
+    }
+    const result = cronJobFromRecord(file, record, Array.isArray(parsed) ? String(index + 1) : '');
+    if (result.job) jobs.push(result.job);
+    if (result.skipped) skipped.push(result.skipped);
+  });
+  return { jobs, skipped };
 };
 
 const buildZeroClawCronTranslation = (files: RuntimeIdentityFilePayload[]) => {
   const jobs: Array<Record<string, unknown>> = [];
   const skipped: Array<{ path: string; reason: string }> = [];
   for (const file of files) {
-    const parsed = cronRecordFromFile(file);
+    const parsed = cronRecordsFromFile(file);
     if (!parsed) continue;
-    if (parsed.job) jobs.push(parsed.job);
-    if (parsed.skipped) skipped.push(parsed.skipped);
+    jobs.push(...parsed.jobs);
+    skipped.push(...parsed.skipped);
   }
   return { jobs, skipped };
 };
