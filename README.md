@@ -74,6 +74,7 @@ Important groups:
 - Upload: `MAX_UPLOAD_MB`.
 - Extraction and migration: `EXTRACTION_KEY`, `MIGRATION_KEY`.
 - Bot Manager: `BOT_MANAGER_KEY`, `BOT_MANAGER_ENCRYPTION_KEY`, `BOT_MANAGER_SYNC_TOKEN`, `NANOBOT_INTERNAL_BASE_URL`, `NANOBOT_MORNEVEN_RELOAD_TOKEN`.
+- Bot Manager legacy runtime import: set `NANOBOT_LEGACY_INTERNAL_BASE_URL` to the old Nanobot service while `NANOBOT_INTERNAL_BASE_URL` points to ZeroClaw. `NANOBOT_LEGACY_MORNEVEN_RELOAD_TOKEN` is optional and falls back to `NANOBOT_MORNEVEN_RELOAD_TOKEN`.
 
 ## Development
 
