@@ -49,6 +49,13 @@ const schema = z.object({
     if (!trimmed) return undefined;
     return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
   }, z.string().url().optional()),
+  NANOBOT_LEGACY_INTERNAL_BASE_URL: z.preprocess((value) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  }, z.string().url().optional()),
+  NANOBOT_LEGACY_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional(),
   NANOBOT_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional()
 });
 
@@ -110,5 +117,7 @@ export const env = {
   botManagerEncryptionKey: parsed.data.BOT_MANAGER_ENCRYPTION_KEY,
   botManagerSyncToken: parsed.data.BOT_MANAGER_SYNC_TOKEN,
   nanobotInternalBaseUrl: parsed.data.NANOBOT_INTERNAL_BASE_URL,
+  nanobotLegacyInternalBaseUrl: parsed.data.NANOBOT_LEGACY_INTERNAL_BASE_URL,
+  nanobotLegacyMornevenReloadToken: parsed.data.NANOBOT_LEGACY_MORNEVEN_RELOAD_TOKEN,
   nanobotMornevenReloadToken: parsed.data.NANOBOT_MORNEVEN_RELOAD_TOKEN
 };

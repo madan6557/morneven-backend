@@ -2741,6 +2741,36 @@ const runtimeWorkspacePayloads = (payload: unknown) => {
   }];
 };
 
+const normalizedRuntimeBase = (value?: string) => value?.replace(/\/+$/, '').toLowerCase() ?? '';
+
+const runtimeWorkspacePullSources = (): Array<RuntimeEndpoint & { includeAll: boolean; optional: boolean }> => {
+  const sources: Array<RuntimeEndpoint & { includeAll: boolean; optional: boolean }> = [];
+  if (env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken) {
+    sources.push({
+      baseUrl: env.nanobotInternalBaseUrl,
+      token: env.nanobotMornevenReloadToken,
+      label: 'Runtime',
+      includeAll: false,
+      optional: false
+    });
+  }
+  const legacyToken = env.nanobotLegacyMornevenReloadToken ?? env.nanobotMornevenReloadToken;
+  if (
+    env.nanobotLegacyInternalBaseUrl
+    && legacyToken
+    && normalizedRuntimeBase(env.nanobotLegacyInternalBaseUrl) !== normalizedRuntimeBase(env.nanobotInternalBaseUrl)
+  ) {
+    sources.push({
+      baseUrl: env.nanobotLegacyInternalBaseUrl,
+      token: legacyToken,
+      label: 'Legacy Nanobot',
+      includeAll: true,
+      optional: true
+    });
+  }
+  return sources;
+};
+
 const conflictWorkspacePath = (workspacePath: string) => {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const candidate = `conflicts/runtime/${timestamp}/${workspacePath}`;
@@ -3256,82 +3286,116 @@ const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspac
 
   const generalConfig = await ensureGeneralConfig();
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
-  const { payload, status } = await callNanobot('/api/morneven/workspace/changes', { allowNotFound: true });
-  if (status === 404) {
-    return {
-      ...emptyRuntimeWorkspacePull(),
-      skippedPaths: ['workspace changes: Nanobot endpoint unavailable'],
-      skipped: [{ path: 'workspace', reason: 'Nanobot workspace changes endpoint unavailable' }]
-    };
-  }
   const appliedPaths: string[] = [];
   const conflictPaths: string[] = [];
   const skippedPaths: string[] = [];
   const allChanges: RuntimeWorkspaceChange[] = [];
   const allSkipped: Array<{ path: string; reason: string }> = [];
+  const sources = runtimeWorkspacePullSources();
+  const pulledPathKeys = new Set<string>();
+  if (!sources.length) {
+    return {
+      ...emptyRuntimeWorkspacePull(),
+      skippedPaths: ['workspace changes: runtime endpoint unavailable'],
+      skipped: [{ path: 'workspace', reason: 'Runtime workspace changes endpoint unavailable' }]
+    };
+  }
 
-  for (const runtimePayload of runtimeWorkspacePayloads(payload)) {
-    const activeIdentity = runtimePayload.identityId
-      ? activeById.get(runtimePayload.identityId)
-      : activeIdentities.find((identity) => identity.isMain) ?? activeIdentities[0];
-    if (!activeIdentity) {
-      skippedPaths.push(`workspace changes: unknown active identity ${runtimePayload.identityId || 'none'}`);
+  for (const source of sources) {
+    let payload: unknown;
+    let status = 0;
+    try {
+      const result = await callNanobot(
+        source.includeAll ? '/api/morneven/workspace/changes?includeAll=1' : '/api/morneven/workspace/changes',
+        { allowNotFound: true },
+        source
+      );
+      payload = result.payload;
+      status = result.status;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `${source.label} workspace pull failed`;
+      if (!source.optional) throw error;
+      skippedPaths.push(`workspace changes: ${source.label}: ${message}`);
+      allSkipped.push({ path: `${source.label}:workspace`, reason: message });
       continue;
     }
-    const parsed = toRuntimeWorkspaceChanges(runtimePayload.payload);
-    const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
-    allChanges.push(...parsed.changes);
-    allSkipped.push(...parsed.skipped.map((item) => ({ path: `${activeIdentity.slug}:${item.path}`, reason: item.reason })));
+    if (status === 404) {
+      skippedPaths.push(`workspace changes: ${source.label} endpoint unavailable`);
+      allSkipped.push({ path: `${source.label}:workspace`, reason: `${source.label} workspace changes endpoint unavailable` });
+      continue;
+    }
 
-    for (const change of parsed.changes) {
-      const workspacePath = normalizeWorkspacePath(canonicalizeZeroClawWorkspacePath(change.path));
-      if (!workspacePath) {
-        skippedPaths.push(`${activeIdentity.slug}:${change.path}: invalid path`);
+    for (const runtimePayload of runtimeWorkspacePayloads(payload)) {
+      const activeIdentity = runtimePayload.identityId
+        ? activeById.get(runtimePayload.identityId)
+        : activeIdentities.find((identity) => identity.isMain) ?? activeIdentities[0];
+      if (!activeIdentity) {
+        skippedPaths.push(`workspace changes: ${source.label}: unknown active identity ${runtimePayload.identityId || 'none'}`);
         continue;
       }
-      if (change.content.length > 500000) {
-        skippedPaths.push(`${activeIdentity.slug}:${workspacePath}: content too large`);
-        continue;
-      }
+      const parsed = toRuntimeWorkspaceChanges(runtimePayload.payload);
+      const existingByPath = new Map(activeIdentity.files.map((file) => [file.path.toLowerCase(), file]));
+      allChanges.push(...parsed.changes);
+      allSkipped.push(...parsed.skipped.map((item) => ({ path: `${source.label}:${activeIdentity.slug}:${item.path}`, reason: item.reason })));
 
-      const storedChangeContent = toStoredWorkspaceContent(workspacePath, change.content);
-      const existing = existingByPath.get(workspacePath.toLowerCase());
-      if (!existing) {
+      for (const change of parsed.changes) {
+        const workspacePath = normalizeWorkspacePath(canonicalizeZeroClawWorkspacePath(change.path));
+        if (!workspacePath) {
+          skippedPaths.push(`${source.label}:${activeIdentity.slug}:${change.path}: invalid path`);
+          continue;
+        }
+        if (change.content.length > 500000) {
+          skippedPaths.push(`${source.label}:${activeIdentity.slug}:${workspacePath}: content too large`);
+          continue;
+        }
+        const pullKey = `${activeIdentity.id}:${workspacePath.toLowerCase()}`;
+        if (source.optional && pulledPathKeys.has(pullKey)) {
+          skippedPaths.push(`${source.label}:${activeIdentity.slug}:${workspacePath}: current runtime already reported this path`);
+          continue;
+        }
+        pulledPathKeys.add(pullKey);
+
+        const storedChangeContent = toStoredWorkspaceContent(workspacePath, change.content);
+        const existing = existingByPath.get(workspacePath.toLowerCase());
+        if (!existing) {
+          const saved = await saveIdentityFile(activeIdentity, {
+            path: workspacePath,
+            kind: change.kind,
+            content: storedChangeContent
+          }, actor);
+          existingByPath.set(workspacePath.toLowerCase(), saved);
+          appliedPaths.push(`${source.label}:${activeIdentity.slug}:${workspacePath}`);
+          continue;
+        }
+
+        const currentContent = await readIdentityFileContent(existing);
+        const currentStoredHash = contentHash(currentContent);
+        const currentRuntimeHash = contentHash(toRuntimeWorkspaceContent(workspacePath, currentContent, publicConfig));
+        const storedChangeHash = contentHash(storedChangeContent);
+        if (currentRuntimeHash === change.contentHash || currentStoredHash === storedChangeHash) {
+          skippedPaths.push(`${source.label}:${activeIdentity.slug}:${workspacePath}: already current`);
+          continue;
+        }
+        if (change.baseHash && currentRuntimeHash === change.baseHash) {
+          const saved = await saveIdentityFile(activeIdentity, {
+            path: workspacePath,
+            kind: change.kind,
+            content: storedChangeContent,
+            contentType: existing.contentType
+          }, actor);
+          existingByPath.set(workspacePath.toLowerCase(), saved);
+          appliedPaths.push(`${source.label}:${activeIdentity.slug}:${workspacePath}`);
+          continue;
+        }
+
+        const conflictPath = conflictWorkspacePath(workspacePath);
         await saveIdentityFile(activeIdentity, {
-          path: workspacePath,
+          path: conflictPath,
           kind: change.kind,
-          content: storedChangeContent
+          content: change.content
         }, actor);
-        appliedPaths.push(`${activeIdentity.slug}:${workspacePath}`);
-        continue;
+        conflictPaths.push(`${source.label}:${activeIdentity.slug}:${conflictPath}`);
       }
-
-      const currentContent = await readIdentityFileContent(existing);
-      const currentStoredHash = contentHash(currentContent);
-      const currentRuntimeHash = contentHash(toRuntimeWorkspaceContent(workspacePath, currentContent, publicConfig));
-      const storedChangeHash = contentHash(storedChangeContent);
-      if (currentRuntimeHash === change.contentHash || currentStoredHash === storedChangeHash) {
-        skippedPaths.push(`${activeIdentity.slug}:${workspacePath}: already current`);
-        continue;
-      }
-      if (change.baseHash && currentRuntimeHash === change.baseHash) {
-        await saveIdentityFile(activeIdentity, {
-          path: workspacePath,
-          kind: change.kind,
-          content: storedChangeContent,
-          contentType: existing.contentType
-        }, actor);
-        appliedPaths.push(`${activeIdentity.slug}:${workspacePath}`);
-        continue;
-      }
-
-      const conflictPath = conflictWorkspacePath(workspacePath);
-      await saveIdentityFile(activeIdentity, {
-        path: conflictPath,
-        kind: change.kind,
-        content: change.content
-      }, actor);
-      conflictPaths.push(`${activeIdentity.slug}:${conflictPath}`);
     }
   }
 
@@ -3911,17 +3975,23 @@ const summarizeRuntimeBundle = (bundle: unknown) => {
   };
 };
 
-const nanobotBaseUrlCandidates = () => {
-  if (!env.nanobotInternalBaseUrl) return [];
+type RuntimeEndpoint = {
+  baseUrl?: string;
+  token?: string;
+  label: string;
+};
+
+const runtimeBaseUrlCandidates = (baseUrl?: string) => {
+  if (!baseUrl) return [];
   const candidates: string[] = [];
   const addCandidate = (value: string) => {
     const normalized = value.replace(/\/+$/, '');
     if (normalized && !candidates.includes(normalized)) candidates.push(normalized);
   };
 
-  addCandidate(env.nanobotInternalBaseUrl);
+  addCandidate(baseUrl);
   try {
-    const parsed = new URL(env.nanobotInternalBaseUrl);
+    const parsed = new URL(baseUrl);
     const isRailwayPrivate = parsed.hostname.endsWith('.railway.internal');
     if (isRailwayPrivate) {
       parsed.protocol = 'http:';
@@ -3937,14 +4007,14 @@ const nanobotBaseUrlCandidates = () => {
   return candidates;
 };
 
-const describeNanobotFetchError = (error: unknown, endpoint: string) => {
+const describeNanobotFetchError = (error: unknown, endpoint: string, label = 'Nanobot') => {
   const baseMessage = error instanceof Error ? error.message : 'request failed';
   const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
   const causeText = cause?.code ? `${cause.code}${cause.message ? `: ${cause.message}` : ''}` : cause?.message;
   const railwayHint = endpoint.includes('.railway.internal')
     ? ' Railway private networking should use http://<private-domain>:<port>, not https.'
     : '';
-  return `Nanobot request failed at ${endpoint}: ${causeText ?? baseMessage}.${railwayHint}`;
+  return `${label} request failed at ${endpoint}: ${causeText ?? baseMessage}.${railwayHint}`;
 };
 
 const parseNanobotPayload = async (response: globalThis.Response) => {
@@ -3967,13 +4037,24 @@ const nanobotPayloadMessage = (payload: unknown) => {
   return null;
 };
 
-const callNanobot = async (path: string, init: { method?: string; body?: unknown; allowNotFound?: boolean } = {}) => {
-  if (!env.nanobotInternalBaseUrl || !env.nanobotMornevenReloadToken) {
-    throw new Error('Nanobot runtime endpoint is not configured');
+const callNanobot = async (
+  path: string,
+  init: { method?: string; body?: unknown; allowNotFound?: boolean } = {},
+  runtimeEndpoint: RuntimeEndpoint = {
+    baseUrl: env.nanobotInternalBaseUrl,
+    token: env.nanobotMornevenReloadToken,
+    label: 'Nanobot'
+  }
+) => {
+  const baseUrl = runtimeEndpoint.baseUrl;
+  const token = runtimeEndpoint.token;
+  const label = runtimeEndpoint.label || 'Nanobot';
+  if (!baseUrl || !token) {
+    throw new Error(`${label} runtime endpoint is not configured`);
   }
 
-  const bases = nanobotBaseUrlCandidates();
-  let lastError = `Nanobot request failed: ${path}`;
+  const bases = runtimeBaseUrlCandidates(baseUrl);
+  let lastError = `${label} request failed: ${path}`;
   for (const base of bases) {
     const endpoint = `${base}${path}`;
     try {
@@ -3981,7 +4062,7 @@ const callNanobot = async (path: string, init: { method?: string; body?: unknown
         method: init.method ?? 'GET',
         headers: {
           'content-type': 'application/json',
-          'x-morneven-reload-token': env.nanobotMornevenReloadToken
+          'x-morneven-reload-token': token
         },
         body: init.body === undefined ? undefined : JSON.stringify(init.body)
       });
@@ -3995,7 +4076,7 @@ const callNanobot = async (path: string, init: { method?: string; body?: unknown
       }
       return { endpoint, payload, status: response.status };
     } catch (error) {
-      lastError = describeNanobotFetchError(error, endpoint);
+      lastError = describeNanobotFetchError(error, endpoint, label);
       if (error instanceof Error && !error.message.includes('fetch failed')) break;
     }
   }
