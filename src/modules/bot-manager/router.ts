@@ -4185,6 +4185,20 @@ botManagerRouter.post('/runtime/config-secrets', async (req, res) => {
 botManagerRouter.use(auth);
 botManagerRouter.use(botManagerRateLimiter);
 
+botManagerRouter.get('/access', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  return ok(res, {
+    canAccessBotManager: true,
+    user: {
+      id: req.user!.id,
+      username: req.user!.username,
+      role: req.user!.role,
+      level: req.user!.level,
+      track: req.user!.track
+    }
+  });
+});
+
 botManagerRouter.get('/summary', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const [generalConfig, credentials, analyticsCredentials, identityRecords, openRouterProfiles] = await Promise.all([
