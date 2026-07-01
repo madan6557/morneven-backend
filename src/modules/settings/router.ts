@@ -127,6 +127,14 @@ const extractionSchema = z.object({
   secretKey: z.string().min(16)
 });
 
+const extractionRetrySchema = z.object({
+  mediaSources: z.array(backupMediaSourceSchema).optional().default(defaultBackupMediaSources),
+  autoDownload: z.boolean().optional(),
+  confirmText: z.literal('CONFIRM'),
+  password: z.string().min(1),
+  secretKey: z.string().min(16)
+});
+
 const migrationSchema = z
   .object({
     newBaseUrl: z.string().url().optional().or(z.literal('')),
@@ -608,7 +616,13 @@ const buildExtractionFiles = async (
   };
 };
 
-const extractionProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
+const EXTRACTION_STALE_MS = 30 * 60 * 1000;
+const extractionProgress = (percent: number, stage: string, message: string) => ({
+  percent,
+  stage,
+  message,
+  updatedAt: new Date().toISOString()
+});
 
 const formatBackupDownloadName = (date: Date) => {
   const dd = String(date.getUTCDate()).padStart(2, '0');
@@ -627,6 +641,57 @@ const serializeExtractionJob = (job: Awaited<ReturnType<typeof prisma.extraction
   };
 };
 
+type ExtractionJobRecord = NonNullable<Awaited<ReturnType<typeof prisma.extractionJob.findFirst>>>;
+
+const extractionProgressRecord = (progress: Prisma.JsonValue | null | undefined) => {
+  if (!progress || typeof progress !== 'object' || Array.isArray(progress)) return {};
+  return progress as Record<string, unknown>;
+};
+
+const extractionProgressPercent = (job: ExtractionJobRecord) => {
+  const percent = extractionProgressRecord(job.progress).percent;
+  return typeof percent === 'number' && Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+};
+
+const extractionHeartbeatTime = (job: ExtractionJobRecord) => {
+  const updatedAt = extractionProgressRecord(job.progress).updatedAt;
+  const parsed = typeof updatedAt === 'string' ? Date.parse(updatedAt) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : job.createdAt.getTime();
+};
+
+const stopExtractionJob = async (job: ExtractionJobRecord, actor: string, reason: string) => {
+  const progress = extractionProgress(
+    extractionProgressPercent(job),
+    'stopped',
+    reason
+  );
+  const result = await prisma.extractionJob.updateMany({
+    where: { id: job.id, status: 'processing' },
+    data: {
+      status: 'stopped',
+      completedAt: new Date(),
+      error: reason,
+      progress
+    }
+  });
+  if (!result.count) return null;
+  const stopped = await prisma.extractionJob.findUnique({ where: { id: job.id } });
+  if (stopped) emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(stopped) as Record<string, unknown> });
+  return stopped;
+};
+
+const stopStaleExtractionJobs = async (actor: string) => {
+  const now = Date.now();
+  const jobs = await prisma.extractionJob.findMany({
+    where: { createdBy: actor, status: 'processing', expiresAt: { gt: new Date() } }
+  });
+  for (const job of jobs) {
+    if (extractionProgressPercent(job) >= 100) continue;
+    if (now - extractionHeartbeatTime(job) <= EXTRACTION_STALE_MS) continue;
+    await stopExtractionJob(job, actor, 'Backup job stopped because progress did not update for 30 minutes. Retry to start again from 0%.');
+  }
+};
+
 const runExtractionJob = async (
   jobId: string,
   mode: 'db' | 'images' | 'all',
@@ -636,10 +701,13 @@ const runExtractionJob = async (
 ) => {
   try {
     const updateProgress = async (percent: number, stage: string, message: string) => {
-      const updated = await prisma.extractionJob.update({
-        where: { id: jobId },
+      const result = await prisma.extractionJob.updateMany({
+        where: { id: jobId, status: 'processing' },
         data: { progress: extractionProgress(percent, stage, message) }
       });
+      if (!result.count) throw new Error('Extraction job stopped');
+      const updated = await prisma.extractionJob.findUnique({ where: { id: jobId } });
+      if (!updated) throw new Error('Extraction job not found');
       emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(updated) as Record<string, unknown> });
     };
 
@@ -653,8 +721,8 @@ const runExtractionJob = async (
     const objectPath = `backups/${jobId}/${downloadName}`;
     const stored = await saveFileToStorage({ objectPath, buffer: zip, contentType: 'application/zip' });
 
-    const completed = await prisma.extractionJob.update({
-      where: { id: jobId },
+    const result = await prisma.extractionJob.updateMany({
+      where: { id: jobId, status: 'processing' },
       data: {
         status: 'completed',
         completedAt: new Date(),
@@ -663,6 +731,9 @@ const runExtractionJob = async (
         progress: extractionProgress(100, 'completed', 'Backup ready')
       }
     });
+    if (!result.count) return;
+    const completed = await prisma.extractionJob.findUnique({ where: { id: jobId } });
+    if (!completed) return;
     emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(completed) as Record<string, unknown> });
     await writeAudit(prisma, {
       actor,
@@ -678,16 +749,48 @@ const runExtractionJob = async (
       }
     });
   } catch (error) {
-    const failed = await prisma.extractionJob.update({
-      where: { id: jobId },
+    const result = await prisma.extractionJob.updateMany({
+      where: { id: jobId, status: 'processing' },
       data: {
         status: 'failed',
         error: (error as Error).message,
         progress: extractionProgress(100, 'failed', 'Backup failed')
       }
     });
+    if (!result.count) return;
+    const failed = await prisma.extractionJob.findUnique({ where: { id: jobId } });
+    if (!failed) return;
     emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(failed) as Record<string, unknown> });
   }
+};
+
+const createAndStartExtractionJob = async (input: {
+  mode: 'db' | 'images' | 'all';
+  mediaSources: BackupMediaSource[];
+  autoDownload: boolean;
+  actor: string;
+}) => {
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const downloadName = formatBackupDownloadName(createdAt);
+  const job = await prisma.extractionJob.create({
+    data: {
+      mode: input.mode,
+      autoDownload: input.autoDownload,
+      status: 'processing',
+      createdBy: input.actor,
+      expiresAt,
+      downloadName,
+      progress: extractionProgress(0, 'queued', 'Queued')
+    }
+  });
+
+  setImmediate(() => {
+    void runExtractionJob(job.id, input.mode, input.mediaSources, input.actor, downloadName);
+  });
+
+  emitToUser(input.actor, 'settings.extraction.updated', { job: serializeExtractionJob(job) as Record<string, unknown> });
+  return job;
 };
 
 const migrationProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
@@ -1237,6 +1340,7 @@ settingsRouter.post('/migration/receive-backup', (req, res, next) => {
 
 settingsRouter.get('/extractions', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
+  await stopStaleExtractionJobs(req.user!.username);
   const jobs = await prisma.extractionJob.findMany({
     where: { createdBy: req.user!.username, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'desc' }
@@ -1246,6 +1350,7 @@ settingsRouter.get('/extractions', auth, async (req, res) => {
 
 settingsRouter.post('/extractions', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
+  await stopStaleExtractionJobs(req.user!.username);
 
   const parsed = extractionSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
@@ -1266,31 +1371,18 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
   const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
 
-  const createdAt = new Date();
-  const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const downloadName = formatBackupDownloadName(createdAt);
-  const job = await prisma.extractionJob.create({
-    data: {
-      mode: parsed.data.mode,
-      autoDownload: parsed.data.autoDownload,
-      status: 'processing',
-      createdBy: req.user!.username,
-      expiresAt,
-      downloadName,
-      progress: extractionProgress(0, 'queued', 'Queued')
-    }
+  const job = await createAndStartExtractionJob({
+    mode: parsed.data.mode,
+    mediaSources: parsed.data.mediaSources,
+    autoDownload: parsed.data.autoDownload,
+    actor: req.user!.username
   });
-
-  setImmediate(() => {
-    void runExtractionJob(job.id, parsed.data.mode, parsed.data.mediaSources, req.user!.username, downloadName);
-  });
-
-  emitToUser(req.user!.username, 'settings.extraction.updated', { job: serializeExtractionJob(job) as Record<string, unknown> });
   return res.status(202).json({ success: true, data: serializeExtractionJob(job) });
 });
 
 settingsRouter.get('/extractions/:id', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
+  await stopStaleExtractionJobs(req.user!.username);
   const job = await prisma.extractionJob.findFirst({
     where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
   });
@@ -1298,8 +1390,66 @@ settingsRouter.get('/extractions/:id', auth, async (req, res) => {
   return ok(res, serializeExtractionJob(job));
 });
 
+settingsRouter.post('/extractions/:id/retry', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  await stopStaleExtractionJobs(req.user!.username);
+  const parsed = extractionRetrySchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid extraction key';
+    return fail(
+      res,
+      message.includes('configured') ? 503 : 403,
+      message,
+      message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN'
+    );
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
+  const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
+
+  const existing = await prisma.extractionJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
+  if (!existing) return fail(res, 404, 'Extraction job not found', 'NOT_FOUND');
+
+  const mode = z.enum(['db', 'images', 'all']).safeParse(existing.mode);
+  if (!mode.success) return fail(res, 409, 'Extraction job mode is not retryable', 'EXTRACTION_RETRY_UNAVAILABLE');
+  if (existing.status === 'processing') {
+    await stopExtractionJob(existing, req.user!.username, 'Backup job stopped before retry. New retry starts from 0%.');
+  }
+
+  const job = await createAndStartExtractionJob({
+    mode: mode.data,
+    mediaSources: parsed.data.mediaSources,
+    autoDownload: parsed.data.autoDownload ?? existing.autoDownload,
+    actor: req.user!.username
+  });
+
+  return res.status(202).json({ success: true, data: serializeExtractionJob(job) });
+});
+
+settingsRouter.post('/extractions/:id/stop', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  await stopStaleExtractionJobs(req.user!.username);
+  const job = await prisma.extractionJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
+  if (!job) return fail(res, 404, 'Extraction job not found', 'NOT_FOUND');
+  if (job.status !== 'processing') return fail(res, 409, 'Extraction job is not running', 'EXTRACTION_NOT_RUNNING');
+
+  const stopped = await stopExtractionJob(job, req.user!.username, 'Backup job stopped by user. Retry to start again from 0%.');
+  if (!stopped) return fail(res, 409, 'Extraction job is not running', 'EXTRACTION_NOT_RUNNING');
+  return ok(res, serializeExtractionJob(stopped));
+});
+
 settingsRouter.post('/extractions/:id/download-ticket', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
+  await stopStaleExtractionJobs(req.user!.username);
   const parsed = extractionDownloadTicketSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   try {
@@ -1314,7 +1464,9 @@ settingsRouter.post('/extractions/:id/download-ticket', auth, async (req, res) =
     );
   }
 
-  const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  const job = await prisma.extractionJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
   if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
   const ticket = createExtractionDownloadTicket(job.id, req.user!.username);
   return ok(res, {
