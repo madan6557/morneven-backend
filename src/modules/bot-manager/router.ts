@@ -248,9 +248,9 @@ const protectedWorkspacePaths = new Set([
 ]);
 
 const readOnlyWorkspacePaths = new Set(['lore.md', 'memory/history.jsonl']);
-const nanobotStatusCacheMs = 30_000;
+const runtimeStatusCacheMs = 30_000;
 
-let nanobotStatusCache: { payload: unknown; cachedAt: number } | null = null;
+let runtimeStatusCache: { payload: unknown; cachedAt: number } | null = null;
 
 const safeEquals = (left: string, right: string) => {
   const leftBuffer = Buffer.from(left);
@@ -878,6 +878,12 @@ const formatBotManagerBackupName = (date: Date) => {
 
 const botManagerWorkspaceObjectPrefix = 'bot-manager/workspace/';
 const identityWorkspaceObjectPrefix = (slug: string) => `${botManagerWorkspaceObjectPrefix}${slug}/`;
+const legacyRuntimeArchivePrefix = 'legacy/nanobot/';
+
+const isLegacyRuntimeArchivePath = (workspacePath: string) => {
+  const normalized = normalizeWorkspacePath(workspacePath);
+  return normalized ? normalized.toLowerCase().startsWith(legacyRuntimeArchivePrefix) : false;
+};
 
 const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFile[]> => {
   const where = identityIds.length ? { id: { in: identityIds } } : {};
@@ -946,8 +952,9 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
       name: `identities/${identity.slug}/identity.json`,
       content: JSON.stringify(serializeIdentity(identity), null, 2)
     });
-    const trackedObjectPaths = new Set(identity.files.map((file) => file.objectPath));
-    for (const workspaceFile of identity.files.sort((left, right) => left.path.localeCompare(right.path))) {
+    const trackedWorkspaceFiles = identity.files.filter((file) => !isLegacyRuntimeArchivePath(file.path));
+    const trackedObjectPaths = new Set(trackedWorkspaceFiles.map((file) => file.objectPath));
+    for (const workspaceFile of trackedWorkspaceFiles.sort((left, right) => left.path.localeCompare(right.path))) {
       await addWorkspaceObjectFile(
         workspaceFile.objectPath,
         `identities/${identity.slug}/workspace/${workspaceFile.path}`,
@@ -959,7 +966,7 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
     for (const object of storageObjects.filter((item) => item.objectPath.startsWith(workspacePrefix))) {
       if (trackedObjectPaths.has(object.objectPath)) continue;
       const relativePath = object.objectPath.slice(workspacePrefix.length);
-      if (!relativePath) continue;
+      if (!relativePath || isLegacyRuntimeArchivePath(relativePath)) continue;
       await addWorkspaceObjectFile(
         object.objectPath,
         `identities/${identity.slug}/workspace/${relativePath}`,
@@ -986,7 +993,12 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
   if (!identityIds.length) {
     for (const object of storageObjects.filter((item) => item.objectPath.startsWith(botManagerWorkspaceObjectPrefix))) {
       const relativePath = object.objectPath.slice(botManagerWorkspaceObjectPrefix.length);
-      if (!relativePath) continue;
+      const normalizedRelativePath = relativePath.toLowerCase();
+      if (
+        !relativePath
+        || normalizedRelativePath.startsWith(legacyRuntimeArchivePrefix)
+        || normalizedRelativePath.includes('/legacy/nanobot/')
+      ) continue;
       await addWorkspaceObjectFile(
         object.objectPath,
         `workspace-objects/${relativePath}`,
@@ -1845,11 +1857,11 @@ const localUsagePoints = async (provider: BotProvider, range: '7d' | '30d' | '90
   return points;
 };
 
-const ingestNanobotProviderUsage = async (range: '7d' | '30d' | '90d') => {
+const ingestRuntimeProviderUsage = async (range: '7d' | '30d' | '90d') => {
   try {
     const { start, end } = analyticsRangeWindow(range);
     const query = new URLSearchParams({ from: start.toISOString(), to: end.toISOString() });
-    const { payload } = await callNanobot(`/api/morneven/provider-usage?${query.toString()}`, { allowNotFound: true });
+    const { payload } = await callRuntimeService(`/api/morneven/provider-usage?${query.toString()}`, { allowNotFound: true });
     const events = Array.isArray(asJsonRecord(payload as Prisma.JsonValue).events) ? asJsonRecord(payload as Prisma.JsonValue).events as unknown[] : [];
     const rows = events.flatMap((item) => {
       const event = asJsonRecord(item as Prisma.JsonValue);
@@ -1872,7 +1884,7 @@ const ingestNanobotProviderUsage = async (range: '7d' | '30d' | '90d') => {
         stopReason: textValue(event.stopReason) || null,
         error: textValue(event.error) || null,
         metadata: {
-          source: 'nanobot',
+          source: 'zeroclaw',
           rawUsage: isPlainRecord(event.usage) ? event.usage : undefined
         } as Prisma.InputJsonValue
       }];
@@ -1880,7 +1892,7 @@ const ingestNanobotProviderUsage = async (range: '7d' | '30d' | '90d') => {
     if (rows.length) await prisma.botManagerProviderUsageEvent.createMany({ data: rows, skipDuplicates: true });
     return { ok: true, imported: rows.length };
   } catch (error) {
-    return { ok: false, imported: 0, error: error instanceof Error ? error.message : 'Nanobot usage ingest failed' };
+    return { ok: false, imported: 0, error: error instanceof Error ? error.message : 'ZeroClaw usage ingest failed' };
   }
 };
 
@@ -2754,7 +2766,7 @@ const toRuntimeWorkspaceChanges = (payload: unknown) => {
       .map((item) => asJsonRecord(item as Prisma.JsonValue))
       .map((item) => ({
         path: typeof item.path === 'string' ? item.path : '',
-        reason: typeof item.reason === 'string' ? item.reason : 'Skipped by Nanobot'
+        reason: typeof item.reason === 'string' ? item.reason : 'Skipped by runtime service'
       }))
       .filter((item) => item.path)
   };
@@ -2991,7 +3003,7 @@ const applyRuntimeProviderSecretPull = async (
             modelId: modelId || 'runtime-import',
             apiBase: apiBase || null,
             tags: ['runtime-import'] as Prisma.InputJsonValue,
-            notes: 'Imported from Nanobot runtime config.',
+            notes: 'Imported from runtime config.',
             isActive: textValue(publicConfig.activeProvider) === 'openrouter',
             updatedBy: actor
           }
@@ -3082,7 +3094,7 @@ const applyRuntimeProviderSecretPush = async (
             modelId: modelId || 'runtime-import',
             apiBase: apiBase || null,
             tags: ['runtime-import'] as Prisma.InputJsonValue,
-            notes: 'Imported from Nanobot runtime config.',
+            notes: 'Imported from runtime config.',
             isActive: textValue(defaults.provider) === 'openrouter',
             updatedBy: actor
           }
@@ -3188,9 +3200,9 @@ const applyRuntimeConfigSecretPull = async (actor: string): Promise<RuntimeConfi
   if (!activeIdentityRecords.length) throw new Error('No active bot personality is configured');
   const activeIdentities = await ensureIdentityListSecretsEncrypted(activeIdentityRecords);
   const activeById = new Map(activeIdentities.map((identity) => [identity.id, identity]));
-  const { payload, status } = await callNanobot('/api/morneven/config-secrets', { allowNotFound: true });
+  const { payload, status } = await callRuntimeService('/api/morneven/config-secrets', { allowNotFound: true });
   if (status === 404) {
-    result.skippedPaths.push('runtime config secrets: Nanobot endpoint unavailable');
+    result.skippedPaths.push('runtime config secrets: ZeroClaw endpoint unavailable');
     return result;
   }
 
@@ -3287,9 +3299,9 @@ const applyRuntimeTelegramTopicPull = async (actor: string, identityId?: string)
   const identities = await ensureIdentityListSecretsEncrypted(identityRecords);
   const byId = new Map(identities.map((identity) => [identity.id, identity]));
 
-  const { payload, status } = await callNanobot('/api/morneven/telegram/topics', { allowNotFound: true });
+  const { payload, status } = await callRuntimeService('/api/morneven/telegram/topics', { allowNotFound: true });
   if (status === 404) {
-    result.skippedPaths.push('telegram topics: Nanobot endpoint unavailable');
+    result.skippedPaths.push('telegram topics: ZeroClaw endpoint unavailable');
     return result;
   }
 
@@ -3358,7 +3370,7 @@ const applyRuntimeWorkspacePull = async (actor: string): Promise<RuntimeWorkspac
     let payload: unknown;
     let status = 0;
     try {
-      const result = await callNanobot(
+      const result = await callRuntimeService(
         source.includeAll ? '/api/morneven/workspace/changes?includeAll=1' : '/api/morneven/workspace/changes',
         { allowNotFound: true },
         source
@@ -3685,7 +3697,7 @@ const buildDefaultIdentityFiles = (input: {
         '- Do not start background work without a configured automation or user instruction.',
         '',
         '## Status Notes',
-        '- After changing defaults, sync runtime before expecting Nanobot to use the new workspace.'
+        '- After changing defaults, sync runtime before expecting ZeroClaw to use the new workspace.'
       ].join('\n')
     }
   ];
@@ -4060,7 +4072,7 @@ const runtimeBaseUrlCandidates = (baseUrl?: string) => {
   return candidates;
 };
 
-const describeNanobotFetchError = (error: unknown, endpoint: string, label = 'Nanobot') => {
+const describeRuntimeFetchError = (error: unknown, endpoint: string, label = 'ZeroClaw') => {
   const baseMessage = error instanceof Error ? error.message : 'request failed';
   const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
   const causeText = cause?.code ? `${cause.code}${cause.message ? `: ${cause.message}` : ''}` : cause?.message;
@@ -4070,7 +4082,7 @@ const describeNanobotFetchError = (error: unknown, endpoint: string, label = 'Na
   return `${label} request failed at ${endpoint}: ${causeText ?? baseMessage}.${railwayHint}`;
 };
 
-const parseNanobotPayload = async (response: globalThis.Response) => {
+const parseRuntimePayload = async (response: globalThis.Response) => {
   const text = await response.text();
   if (!text) return null;
   try {
@@ -4080,7 +4092,7 @@ const parseNanobotPayload = async (response: globalThis.Response) => {
   }
 };
 
-const nanobotPayloadMessage = (payload: unknown) => {
+const runtimePayloadMessage = (payload: unknown) => {
   if (payload && typeof payload === 'object') {
     const record = payload as { error?: unknown; message?: unknown };
     if (typeof record.error === 'string') return record.error;
@@ -4090,18 +4102,18 @@ const nanobotPayloadMessage = (payload: unknown) => {
   return null;
 };
 
-const callNanobot = async (
+const callRuntimeService = async (
   path: string,
   init: { method?: string; body?: unknown; allowNotFound?: boolean } = {},
   runtimeEndpoint: RuntimeEndpoint = {
     baseUrl: env.nanobotInternalBaseUrl,
     token: env.nanobotMornevenReloadToken,
-    label: 'Nanobot'
+    label: 'ZeroClaw'
   }
 ) => {
   const baseUrl = runtimeEndpoint.baseUrl;
   const token = runtimeEndpoint.token;
-  const label = runtimeEndpoint.label || 'Nanobot';
+  const label = runtimeEndpoint.label || 'ZeroClaw';
   if (!baseUrl || !token) {
     throw new Error(`${label} runtime endpoint is not configured`);
   }
@@ -4119,17 +4131,17 @@ const callNanobot = async (
         },
         body: init.body === undefined ? undefined : JSON.stringify(init.body)
       });
-      const payload = await parseNanobotPayload(response);
+      const payload = await parseRuntimePayload(response);
       if (response.status === 404 && init.allowNotFound) {
         return { endpoint, payload, status: response.status };
       }
       if (!response.ok) {
-        const message = nanobotPayloadMessage(payload) ?? `Nanobot responded with ${response.status}`;
+        const message = runtimePayloadMessage(payload) ?? `${label} responded with ${response.status}`;
         throw new Error(`${message} (${response.status})`);
       }
       return { endpoint, payload, status: response.status };
     } catch (error) {
-      lastError = describeNanobotFetchError(error, endpoint, label);
+      lastError = describeRuntimeFetchError(error, endpoint, label);
       if (error instanceof Error && !error.message.includes('fetch failed')) break;
     }
   }
@@ -4137,20 +4149,20 @@ const callNanobot = async (
   throw new Error(lastError);
 };
 
-const clearNanobotStatusCache = () => {
-  nanobotStatusCache = null;
+const clearRuntimeStatusCache = () => {
+  runtimeStatusCache = null;
 };
 
-const setNanobotStatusCache = (payload: unknown) => {
-  nanobotStatusCache = { payload, cachedAt: Date.now() };
+const setRuntimeStatusCache = (payload: unknown) => {
+  runtimeStatusCache = { payload, cachedAt: Date.now() };
 };
 
-const getNanobotStatus = async (force = false) => {
-  if (!force && nanobotStatusCache && Date.now() - nanobotStatusCache.cachedAt < nanobotStatusCacheMs) {
-    return nanobotStatusCache.payload;
+const getRuntimeStatus = async (force = false) => {
+  if (!force && runtimeStatusCache && Date.now() - runtimeStatusCache.cachedAt < runtimeStatusCacheMs) {
+    return runtimeStatusCache.payload;
   }
-  const { payload } = await callNanobot('/api/morneven/status');
-  setNanobotStatusCache(payload);
+  const { payload } = await callRuntimeService('/api/morneven/status');
+  setRuntimeStatusCache(payload);
   return payload;
 };
 
@@ -4174,8 +4186,8 @@ botManagerRouter.post('/runtime/config-secrets', async (req, res) => {
   }
 
   try {
-    const result = await applyRuntimeConfigSecretPush('nanobot-runtime', asJsonRecord(req.body as Prisma.JsonValue | Record<string, unknown> | null | undefined));
-    const runtimeSync = await markRuntimeDirty('nanobot-runtime', 'Runtime config secrets imported');
+    const result = await applyRuntimeConfigSecretPush('zeroclaw-runtime', asJsonRecord(req.body as Prisma.JsonValue | Record<string, unknown> | null | undefined));
+    const runtimeSync = await markRuntimeDirty('zeroclaw-runtime', 'Runtime config secrets imported');
     return ok(res, { ...result, runtimeSync });
   } catch (error) {
     return fail(res, 500, error instanceof Error ? error.message : 'Runtime config secret import failed', 'RUNTIME_CONFIG_SECRET_IMPORT_FAILED');
@@ -4217,6 +4229,7 @@ botManagerRouter.get('/summary', async (req, res) => {
     : mainIdentity
       ? [mainIdentity]
       : [];
+  const runtimeConfigured = Boolean(env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken);
 
   return ok(res, {
     credentials,
@@ -4226,7 +4239,7 @@ botManagerRouter.get('/summary', async (req, res) => {
     identities: identities.map(serializeIdentity),
     runtimeSync: getRuntimeSyncState(generalConfig.config),
     runtimeStatus: {
-      nanobotConfigured: Boolean(env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken),
+      runtimeConfigured,
       singleActivePersonality: runtimeMode === 'single-active-personality',
       runtimeMode,
       activeIdentityId: mainIdentity?.id ?? activeIdentities[0]?.id ?? null,
@@ -4241,9 +4254,9 @@ botManagerRouter.get('/summary', async (req, res) => {
 botManagerRouter.get('/runtime/status', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   try {
-    return ok(res, await getNanobotStatus(req.query.fresh === 'true'));
+    return ok(res, await getRuntimeStatus(req.query.fresh === 'true'));
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot status request failed', 'NANOBOT_REQUEST_FAILED');
+    return fail(res, 502, error instanceof Error ? error.message : 'ZeroClaw status request failed', 'RUNTIME_REQUEST_FAILED');
   }
 });
 
@@ -4262,7 +4275,7 @@ botManagerRouter.get('/providers/analytics', async (req, res) => {
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
   const credentialMap = new Map(credentialRows.map((credential) => [credential.provider, credential]));
   const analyticsCredentialMap = new Map(analyticsCredentialRows.map((credential) => [credential.provider, credential]));
-  const ingest = await ingestNanobotProviderUsage(range.data);
+  const ingest = await ingestRuntimeProviderUsage(range.data);
   const localPoints = await localUsagePoints(provider.data, range.data);
   const remote = await fetchRemoteAnalytics(provider.data, range.data, credentialMap, analyticsCredentialMap, activeOpenRouterProfile);
   const capability = providerAnalyticsCapabilities[provider.data];
@@ -4364,54 +4377,54 @@ botManagerRouter.put('/providers/analytics-credentials', async (req, res) => {
 botManagerRouter.post('/runtime/:identityId/:action', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = runtimeActionSchema.safeParse(req.params.action);
-  if (!parsed.success) return fail(res, 422, 'Invalid nanobot runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!parsed.success) return fail(res, 422, 'Invalid runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
   const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.identityId } });
   if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
   if (!identity.isActive) return fail(res, 409, 'Runtime controls require an active personality', 'INACTIVE_PERSONALITY');
 
   try {
-    clearNanobotStatusCache();
-    const { payload } = await callNanobot(`/api/morneven/runtimes/${identity.id}/gateway/${parsed.data}`, {
+    clearRuntimeStatusCache();
+    const { payload } = await callRuntimeService(`/api/morneven/runtimes/${identity.id}/gateway/${parsed.data}`, {
       method: 'POST',
       body: { requestedBy: req.user!.username }
     });
-    setNanobotStatusCache(payload);
+    setRuntimeStatusCache(payload);
     await writeAudit(prisma, {
       actor: req.user!.username,
       action: `bot-manager.runtime.${parsed.data}`,
-      entity: 'NanobotGateway',
+      entity: 'ZeroClawGateway',
       entityId: identity.id,
       metadata: { action: parsed.data, identityId: identity.id, identityName: identity.name }
     });
     return ok(res, payload);
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot runtime action failed', 'NANOBOT_REQUEST_FAILED');
+    return fail(res, 502, error instanceof Error ? error.message : 'ZeroClaw runtime action failed', 'RUNTIME_REQUEST_FAILED');
   }
 });
 
 botManagerRouter.post('/runtime/:action', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = runtimeActionSchema.safeParse(req.params.action);
-  if (!parsed.success) return fail(res, 422, 'Invalid nanobot runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!parsed.success) return fail(res, 422, 'Invalid runtime action', 'VALIDATION_ERROR', parsed.error.flatten());
 
   try {
     const main = await ensureMainIdentity(req.user!.username);
     if (!main) return fail(res, 409, 'No main bot personality is configured', 'NO_MAIN_PERSONALITY');
-    clearNanobotStatusCache();
-    const { payload } = await callNanobot(`/api/morneven/runtimes/${main.id}/gateway/${parsed.data}`, {
+    clearRuntimeStatusCache();
+    const { payload } = await callRuntimeService(`/api/morneven/runtimes/${main.id}/gateway/${parsed.data}`, {
       method: 'POST',
       body: { requestedBy: req.user!.username }
     });
-    setNanobotStatusCache(payload);
+    setRuntimeStatusCache(payload);
     await writeAudit(prisma, {
       actor: req.user!.username,
       action: `bot-manager.runtime.${parsed.data}`,
-      entity: 'NanobotGateway',
+      entity: 'ZeroClawGateway',
       metadata: { action: parsed.data }
     });
     return ok(res, payload);
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'Nanobot runtime request failed', 'NANOBOT_REQUEST_FAILED');
+    return fail(res, 502, error instanceof Error ? error.message : 'ZeroClaw runtime request failed', 'RUNTIME_REQUEST_FAILED');
   }
 });
 
@@ -5273,7 +5286,9 @@ botManagerRouter.post('/backups/import', backupUploadSingle, async (req, res) =>
 
 botManagerRouter.get('/backups/:id', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const job = await prisma.botManagerBackupJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  const job = await prisma.botManagerBackupJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
   if (!job) return fail(res, 404, 'Bot Manager backup job not found', 'NOT_FOUND');
   return ok(res, serializeBackupJob(job));
 });
@@ -5288,7 +5303,9 @@ botManagerRouter.post('/backups/:id/download-ticket', async (req, res) => {
     const message = error instanceof Error ? error.message : 'Invalid extraction key';
     return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN');
   }
-  const job = await prisma.botManagerBackupJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  const job = await prisma.botManagerBackupJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
   if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
   return ok(res, {
     ticket: createBotManagerBackupTicket(job.id, req.user!.username),
@@ -5302,7 +5319,9 @@ botManagerRouter.get('/backups/:id/download', async (req, res, next: NextFunctio
   try {
     const payload = parseBotManagerBackupTicket(ticket);
     if (payload.jobId !== req.params.id) return fail(res, 403, 'Invalid download ticket', 'FORBIDDEN');
-    const job = await prisma.botManagerBackupJob.findFirst({ where: { id: payload.jobId, createdBy: payload.actor } });
+    const job = await prisma.botManagerBackupJob.findFirst({
+      where: { id: payload.jobId, createdBy: payload.actor, expiresAt: { gt: new Date() } }
+    });
     if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
     return sendBotManagerBackupDownload(res, job, payload.actor);
   } catch (error) {
@@ -5312,7 +5331,9 @@ botManagerRouter.get('/backups/:id/download', async (req, res, next: NextFunctio
 
 botManagerRouter.get('/backups/:id/download', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const job = await prisma.botManagerBackupJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  const job = await prisma.botManagerBackupJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
   if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
   return sendBotManagerBackupDownload(res, job, req.user!.username);
 });
@@ -5348,9 +5369,9 @@ botManagerRouter.post('/sync', async (req, res) => {
   }
 
   if (!env.nanobotInternalBaseUrl || !env.nanobotMornevenReloadToken) {
-    const message = 'Nanobot reload endpoint is not configured';
+    const message = 'ZeroClaw reload endpoint is not configured';
     const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
-    return fail(res, 502, message, 'NANOBOT_RELOAD_FAILED', { runtimeSync });
+    return fail(res, 502, message, 'RUNTIME_RELOAD_FAILED', { runtimeSync });
   }
 
   let writeback: RuntimeWorkspacePull = {
@@ -5370,9 +5391,9 @@ botManagerRouter.post('/sync', async (req, res) => {
     await markRuntimePullResult(req.user!.username, writeback);
     bundle = await buildRuntimeBundle();
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Nanobot runtime pull failed';
+    const message = error instanceof Error ? error.message : 'ZeroClaw runtime pull failed';
     const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
-    return fail(res, 502, message, 'NANOBOT_PULL_FAILED', { runtimeSync, configBackfill, telegramTopics, writeback });
+    return fail(res, 502, message, 'RUNTIME_PULL_FAILED', { runtimeSync, configBackfill, telegramTopics, writeback });
   }
 
   const bundleRecord = asJsonRecord(bundle as Record<string, unknown>);
@@ -5392,17 +5413,17 @@ botManagerRouter.post('/sync', async (req, res) => {
       telegramTopics,
       writeback,
       runtimeBundle: summarizeRuntimeBundle(bundle),
-      nanobot: null
+      runtime: null
     });
   }
 
   try {
-    clearNanobotStatusCache();
-    const { payload } = await callNanobot('/api/morneven/reload', {
+    clearRuntimeStatusCache();
+    const { payload } = await callRuntimeService('/api/morneven/reload', {
       method: 'POST',
       body: { requestedBy: req.user!.username, restartGateway }
     });
-    setNanobotStatusCache(payload);
+    setRuntimeStatusCache(payload);
     const runtimeSync = await markRuntimeSynced(req.user!.username);
     return ok(res, {
       synced: true,
@@ -5412,11 +5433,11 @@ botManagerRouter.post('/sync', async (req, res) => {
       telegramTopics,
       writeback,
       runtimeBundle: summarizeRuntimeBundle(bundle),
-      nanobot: payload
+      runtime: payload
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Nanobot reload failed';
+    const message = error instanceof Error ? error.message : 'ZeroClaw reload failed';
     const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
-    return fail(res, 502, message, 'NANOBOT_RELOAD_FAILED', { runtimeSync });
+    return fail(res, 502, message, 'RUNTIME_RELOAD_FAILED', { runtimeSync });
   }
 });

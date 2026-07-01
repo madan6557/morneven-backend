@@ -14,6 +14,20 @@ const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
   count: () => Promise<number>;
 };
 
+const isLegacyRuntimeArchivePath = (value: string) => {
+  const normalized = value.trim().replace(/^\/+/, '').toLowerCase();
+  return normalized.startsWith('legacy/nanobot/') || normalized.includes('/legacy/nanobot/');
+};
+
+const activeArtifactWhere = () => ({ expiresAt: { gt: new Date() } });
+
+const findActiveBotManagerIdentityFiles = async () => {
+  const files = await prisma.botManagerIdentityFile.findMany();
+  return files.filter((file) => !isLegacyRuntimeArchivePath(file.path) && !isLegacyRuntimeArchivePath(file.objectPath));
+};
+
+const countActiveBotManagerIdentityFiles = async () => (await findActiveBotManagerIdentityFiles()).length;
+
 export type ExportSnapshot = {
   characters: ReturnType<typeof serializeLoreItem>[];
   creatures: ReturnType<typeof serializeLoreItem>[];
@@ -174,8 +188,8 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'botManagerProviderUsageEvents', sqlTable: 'BotManagerProviderUsageEvent', findMany: () => prisma.botManagerProviderUsageEvent.findMany(), count: () => prisma.botManagerProviderUsageEvent.count(), deleteMany: (tx) => tx.botManagerProviderUsageEvent.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderUsageEvent.createMany({ data: rows, skipDuplicates: true }) },
   { key: 'botManagerGeneralConfigs', sqlTable: 'BotManagerGeneralConfig', findMany: () => prisma.botManagerGeneralConfig.findMany(), count: () => prisma.botManagerGeneralConfig.count(), deleteMany: (tx) => tx.botManagerGeneralConfig.deleteMany(), createMany: (tx, rows) => tx.botManagerGeneralConfig.createMany({ data: rows }) },
   { key: 'botManagerIdentities', sqlTable: 'BotManagerIdentity', findMany: () => prisma.botManagerIdentity.findMany(), count: () => prisma.botManagerIdentity.count(), deleteMany: (tx) => tx.botManagerIdentity.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentity.createMany({ data: rows }) },
-  { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: () => prisma.botManagerIdentityFile.findMany(), count: () => prisma.botManagerIdentityFile.count(), deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
-  { key: 'botManagerBackupJobs', sqlTable: 'BotManagerBackupJob', findMany: () => prisma.botManagerBackupJob.findMany(), count: () => prisma.botManagerBackupJob.count(), deleteMany: (tx) => tx.botManagerBackupJob.deleteMany(), createMany: (tx, rows) => tx.botManagerBackupJob.createMany({ data: rows }) },
+  { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: findActiveBotManagerIdentityFiles, count: countActiveBotManagerIdentityFiles, deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
+  { key: 'botManagerBackupJobs', sqlTable: 'BotManagerBackupJob', findMany: () => prisma.botManagerBackupJob.findMany({ where: activeArtifactWhere() }), count: () => prisma.botManagerBackupJob.count({ where: activeArtifactWhere() }), deleteMany: (tx) => tx.botManagerBackupJob.deleteMany(), createMany: (tx, rows) => tx.botManagerBackupJob.createMany({ data: rows }) },
   { key: 'refreshTokens', sqlTable: 'RefreshToken', findMany: () => prisma.refreshToken.findMany(), count: () => prisma.refreshToken.count(), deleteMany: (tx) => tx.refreshToken.deleteMany(), createMany: (tx, rows) => tx.refreshToken.createMany({ data: rows }) },
   { key: 'projects', sqlTable: 'Project', findMany: () => prisma.project.findMany(), count: () => prisma.project.count(), deleteMany: (tx) => tx.project.deleteMany(), createMany: (tx, rows) => tx.project.createMany({ data: rows }) },
   { key: 'projectPatches', sqlTable: 'ProjectPatch', findMany: () => prisma.projectPatch.findMany(), count: () => prisma.projectPatch.count(), deleteMany: (tx) => tx.projectPatch.deleteMany(), createMany: (tx, rows) => tx.projectPatch.createMany({ data: rows }) },
@@ -202,7 +216,7 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'chatConversationMembers', sqlTable: 'ChatConversationMember', findMany: () => prisma.chatConversationMember.findMany(), count: () => prisma.chatConversationMember.count(), deleteMany: (tx) => tx.chatConversationMember.deleteMany(), createMany: (tx, rows) => tx.chatConversationMember.createMany({ data: rows }) },
   { key: 'chatMessages', sqlTable: 'ChatMessage', findMany: () => prisma.chatMessage.findMany(), count: () => prisma.chatMessage.count(), deleteMany: (tx) => tx.chatMessage.deleteMany(), createMany: (tx, rows) => tx.chatMessage.createMany({ data: rows }) },
   { key: 'chatReadStates', sqlTable: 'ChatReadState', findMany: () => prisma.chatReadState.findMany(), count: () => prisma.chatReadState.count(), deleteMany: (tx) => tx.chatReadState.deleteMany(), createMany: (tx, rows) => tx.chatReadState.createMany({ data: rows }) },
-  { key: 'extractionJobs', sqlTable: 'ExtractionJob', findMany: () => prisma.extractionJob.findMany(), count: () => prisma.extractionJob.count(), deleteMany: (tx) => tx.extractionJob.deleteMany(), createMany: (tx, rows) => tx.extractionJob.createMany({ data: rows }) },
+  { key: 'extractionJobs', sqlTable: 'ExtractionJob', findMany: () => prisma.extractionJob.findMany({ where: activeArtifactWhere() }), count: () => prisma.extractionJob.count({ where: activeArtifactWhere() }), deleteMany: (tx) => tx.extractionJob.deleteMany(), createMany: (tx, rows) => tx.extractionJob.createMany({ data: rows }) },
   { key: 'auditLogs', sqlTable: 'AuditLog', findMany: () => prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } }), count: () => prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }), deleteMany: (tx) => tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } }), createMany: (tx, rows) => tx.auditLog.createMany({ data: rows }) },
   { key: 'securityEvents', sqlTable: 'SecurityEvent', findMany: () => prisma.securityEvent.findMany(), count: () => prisma.securityEvent.count(), deleteMany: (tx) => tx.securityEvent.deleteMany(), createMany: (tx, rows) => tx.securityEvent.createMany({ data: rows }) },
   { key: 'securityBlocks', sqlTable: 'SecurityBlock', findMany: () => prisma.securityBlock.findMany(), count: () => prisma.securityBlock.count(), deleteMany: (tx) => tx.securityBlock.deleteMany(), createMany: (tx, rows) => tx.securityBlock.createMany({ data: rows }) },
@@ -299,10 +313,10 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.botManagerOpenRouterProfile.findMany(),
     prisma.botManagerProviderAnalyticsCredential.findMany(),
     prisma.botManagerProviderUsageEvent.findMany(),
-    prisma.botManagerBackupJob.findMany(),
+    prisma.botManagerBackupJob.findMany({ where: activeArtifactWhere() }),
     prisma.botManagerGeneralConfig.findMany(),
     prisma.botManagerIdentity.findMany(),
-    prisma.botManagerIdentityFile.findMany(),
+    findActiveBotManagerIdentityFiles(),
     prisma.loreItem.findMany(),
     prisma.entityDoc.findMany()
   ]);

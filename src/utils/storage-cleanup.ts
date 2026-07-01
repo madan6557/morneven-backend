@@ -50,6 +50,10 @@ const S3_URL_RE = /https?:\/\/[^/]+\.s3\.(?:amazonaws\.com|[^/]+)\/(.+)/i;
 const S3_PROTOCOL_RE = /s3:\/\/[^/]+\/(.+)/i;
 const APP_ROUTE_RE = /^(?:lore\/(?:characters\/char-|creatures\/creature-|places\/place-|technology\/tech-|events\/(?:evt-|event-)|other\/other-)|projects\/proj-|gallery\/gal-|news\/news-|maps?|chat)(?:[a-z0-9_-]+)?$/i;
 const BOT_MANAGER_WORKSPACE_PREFIX = 'bot-manager/workspace/';
+const BOT_MANAGER_BACKUP_PREFIX = 'bot-manager/backups/';
+const BACKUP_PREFIX = 'backups/';
+const LEGACY_NANOBOT_WORKSPACE_PREFIX = 'legacy/nanobot/';
+const LEGACY_NANOBOT_WORKSPACE_SEGMENT = '/legacy/nanobot/';
 
 const asObject = (value: unknown): JsonRecord => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -64,6 +68,16 @@ const addPath = (set: Set<string>, rawValue: unknown) => {
 };
 
 const isApplicationRoutePath = (value: string) => APP_ROUTE_RE.test(normalizeObjectPath(value));
+
+const isLegacyRuntimeArchiveObjectPath = (objectPath: string) => {
+  const normalized = normalizeObjectPath(objectPath).toLowerCase();
+  return normalized.startsWith(LEGACY_NANOBOT_WORKSPACE_PREFIX) || normalized.includes(LEGACY_NANOBOT_WORKSPACE_SEGMENT);
+};
+
+const isBackupArtifactObjectPath = (objectPath: string) => {
+  const normalized = normalizeObjectPath(objectPath).toLowerCase();
+  return normalized.startsWith(BOT_MANAGER_BACKUP_PREFIX) || normalized.startsWith(BACKUP_PREFIX);
+};
 
 export const extractStorageObjectPath = (rawValue: unknown): string | null => {
   if (typeof rawValue !== 'string') return null;
@@ -220,10 +234,10 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
     prisma.galleryItem.findMany({ select: { thumbnail: true, mediaUrl: true, videoUrl: true } }),
     prisma.mapImage.findUnique({ where: { id: 'main' }, select: { imageUrl: true } }),
     prisma.chatMessage.findMany({ select: { attachments: true } }),
-    prisma.extractionJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
+    prisma.extractionJob.findMany({ where: { expiresAt: { gt: new Date() } }, select: { artifactPath: true, artifactUrl: true } }),
     prisma.botManagerIdentity.findMany({ select: { profileImageObjectPath: true, profileImageUrl: true } }),
     prisma.botManagerIdentityFile.findMany({ select: { objectPath: true } }),
-    prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
+    prisma.botManagerBackupJob.findMany({ where: { expiresAt: { gt: new Date() } }, select: { artifactPath: true, artifactUrl: true } }),
     listStorageObjects()
   ]);
 
@@ -288,7 +302,15 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
   }
 
   for (const object of storageObjects) {
-    if (object.objectPath.startsWith(BOT_MANAGER_WORKSPACE_PREFIX)) {
+    if (isLegacyRuntimeArchiveObjectPath(object.objectPath)) {
+      paths.add(object.objectPath);
+      continue;
+    }
+
+    if (
+      object.objectPath.startsWith(BOT_MANAGER_WORKSPACE_PREFIX)
+      && !isBackupArtifactObjectPath(object.objectPath)
+    ) {
       paths.add(object.objectPath);
     }
   }

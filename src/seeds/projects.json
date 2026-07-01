@@ -175,7 +175,7 @@
         {
           "version": "0.2",
           "date": "2025-09-30",
-          "notes": "Excavation paused — seismic instability."
+          "notes": "Excavation paused - seismic instability."
         },
         {
           "version": "0.1",
@@ -369,7 +369,7 @@
         {
           "version": "1.0",
           "date": "2026-03-30",
-          "notes": "Network operational — full continental coverage."
+          "notes": "Network operational - full continental coverage."
         },
         {
           "version": "0.5",
@@ -465,9 +465,125 @@
         {
           "version": "3.1",
           "date": "2025-12-01",
-          "notes": "Tenth amendment — added Pantry Continuity clause."
+          "notes": "Tenth amendment - added Pantry Continuity clause."
         }
       ]
     }
+  },
+  {
+    "id": "proj-010",
+    "title": "Gemora Kron Currency Visual Concept",
+    "status": "Planning",
+    "thumbnail": "https://t3.storageapi.dev/roomy-basketcase-osi1naf/projects/1780048121490-28f11f65-6231-46e6-bd42-ab288ca5b2e6-gemora-kron-currency-concept.png",
+    "headerImage": "https://t3.storageapi.dev/roomy-basketcase-osi1naf/projects/1780048121490-28f11f65-6231-46e6-bd42-ab288ca5b2e6-gemora-kron-currency-concept.png",
+    "shortDesc": "Planning-stage visual direction for Gemora Kron currency, using an AI-generated concept as the base for a future official design.",
+    "fullDesc": "This project collects the first visual direction for Gemora's Kron currency. The current image is an AI-generated concept, not the final official design. It is being used as a base reference for future refinement into a canonical production-ready version.\n\nThe concept direction defines Kron as a thin stabilized crystal chip rather than an old-world coin or paper bill. The token uses a translucent Gemosphere-energy crystal core, a neutral satin housing, a simple asymmetrical silhouette, and a standardized connector-pin port that can plausibly support scanning, validation, or ledger interaction.\n\nThe design goal is simple mass production with a distinct Morneven sci-fi identity: few parts, durable daily handling, clear denominations, consistent port placement, and just enough asymmetry to feel authentic to Gemora technology. Future official work should preserve those principles while redrawing the geometry, typography, material finish, and denomination system by hand.",
+    "patches": [
+      {
+        "version": "0.1",
+        "date": "2026-05-29",
+        "notes": "Added planning-stage AI-generated concept as the initial base reference for official Kron currency design."
+      }
+    ],
+    "docs": [
+      {
+        "type": "image",
+        "url": "https://t3.storageapi.dev/roomy-basketcase-osi1naf/projects/1780048121490-28f11f65-6231-46e6-bd42-ab288ca5b2e6-gemora-kron-currency-concept.png",
+        "thumbnail": "https://t3.storageapi.dev/roomy-basketcase-osi1naf/projects/1780048121490-28f11f65-6231-46e6-bd42-ab288ca5b2e6-gemora-kron-currency-concept.png",
+        "caption": "AI-generated Kron currency concept used as a base reference for future official design.",
+        "date": "2026-05-29"
+      }
+    ],
+    "meta": {
+      "creator": "Active Morneven Personality Concept",
+      "owner": "Lore Division",
+      "designer": "AI-generated concept reference",
+      "collaborators": [
+        "Codex Content Writer"
+      ],
+      "team": [
+        "Lore Division",
+        "Visual Development"
+      ],
+      "projectName": "Gemora Kron Currency Visual Concept",
+      "startedAt": "2026-05-29",
+      "completedAt": "",
+      "approvedAt": "",
+      "approvedBy": "",
+      "license": "Morneven Internal Canon License",
+      "sourceUrl": "https://morneven.local/archive",
+      "patchNotes": [
+        {
+          "version": "0.1",
+          "date": "2026-05-29",
+          "notes": "Planning-stage concept entry created from AI-generated Kron currency illustration."
+        }
+      ],
+      "features": [
+        {
+          "id": "feature-kron-visual-01",
+          "title": "AI Concept Base",
+          "summary": "Current artwork is a generated concept reference only, not the final official asset.",
+          "details": "Future work should redraw and standardize the token design before it is treated as official production art.",
+          "tags": [
+            "planning",
+            "concept"
+          ]
+        },
+        {
+          "id": "feature-kron-visual-02",
+          "title": "Mass-Production Shape",
+          "summary": "Thin crystal wafer with minimal neutral housing and a simple asymmetric silhouette.",
+          "details": "The concept avoids ornate gem language and keeps the token practical for daily commerce.",
+          "tags": [
+            "currency",
+            "manufacturing"
+          ]
+        },
+        {
+          "id": "feature-kron-visual-03",
+          "title": "Standardized Pin Port",
+          "summary": "Connector pins remain consistent across denominations for scanning and validation.",
+          "details": "The port layout should stay uniform even when value markings, crystal tint, or chip size are adjusted.",
+          "tags": [
+            "interface",
+            "validation"
+          ]
+        }
+      ]
+    },
+    "features": [
+      {
+        "id": "feature-kron-visual-01",
+        "title": "AI Concept Base",
+        "summary": "Current artwork is a generated concept reference only, not the final official asset.",
+        "details": "Future work should redraw and standardize the token design before it is treated as official production art.",
+        "tags": [
+          "planning",
+          "concept"
+        ]
+      },
+      {
+        "id": "feature-kron-visual-02",
+        "title": "Mass-Production Shape",
+        "summary": "Thin crystal wafer with minimal neutral housing and a simple asymmetric silhouette.",
+        "details": "The concept avoids ornate gem language and keeps the token practical for daily commerce.",
+        "tags": [
+          "currency",
+          "manufacturing"
+        ]
+      },
+      {
+        "id": "feature-kron-visual-03",
+        "title": "Standardized Pin Port",
+        "summary": "Connector pins remain consistent across denominations for scanning and validation.",
+        "details": "The port layout should stay uniform even when value markings, crystal tint, or chip size are adjusted.",
+        "tags": [
+          "interface",
+          "validation"
+        ]
+      }
+    ],
+    "contributor": "codex_002"
   }
 ]

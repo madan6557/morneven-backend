@@ -365,6 +365,19 @@ const addPathSetValue = (target: Set<string>, value: unknown) => {
   for (const objectPath of next) target.add(objectPath);
 };
 
+const isLegacyRuntimeArchivePath = (objectPath: string) => {
+  const normalized = objectPath.toLowerCase().replace(/^\/+/, '');
+  return normalized.startsWith('legacy/nanobot/') || normalized.includes('/legacy/nanobot/');
+};
+
+const isGeneratedBackupArtifactPath = (objectPath: string) => {
+  const normalized = objectPath.toLowerCase().replace(/^\/+/, '');
+  return normalized.startsWith('backups/') || normalized.startsWith('bot-manager/backups/');
+};
+
+const shouldEmbedBackupMediaObject = (objectPath: string) =>
+  !isGeneratedBackupArtifactPath(objectPath) && !isLegacyRuntimeArchivePath(objectPath);
+
 const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, Set<string>>> => {
   const sets = Object.fromEntries(defaultBackupMediaSources.map((source) => [source, new Set<string>()])) as Record<
     BackupMediaSource,
@@ -379,7 +392,6 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     mapImage,
     botManagerIdentities,
     botManagerFiles,
-    botManagerBackupJobs,
     loreItems,
     docs,
     storageObjects
@@ -391,7 +403,6 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
     prisma.botManagerIdentity.findMany(),
     prisma.botManagerIdentityFile.findMany(),
-    prisma.botManagerBackupJob.findMany({ select: { artifactPath: true, artifactUrl: true } }),
     prisma.loreItem.findMany(),
     prisma.entityDoc.findMany(),
     listStorageObjects()
@@ -403,13 +414,13 @@ const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, S
   for (const item of news) addPathSetValue(sets.news, item);
   addPathSetValue(sets.map, mapImage?.imageUrl);
   for (const identity of botManagerIdentities) addPathSetValue(sets['bot-manager'], identity);
-  for (const file of botManagerFiles) addPathSetValue(sets['bot-manager'], file.objectPath);
-  for (const job of botManagerBackupJobs) {
-    addPathSetValue(sets['bot-manager'], job.artifactPath);
-    addPathSetValue(sets['bot-manager'], job.artifactUrl);
+  for (const file of botManagerFiles) {
+    if (shouldEmbedBackupMediaObject(file.objectPath)) addPathSetValue(sets['bot-manager'], file.objectPath);
   }
   for (const object of storageObjects) {
-    if (object.objectPath.startsWith('bot-manager/')) sets['bot-manager'].add(object.objectPath);
+    if (object.objectPath.startsWith('bot-manager/') && shouldEmbedBackupMediaObject(object.objectPath)) {
+      sets['bot-manager'].add(object.objectPath);
+    }
   }
 
   const docsByEntity = new Map<string, typeof docs>();
@@ -1280,7 +1291,9 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
 
 settingsRouter.get('/extractions/:id', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
-  const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  const job = await prisma.extractionJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
   if (!job) return fail(res, 404, 'Extraction job not found', 'NOT_FOUND');
   return ok(res, serializeExtractionJob(job));
 });
@@ -1317,7 +1330,9 @@ settingsRouter.get('/extractions/:id/download', async (req, res, next: NextFunct
   try {
     const payload = parseExtractionDownloadTicket(ticket);
     if (payload.jobId !== req.params.id) return fail(res, 403, 'Invalid download ticket', 'FORBIDDEN');
-    const job = await prisma.extractionJob.findFirst({ where: { id: payload.jobId, createdBy: payload.actor } });
+    const job = await prisma.extractionJob.findFirst({
+      where: { id: payload.jobId, createdBy: payload.actor, expiresAt: { gt: new Date() } }
+    });
     if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
     return sendExtractionDownload(res, job, payload.actor);
   } catch (error) {
@@ -1327,7 +1342,9 @@ settingsRouter.get('/extractions/:id/download', async (req, res, next: NextFunct
 
 settingsRouter.get('/extractions/:id/download', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
-  const job = await prisma.extractionJob.findFirst({ where: { id: req.params.id, createdBy: req.user!.username } });
+  const job = await prisma.extractionJob.findFirst({
+    where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
+  });
   if (!job || job.status !== 'completed' || !job.artifactPath) return fail(res, 404, 'Artifact not found', 'NOT_FOUND');
   return sendExtractionDownload(res, job, req.user!.username);
 });

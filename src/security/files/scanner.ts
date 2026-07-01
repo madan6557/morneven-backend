@@ -30,6 +30,13 @@ const ALLOWED_MIME = new Set([
 const BLOCKED_MIME = new Set([
   'image/svg+xml',
   'text/html',
+  'application/xhtml+xml',
+  'application/xml',
+  'text/xml',
+  'text/javascript',
+  'application/javascript',
+  'application/ecmascript',
+  'text/css',
   'application/x-msdownload',
   'application/x-msdos-program',
   'application/x-sh',
@@ -37,6 +44,34 @@ const BLOCKED_MIME = new Set([
   'application/zip',
   'application/x-7z-compressed',
   'application/x-rar-compressed'
+]);
+
+const BLOCKED_EXTENSIONS = new Set([
+  '.svg',
+  '.svgz',
+  '.html',
+  '.htm',
+  '.xhtml',
+  '.xml',
+  '.xsl',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.css',
+  '.wasm',
+  '.php',
+  '.phtml',
+  '.shtml',
+  '.exe',
+  '.dll',
+  '.bat',
+  '.cmd',
+  '.ps1',
+  '.sh',
+  '.jar',
+  '.zip',
+  '.7z',
+  '.rar'
 ]);
 
 const hasBytes = (buffer: Buffer, bytes: number[]) => bytes.every((byte, index) => buffer[index] === byte);
@@ -66,6 +101,27 @@ const isMimeCompatible = (declared: string, magic: string | undefined, buffer: B
   return false;
 };
 
+const fileExtension = (objectPath: string) => {
+  const name = objectPath.split('/').pop()?.toLowerCase() ?? '';
+  const dot = name.lastIndexOf('.');
+  return dot >= 0 ? name.slice(dot) : '';
+};
+
+const looksLikeActiveWebContent = (buffer: Buffer) => {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 8192)).toString('utf8').toLowerCase();
+  return [
+    '<script',
+    '<iframe',
+    '<object',
+    '<embed',
+    '<html',
+    '<svg',
+    'javascript:',
+    'onerror=',
+    'onload='
+  ].some((needle) => sample.includes(needle));
+};
+
 export const scanUploadBuffer = async (input: {
   objectPath: string;
   buffer: Buffer;
@@ -75,15 +131,15 @@ export const scanUploadBuffer = async (input: {
   const mime = (input.mime || 'application/octet-stream').toLowerCase();
   const size = input.buffer.length;
 
-  if (!securityEnabled) {
-    return { verdict: 'skipped', sha256, mime, size };
-  }
-
   let verdict: FileScanVerdict = 'clean';
   let reason: string | undefined;
   const magic = detectMagicMime(input.buffer);
+  const extension = fileExtension(input.objectPath);
 
-  if (BLOCKED_MIME.has(mime)) {
+  if (BLOCKED_EXTENSIONS.has(extension)) {
+    verdict = 'blocked';
+    reason = 'Blocked active file extension';
+  } else if (BLOCKED_MIME.has(mime)) {
     verdict = 'blocked';
     reason = 'Blocked MIME type';
   } else if (!ALLOWED_MIME.has(mime) && mime !== 'application/octet-stream') {
@@ -92,9 +148,16 @@ export const scanUploadBuffer = async (input: {
   } else if (!isMimeCompatible(mime, magic, input.buffer)) {
     verdict = 'blocked';
     reason = 'MIME and file signature mismatch';
+  } else if ((mime.startsWith('text/') || mime === 'application/json') && looksLikeActiveWebContent(input.buffer)) {
+    verdict = 'blocked';
+    reason = 'Active web content is not allowed in uploads';
   } else if (env.fileScanProvider === 'mock' && input.buffer.includes(Buffer.from('EICAR', 'ascii'))) {
     verdict = 'quarantined';
     reason = 'Mock malware signature detected';
+  }
+
+  if (!securityEnabled && verdict === 'clean') {
+    return { verdict: 'skipped', sha256, mime, size };
   }
 
   if (securityFeatures.audit) {
@@ -108,7 +171,8 @@ export const scanUploadBuffer = async (input: {
         provider: env.fileScanProvider,
         metadata: {
           reason,
-          magic
+          magic,
+          extension
         }
       }
     });

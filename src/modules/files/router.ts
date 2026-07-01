@@ -23,6 +23,23 @@ const objectQuerySchema = z.object({
   download: z.string().optional()
 });
 
+const activeContentTypes = new Set([
+  'image/svg+xml',
+  'text/html',
+  'application/xhtml+xml',
+  'text/xml',
+  'application/xml',
+  'text/javascript',
+  'application/javascript',
+  'application/ecmascript',
+  'text/css'
+]);
+
+const shouldForceDownload = (contentType?: string) => {
+  const type = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  return activeContentTypes.has(type);
+};
+
 filesRouter.post('/upload', auth, (req, res) => {
   uploadSingle(req, res, async (err) => {
     if (err) {
@@ -105,10 +122,12 @@ filesRouter.get('/object', auth, async (req, res) => {
   try {
     const file = await readFileWithMetadataFromStorage(objectPath);
     const shouldDownload = /^(1|true)$/i.test(parsedQuery.data.download ?? '');
+    const forceDownload = shouldForceDownload(file.contentType);
     const filename = objectPath.split('/').pop() ?? 'file';
 
-    res.setHeader('Content-Type', file.contentType ?? 'application/octet-stream');
+    res.setHeader('Content-Type', forceDownload ? 'application/octet-stream' : file.contentType ?? 'application/octet-stream');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     if (typeof file.contentLength === 'number' && Number.isFinite(file.contentLength)) {
       res.setHeader('Content-Length', String(file.contentLength));
     }
@@ -119,7 +138,7 @@ filesRouter.get('/object', auth, async (req, res) => {
       res.setHeader('Last-Modified', file.lastModified.toUTCString());
     }
     res.setHeader('Cache-Control', 'private, max-age=3600, stale-while-revalidate=86400');
-    if (shouldDownload) {
+    if (shouldDownload || forceDownload) {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     }
 
