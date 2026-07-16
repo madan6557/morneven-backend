@@ -26,6 +26,9 @@ import { activityRouter } from './modules/activity/router.js';
 import { botManagerRouter } from './modules/bot-manager/router.js';
 import { attachRealtimeWebSocket } from './realtime/websocket.js';
 import { securityGateway, securityLimiters } from './security/index.js';
+import { servePublicStorageObject } from './modules/files/public-storage.js';
+import { startExtractionWorker } from './modules/settings/router.js';
+import { startScheduledTaskWorker } from './scheduler/index.js';
 
 const app = express();
 const serviceStartedAt = new Date().toISOString();
@@ -49,9 +52,7 @@ app.use(express.json({ limit: '1mb' }));
 applySecurityMiddleware(app);
 app.use(securityGateway);
 
-if (env.storageDriver === 'local') {
-  app.use(env.localStorageBasePath, express.static(env.localStoragePath));
-}
+app.get(`${env.localStorageBasePath.replace(/\/$/, '')}/*`, servePublicStorageObject);
 
 const healthHandler = (_req: Request, res: Response) => ok(res, { status: 'ok', env: env.nodeEnv });
 const readyHandler = async (_req: Request, res: Response) => {
@@ -121,9 +122,13 @@ const server = app.listen(env.port, env.host, () => {
 server.requestTimeout = LARGE_UPLOAD_REQUEST_TIMEOUT_MS;
 
 attachRealtimeWebSocket(server);
+const stopExtractionWorker = startExtractionWorker();
+const stopScheduledTaskWorker = startScheduledTaskWorker();
 
 const shutdown = async (signal: string) => {
   console.log(`${signal} received, shutting down gracefully...`);
+  stopExtractionWorker();
+  stopScheduledTaskWorker();
   await prisma.$disconnect();
   server.close(() => process.exit(0));
 };

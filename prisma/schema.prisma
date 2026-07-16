@@ -70,83 +70,83 @@ enum MapStatus {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  username      String   @unique
-  email         String   @unique
-  passwordHash  String
-  role          Role     @default(personel)
-  accountStatus AccountStatus @default(active)
-  level         Int      @default(1)
-  track         Track    @default(executive)
-  note          String?
-  statusReason  String?
-  statusChangedAt DateTime?
-  statusExpiresAt DateTime?
-  disciplineStrikeCount Int @default(0)
-  disciplineTier Int @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String        @id @default(uuid())
+  username              String        @unique
+  email                 String        @unique
+  passwordHash          String
+  role                  Role          @default(personel)
+  accountStatus         AccountStatus @default(active)
+  level                 Int           @default(1)
+  track                 Track         @default(executive)
+  note                  String?
+  statusReason          String?
+  statusChangedAt       DateTime?
+  statusExpiresAt       DateTime?
+  disciplineStrikeCount Int           @default(0)
+  disciplineTier        Int           @default(0)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
-  refreshTokens RefreshToken[]
-  securitySessions SecuritySession[]
-  siteVisitEvents SiteVisitEvent[]
-  news          News[]
-  galleryItems  GalleryItem[]
-  comments      Comment[]
-  replies       Reply[]
-  contentReactions ContentReaction[]
-  submittedReports PersonnelReport[] @relation("PersonnelReportReporter")
-  receivedReports  PersonnelReport[] @relation("PersonnelReportTarget")
-  resolvedReports  PersonnelReport[] @relation("PersonnelReportResolver")
-  passwordResetRequests PasswordResetRequest[] @relation("PasswordResetRequestTarget")
+  refreshTokens                 RefreshToken[]
+  securitySessions              SecuritySession[]
+  siteVisitEvents               SiteVisitEvent[]
+  news                          News[]
+  galleryItems                  GalleryItem[]
+  comments                      Comment[]
+  replies                       Reply[]
+  contentReactions              ContentReaction[]
+  submittedReports              PersonnelReport[]      @relation("PersonnelReportReporter")
+  receivedReports               PersonnelReport[]      @relation("PersonnelReportTarget")
+  resolvedReports               PersonnelReport[]      @relation("PersonnelReportResolver")
+  passwordResetRequests         PasswordResetRequest[] @relation("PasswordResetRequestTarget")
   reviewedPasswordResetRequests PasswordResetRequest[] @relation("PasswordResetRequestReviewer")
 }
 
 model CommandCenterSettings {
-  id                String  @id @default(uuid())
-  presetKey         String  @unique
-  presetName        String  @default("System Preset")
-  isActive          Boolean @default(false)
-  showStats         Boolean @default(true)
-  showProjects      Boolean @default(true)
-  showNews          Boolean @default(true)
-  showCharacters    Boolean @default(true)
-  showPlaces        Boolean @default(true)
-  showTechnology    Boolean @default(true)
-  showGallery       Boolean @default(true)
-  showQuickActions  Boolean @default(true)
-  welcomeMessage    String  @default("Here's your operational overview.")
-  itemLimits        Json    @default("{\"projects\":5,\"news\":6,\"characters\":3,\"places\":3,\"technology\":3,\"gallery\":4}")
-  manualSelections  Json    @default("{\"projects\":[],\"news\":[],\"characters\":[],\"places\":[],\"technology\":[],\"gallery\":[]}")
-  updatedBy         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(uuid())
+  presetKey        String   @unique
+  presetName       String   @default("System Preset")
+  isActive         Boolean  @default(false)
+  showStats        Boolean  @default(true)
+  showProjects     Boolean  @default(true)
+  showNews         Boolean  @default(true)
+  showCharacters   Boolean  @default(true)
+  showPlaces       Boolean  @default(true)
+  showTechnology   Boolean  @default(true)
+  showGallery      Boolean  @default(true)
+  showQuickActions Boolean  @default(true)
+  welcomeMessage   String   @default("Here's your operational overview.")
+  itemLimits       Json     @default("{\"projects\":5,\"news\":6,\"characters\":3,\"places\":3,\"technology\":3,\"gallery\":4}")
+  manualSelections Json     @default("{\"projects\":[],\"news\":[],\"characters\":[],\"places\":[],\"technology\":[],\"gallery\":[]}")
+  updatedBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
+  id        String           @id @default(uuid())
+  token     String           @unique
   userId    String
   sessionId String?
   expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   session   SecuritySession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
 }
 
 model SecuritySession {
-  id            String   @id @default(uuid())
+  id            String         @id @default(uuid())
   userId        String
   ipHash        String?
   userAgentHash String?
-  riskScore     Int      @default(0)
+  riskScore     Int            @default(0)
   revokedAt     DateTime?
   revokeReason  String?
-  createdAt     DateTime @default(now())
-  lastSeenAt    DateTime @default(now())
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  lastSeenAt    DateTime       @default(now())
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
 
   @@index([userId, revokedAt])
@@ -154,19 +154,19 @@ model SecuritySession {
 }
 
 model Project {
-  id         String        @id @default(uuid())
-  title      String
-  status     ProjectStatus
-  thumbnail  String        @default("")
-  shortDesc  String
-  fullDesc   String
-  docs       Json          @default("[]")
-  archived   Boolean       @default(false)
+  id          String         @id @default(uuid())
+  title       String
+  status      ProjectStatus
+  thumbnail   String         @default("")
+  shortDesc   String
+  fullDesc    String
+  docs        Json           @default("[]")
+  archived    Boolean        @default(false)
   contributor String?
-  meta       Json?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  patches    ProjectPatch[]
+  meta        Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  patches     ProjectPatch[]
 }
 
 model ProjectPatch {
@@ -175,46 +175,46 @@ model ProjectPatch {
   version   String
   patchDate DateTime
   notes     String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model News {
-  id          String   @id @default(uuid())
+  id          String           @id @default(uuid())
   authorId    String
   text        String
   publishDate DateTime
-  createdAt   DateTime @default(now())
-  hasDetail   Boolean  @default(false)
+  createdAt   DateTime         @default(now())
+  hasDetail   Boolean          @default(false)
   thumbnail   String?
   body        String?
-  author      User     @relation(fields: [authorId], references: [id])
+  author      User             @relation(fields: [authorId], references: [id])
   attachments NewsAttachment[]
 }
 
 model NewsAttachment {
-  id      String   @id @default(uuid())
+  id      String    @id @default(uuid())
   newsId  String
   type    MediaType
   url     String
   caption String?
-  news    News @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  news    News      @relation(fields: [newsId], references: [id], onDelete: Cascade)
 }
 
 model LoreItem {
-  id          String    @id @default(uuid())
-  category    EntityType
-  name        String
-  type        String?
-  thumbnail   String?
-  shortDesc   String
-  fullDesc    String
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String     @id @default(uuid())
+  category  EntityType
+  name      String
+  type      String?
+  thumbnail String?
+  shortDesc String
+  fullDesc  String
+  metadata  Json?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model EntityDoc {
-  id         String    @id @default(uuid())
+  id         String     @id @default(uuid())
   entityType EntityType
   entityId   String
   type       MediaType
@@ -225,17 +225,17 @@ model EntityDoc {
 }
 
 model GalleryItem {
-  id         String    @id @default(uuid())
+  id         String       @id @default(uuid())
   type       MediaType
   title      String
-  thumbnail  String    @default("")
+  thumbnail  String       @default("")
   mediaUrl   String?
   caption    String
   videoUrl   String?
-  uploadDate DateTime  @default(now())
+  uploadDate DateTime     @default(now())
   uploadedBy String
   tags       GalleryTag[]
-  uploader   User      @relation(fields: [uploadedBy], references: [id])
+  uploader   User         @relation(fields: [uploadedBy], references: [id])
 }
 
 model GalleryTag {
@@ -336,14 +336,14 @@ model Comment {
 }
 
 model Reply {
-  id         String    @id @default(uuid())
-  commentId  String
-  authorId   String
-  text       String
-  createdAt  DateTime  @default(now())
-  mentions   Mention[]
-  comment    Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  author     User      @relation(fields: [authorId], references: [id])
+  id        String    @id @default(uuid())
+  commentId String
+  authorId  String
+  text      String
+  createdAt DateTime  @default(now())
+  mentions  Mention[]
+  comment   Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
 }
 
 model Mention {
@@ -358,29 +358,29 @@ model Mention {
 }
 
 model ManagementRequest {
-  id              String   @id @default(uuid())
-  kind            String
-  requester       String
-  requesterTrack  Track
-  requesterLevel  Int
-  payload         Json     @default("{}")
-  reason          String
-  status          String   @default("pending")
-  reviewer        String?
-  reviewNote      String?
-  createdAt       DateTime @default(now())
-  decidedAt       DateTime?
+  id             String    @id @default(uuid())
+  kind           String
+  requester      String
+  requesterTrack Track
+  requesterLevel Int
+  payload        Json      @default("{}")
+  reason         String
+  status         String    @default("pending")
+  reviewer       String?
+  reviewNote     String?
+  createdAt      DateTime  @default(now())
+  decidedAt      DateTime?
 }
 
 model Team {
-  id         String   @id @default(uuid())
-  name       String
-  leader     String
-  members    Json     @default("[]")
-  track      Track
-  createdAt  DateTime @default(now())
-  cycleYear  Int
-  completed  Int      @default(0)
+  id        String   @id @default(uuid())
+  name      String
+  leader    String
+  members   Json     @default("[]")
+  track     Track
+  createdAt DateTime @default(now())
+  cycleYear Int
+  completed Int      @default(0)
 }
 
 model QuotaRecord {
@@ -392,15 +392,15 @@ model QuotaRecord {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
-  kind      String
-  title     String
-  body      String?
-  recipient String
-  sender    String?
-  createdAt DateTime @default(now())
-  read      Boolean  @default(false)
-  link      String?
+  id         String             @id @default(uuid())
+  kind       String
+  title      String
+  body       String?
+  recipient  String
+  sender     String?
+  createdAt  DateTime           @default(now())
+  read       Boolean            @default(false)
+  link       String?
   readStates NotificationRead[]
 }
 
@@ -421,8 +421,8 @@ model ChatConversation {
   source        Json?
   systemManaged Boolean                  @default(false)
   createdBy     String
-  createdAt     DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
   members       ChatConversationMember[]
   messages      ChatMessage[]
   readStates    ChatReadState[]
@@ -464,19 +464,82 @@ model ChatReadState {
 }
 
 model ExtractionJob {
-  id           String   @id @default(uuid())
-  mode         String
-  autoDownload Boolean  @default(false)
-  status       String   @default("processing")
-  createdBy    String
-  createdAt    DateTime @default(now())
+  id             String    @id @default(uuid())
+  mode           String
+  autoDownload   Boolean   @default(false)
+  status         String    @default("queued")
+  source         String    @default("manual")
+  request        Json      @default("{}")
+  idempotencyKey String?
+  parentJobId    String?
+  attempt        Int       @default(1)
+  leaseOwner     String?
+  leaseUntil     DateTime?
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  expiresAt      DateTime
+  downloadName   String?
+  artifactPath   String?
+  artifactUrl    String?
+  error          String?
+  progress       Json      @default("{\"percent\":0,\"stage\":\"queued\",\"message\":\"Queued\"}")
+
+  @@unique([createdBy, idempotencyKey])
+  @@index([status, leaseUntil, createdAt])
+  @@index([source, createdAt])
+  @@index([createdBy, status, createdAt])
+}
+
+model ScheduledTask {
+  id         String             @id @default(uuid())
+  key        String             @unique
+  kind       String
+  targetId   String?
+  enabled    Boolean            @default(true)
+  timezone   String
+  schedule   Json
+  payload    Json               @default("{}")
+  nextRunAt  DateTime?
+  lastRunAt  DateTime?
+  lastStatus String?
+  lastError  String?
+  leaseOwner String?
+  leaseUntil DateTime?
+  createdBy  String
+  updatedBy  String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  runs       ScheduledTaskRun[]
+
+  @@index([enabled, nextRunAt])
+  @@index([kind, targetId])
+}
+
+model ScheduledTaskRun {
+  id           String        @id @default(uuid())
+  taskId       String
+  scheduledFor DateTime
+  startedAt    DateTime      @default(now())
   completedAt  DateTime?
-  expiresAt    DateTime
-  downloadName String?
-  artifactPath String?
-  artifactUrl  String?
+  status       String        @default("running")
+  result       Json?
   error        String?
-  progress     Json     @default("{\"percent\":0,\"stage\":\"queued\",\"message\":\"Queued\"}")
+  workerId     String?
+  task         ScheduledTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, scheduledFor])
+  @@index([status, startedAt])
+}
+
+model RuntimeControlState {
+  id        String    @id @default("global")
+  frozen    Boolean   @default(false)
+  frozenAt  DateTime?
+  reason    String?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model AuditLog {
@@ -513,14 +576,14 @@ model SecurityEvent {
 }
 
 model SecurityBlock {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   subjectType  String
   subjectHash  String
   reason       String
   severity     String
   expiresAt    DateTime
   createdBy    String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   revokedAt    DateTime?
   revokeReason String?
 
@@ -618,19 +681,19 @@ model BotManagerProviderUsageEvent {
 }
 
 model BotManagerBackupJob {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   mode         String
-  status       String   @default("processing")
-  identityIds  Json     @default("[]")
+  status       String    @default("processing")
+  identityIds  Json      @default("[]")
   createdBy    String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   completedAt  DateTime?
   expiresAt    DateTime
   downloadName String?
   artifactPath String?
   artifactUrl  String?
   error        String?
-  progress     Json     @default("{\"percent\":0,\"stage\":\"queued\",\"message\":\"Queued\"}")
+  progress     Json      @default("{\"percent\":0,\"stage\":\"queued\",\"message\":\"Queued\"}")
 
   @@index([createdBy, createdAt])
   @@index([status])
@@ -645,40 +708,40 @@ model BotManagerGeneralConfig {
 }
 
 model BotManagerIdentity {
-  id                     String   @id @default(uuid())
-  slug                   String   @unique
-  name                   String
-  roleTitle              String
-  description            String   @default("")
-  isActive               Boolean  @default(false)
-  isMain                 Boolean  @default(false)
-  runtimeProvider        String?
+  id                         String                   @id @default(uuid())
+  slug                       String                   @unique
+  name                       String
+  roleTitle                  String
+  description                String                   @default("")
+  isActive                   Boolean                  @default(false)
+  isMain                     Boolean                  @default(false)
+  runtimeProvider            String?
   runtimeOpenRouterProfileId String?
-  profileImageObjectPath String?
-  profileImageUrl        String?
-  channels               Json     @default("{}")
-  settings               Json     @default("{}")
-  createdBy              String?
-  updatedBy              String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  files                  BotManagerIdentityFile[]
+  profileImageObjectPath     String?
+  profileImageUrl            String?
+  channels                   Json                     @default("{}")
+  settings                   Json                     @default("{}")
+  createdBy                  String?
+  updatedBy                  String?
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+  files                      BotManagerIdentityFile[]
 
   @@index([isActive])
   @@index([isMain])
 }
 
 model BotManagerIdentityFile {
-  id          String   @id @default(uuid())
+  id          String             @id @default(uuid())
   identityId  String
   path        String
   kind        String
-  contentType String   @default("text/markdown")
+  contentType String             @default("text/markdown")
   objectPath  String
-  size        Int      @default(0)
+  size        Int                @default(0)
   updatedBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   identity    BotManagerIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
 
   @@unique([identityId, path])
@@ -686,42 +749,42 @@ model BotManagerIdentityFile {
 }
 
 model PersonnelReport {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   reporterId       String
   targetUserId     String
   category         String
   details          String
-  status           String   @default("open")
+  status           String    @default("open")
   resolutionAction String?
   resolutionNote   String?
   resolvedById     String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   resolvedAt       DateTime?
-  reporter         User     @relation("PersonnelReportReporter", fields: [reporterId], references: [id])
-  target           User     @relation("PersonnelReportTarget", fields: [targetUserId], references: [id])
-  resolvedBy       User?    @relation("PersonnelReportResolver", fields: [resolvedById], references: [id])
+  reporter         User      @relation("PersonnelReportReporter", fields: [reporterId], references: [id])
+  target           User      @relation("PersonnelReportTarget", fields: [targetUserId], references: [id])
+  resolvedBy       User?     @relation("PersonnelReportResolver", fields: [resolvedById], references: [id])
 
   @@index([targetUserId, status])
   @@index([reporterId, createdAt])
 }
 
 model PasswordResetRequest {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   targetUserId    String
   email           String
   username        String
   identityProof   String
   newPasswordHash String
-  status          String   @default("pending")
+  status          String    @default("pending")
   reviewNote      String?
   reviewedById    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   reviewedAt      DateTime?
   completedAt     DateTime?
-  targetUser      User     @relation("PasswordResetRequestTarget", fields: [targetUserId], references: [id])
-  reviewedBy      User?    @relation("PasswordResetRequestReviewer", fields: [reviewedById], references: [id])
+  targetUser      User      @relation("PasswordResetRequestTarget", fields: [targetUserId], references: [id])
+  reviewedBy      User?     @relation("PasswordResetRequestReviewer", fields: [reviewedById], references: [id])
 
   @@index([targetUserId, status])
   @@index([status, createdAt])

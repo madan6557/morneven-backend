@@ -52,8 +52,6 @@ const APP_ROUTE_RE = /^(?:lore\/(?:characters\/char-|creatures\/creature-|places
 const BOT_MANAGER_WORKSPACE_PREFIX = 'bot-manager/workspace/';
 const BOT_MANAGER_BACKUP_PREFIX = 'bot-manager/backups/';
 const BACKUP_PREFIX = 'backups/';
-const LEGACY_NANOBOT_WORKSPACE_PREFIX = 'legacy/nanobot/';
-const LEGACY_NANOBOT_WORKSPACE_SEGMENT = '/legacy/nanobot/';
 
 const asObject = (value: unknown): JsonRecord => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -68,11 +66,6 @@ const addPath = (set: Set<string>, rawValue: unknown) => {
 };
 
 const isApplicationRoutePath = (value: string) => APP_ROUTE_RE.test(normalizeObjectPath(value));
-
-const isLegacyRuntimeArchiveObjectPath = (objectPath: string) => {
-  const normalized = normalizeObjectPath(objectPath).toLowerCase();
-  return normalized.startsWith(LEGACY_NANOBOT_WORKSPACE_PREFIX) || normalized.includes(LEGACY_NANOBOT_WORKSPACE_SEGMENT);
-};
 
 const isBackupArtifactObjectPath = (objectPath: string) => {
   const normalized = normalizeObjectPath(objectPath).toLowerCase();
@@ -302,11 +295,6 @@ export const collectReferencedStoragePaths = async (): Promise<Set<string>> => {
   }
 
   for (const object of storageObjects) {
-    if (isLegacyRuntimeArchiveObjectPath(object.objectPath)) {
-      paths.add(object.objectPath);
-      continue;
-    }
-
     if (
       object.objectPath.startsWith(BOT_MANAGER_WORKSPACE_PREFIX)
       && !isBackupArtifactObjectPath(object.objectPath)

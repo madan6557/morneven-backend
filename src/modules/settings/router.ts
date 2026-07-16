@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { auth, hasPl7MaintenanceAccess, isPl7Author } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { env } from '../../config/env.js';
-import { listStorageObjects, saveFileToStorage } from '../../config/storage.js';
+import { deleteFileFromStorage, listStorageObjects, saveFileToStorage } from '../../config/storage.js';
 import { readFileFromStorage } from '../../config/storage.js';
 import { readFileWithMetadataFromStorage } from '../../config/storage.js';
 import { createReadStreamFromStorage } from '../../config/storage.js';
@@ -21,14 +21,14 @@ import {
   collectMigrationPayload,
   countCurrentMigrationState,
   importMigrationDataset,
-  normalizeMigrationDataset,
+  prepareMigrationDatasetForRestore,
   summarizeMigrationDataset,
   type ExportSnapshot,
   type MigrationDataset,
   type MigrationPayload,
   type MigrationVerification
 } from '../../utils/data-contract.js';
-import { makeZip, ZipFile } from '../../utils/zip.js';
+import { makeZip, readZip, ZipFile } from '../../utils/zip.js';
 import { writeAudit } from '../../utils/audit.js';
 import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from './preset-service.js';
 import {
@@ -38,11 +38,20 @@ import {
   runStorageCleanup
 } from '../../utils/storage-cleanup.js';
 import { emitToUser } from '../../realtime/events.js';
+import { isReadableObjectPath, normalizeObjectPath } from '../files/object-path.js';
+import { inspectUploadBuffer } from '../../security/files/scanner.js';
+import {
+  deleteScheduledTask,
+  registerScheduledTaskHandler,
+  scheduleInputSchema,
+  serializeScheduledTask,
+  upsertScheduledTask
+} from '../../scheduler/index.js';
 
 export const settingsRouter = Router();
 
 const defaultSettings = defaultCommandCenterSettings;
-const MIGRATION_BACKUP_UPLOAD_LIMIT_MB = 1024;
+const MIGRATION_BACKUP_UPLOAD_LIMIT_MB = 500;
 const migrationBackupUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MIGRATION_BACKUP_UPLOAD_LIMIT_MB * 1024 * 1024 }
@@ -166,6 +175,20 @@ const clearExtractionSchema = z.object({
 });
 
 const extractionDownloadTicketSchema = z.object({
+  secretKey: z.string().min(16)
+});
+
+const extractionScheduleSchema = scheduleInputSchema.extend({
+  mode: z.enum(['db', 'images', 'all']).default('all'),
+  mediaSources: z.array(backupMediaSourceSchema).optional().default(defaultBackupMediaSources),
+  retentionCount: z.coerce.number().int().min(1).max(10).default(3),
+  retentionDays: z.coerce.number().int().min(1).max(30).default(7),
+  password: z.string().min(1),
+  secretKey: z.string().min(16)
+});
+
+const extractionScheduleDeleteSchema = z.object({
+  password: z.string().min(1),
   secretKey: z.string().min(16)
 });
 
@@ -373,18 +396,13 @@ const addPathSetValue = (target: Set<string>, value: unknown) => {
   for (const objectPath of next) target.add(objectPath);
 };
 
-const isLegacyRuntimeArchivePath = (objectPath: string) => {
-  const normalized = objectPath.toLowerCase().replace(/^\/+/, '');
-  return normalized.startsWith('legacy/nanobot/') || normalized.includes('/legacy/nanobot/');
-};
-
 const isGeneratedBackupArtifactPath = (objectPath: string) => {
   const normalized = objectPath.toLowerCase().replace(/^\/+/, '');
   return normalized.startsWith('backups/') || normalized.startsWith('bot-manager/backups/');
 };
 
 const shouldEmbedBackupMediaObject = (objectPath: string) =>
-  !isGeneratedBackupArtifactPath(objectPath) && !isLegacyRuntimeArchivePath(objectPath);
+  !isGeneratedBackupArtifactPath(objectPath);
 
 const collectBackupMediaPathSets = async (): Promise<Record<BackupMediaSource, Set<string>>> => {
   const sets = Object.fromEntries(defaultBackupMediaSources.map((source) => [source, new Set<string>()])) as Record<
@@ -554,7 +572,7 @@ const buildExtractionFiles = async (
 
   if (mode === 'db' || mode === 'all') {
     await onProgress?.(62, 'building-sql', 'Building database SQL backup');
-    const dataset = await collectMigrationDataset();
+    const dataset = prepareMigrationDatasetForRestore(await collectMigrationDataset());
     files.push({ name: 'database/morneven-full-backup.sql', content: buildDatabaseSqlDump(dataset) });
     files.push({ name: 'db/morneven-full-dataset.json', content: JSON.stringify(dataset, null, 2) });
     files.push({ name: 'db/characters.json', content: JSON.stringify(exportedSnapshot.characters, null, 2) });
@@ -575,6 +593,53 @@ const buildExtractionFiles = async (
     files.push({ name: 'db/content-reactions.json', content: JSON.stringify(exportedSnapshot.contentReactions, null, 2) });
     files.push({ name: 'db/map.json', content: JSON.stringify(exportedSnapshot.map, null, 2) });
     files.push({ name: 'db/bot-manager.json', content: JSON.stringify(exportedSnapshot.botManager, null, 2) });
+    files.push({
+      name: 'zeroclaw/runtime-bundle.json',
+      content: JSON.stringify({
+        format: 'morneven-zeroclaw-runtime-backup/v1',
+        generatedAt: new Date().toISOString(),
+        restoreState: 'disabled',
+        generalConfig: snapshot.botManager.generalConfig,
+        identities: snapshot.botManager.identities,
+        files: snapshot.botManager.files,
+        encryptedCredentials: snapshot.botManager.credentials,
+        encryptedOpenRouterProfiles: snapshot.botManager.openRouterProfiles,
+        encryptedAnalyticsCredentials: snapshot.botManager.analyticsCredentials
+      }, null, 2)
+    });
+
+    const [scheduledTasks, runtimeControlState] = await Promise.all([
+      prisma.scheduledTask.findMany({
+        select: {
+          key: true,
+          kind: true,
+          targetId: true,
+          timezone: true,
+          schedule: true,
+          payload: true,
+          createdBy: true,
+          updatedBy: true
+        },
+        orderBy: { key: 'asc' }
+      }),
+      prisma.runtimeControlState.findUnique({ where: { id: 'global' } })
+    ]);
+    files.push({
+      name: 'schedules/definitions.json',
+      content: JSON.stringify({
+        format: 'morneven-schedules/v1',
+        restoreState: 'disabled',
+        tasks: scheduledTasks
+      }, null, 2)
+    });
+    files.push({
+      name: 'zeroclaw/runtime-control-state.json',
+      content: JSON.stringify({
+        format: 'morneven-runtime-control-state/v1',
+        restoreState: 'stopped',
+        previousState: runtimeControlState
+      }, null, 2)
+    });
   }
 
   if (includeMedia) {
@@ -606,6 +671,24 @@ const buildExtractionFiles = async (
     files.push({ name: 'attachments/README.md', content: backupReadme(selectedSources, Array.from(embeddedAssets.values()), failedAssets) });
   }
 
+  const manifestFiles = files.map((file) => {
+    const content = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content, 'utf8');
+    return {
+      path: file.name,
+      size: content.length,
+      sha256: createHash('sha256').update(content).digest('hex')
+    };
+  });
+  files.unshift({
+    name: 'manifest.json',
+    content: JSON.stringify({
+      format: 'morneven-zeroclaw-backup/v1',
+      generatedAt: new Date().toISOString(),
+      mode,
+      files: manifestFiles
+    }, null, 2)
+  });
+
   return {
     files,
     mediaSummary: {
@@ -617,6 +700,13 @@ const buildExtractionFiles = async (
 };
 
 const EXTRACTION_STALE_MS = 30 * 60 * 1000;
+const EXTRACTION_LEASE_MS = 35 * 60 * 1000;
+const EXTRACTION_WORKER_POLL_MS = 5 * 1000;
+const STORAGE_CLEANUP_THRESHOLD_BYTES = 350 * 1024 * 1024;
+const STORAGE_BLOCK_THRESHOLD_BYTES = 450 * 1024 * 1024;
+const extractionWorkerId = `extraction-${process.pid}-${randomUUID()}`;
+let extractionWorkerTimer: NodeJS.Timeout | null = null;
+let extractionWorkerTicking = false;
 const extractionProgress = (percent: number, stage: string, message: string) => ({
   percent,
   stage,
@@ -629,8 +719,9 @@ const formatBackupDownloadName = (date: Date) => {
   const bb = String(date.getUTCMonth() + 1).padStart(2, '0');
   const yy = String(date.getUTCFullYear()).slice(-2);
   const hh = String(date.getUTCHours()).padStart(2, '0');
+  const mm = String(date.getUTCMinutes()).padStart(2, '0');
   const ss = String(date.getUTCSeconds()).padStart(2, '0');
-  return `backup_${dd}${bb}${yy}${hh}${ss}.zip`;
+  return `backup_${dd}${bb}${yy}${hh}${mm}${ss}.zip`;
 };
 
 const serializeExtractionJob = (job: Awaited<ReturnType<typeof prisma.extractionJob.findFirst>> | Awaited<ReturnType<typeof prisma.extractionJob.create>>) => {
@@ -659,6 +750,11 @@ const extractionHeartbeatTime = (job: ExtractionJobRecord) => {
   return Number.isFinite(parsed) ? parsed : job.createdAt.getTime();
 };
 
+const removeExtractionArtifact = async (job: Pick<ExtractionJobRecord, 'artifactPath'>) => {
+  if (!job.artifactPath) return;
+  await deleteFileFromStorage(job.artifactPath).catch(() => undefined);
+};
+
 const stopExtractionJob = async (job: ExtractionJobRecord, actor: string, reason: string) => {
   const progress = extractionProgress(
     extractionProgressPercent(job),
@@ -666,44 +762,127 @@ const stopExtractionJob = async (job: ExtractionJobRecord, actor: string, reason
     reason
   );
   const result = await prisma.extractionJob.updateMany({
-    where: { id: job.id, status: 'processing' },
+    where: { id: job.id, status: { in: ['queued', 'processing'] } },
     data: {
       status: 'stopped',
       completedAt: new Date(),
       error: reason,
-      progress
+      progress,
+      leaseOwner: null,
+      leaseUntil: null,
+      artifactPath: null,
+      artifactUrl: null
     }
   });
   if (!result.count) return null;
+  await removeExtractionArtifact(job);
   const stopped = await prisma.extractionJob.findUnique({ where: { id: job.id } });
   if (stopped) emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(stopped) as Record<string, unknown> });
   return stopped;
 };
 
-const stopStaleExtractionJobs = async (actor: string) => {
+const stopStaleExtractionJobs = async (actor?: string) => {
   const now = Date.now();
   const jobs = await prisma.extractionJob.findMany({
-    where: { createdBy: actor, status: 'processing', expiresAt: { gt: new Date() } }
+    where: {
+      ...(actor ? { createdBy: actor } : {}),
+      status: 'processing',
+      expiresAt: { gt: new Date() }
+    }
   });
   for (const job of jobs) {
     if (extractionProgressPercent(job) >= 100) continue;
     if (now - extractionHeartbeatTime(job) <= EXTRACTION_STALE_MS) continue;
-    await stopExtractionJob(job, actor, 'Backup job stopped because progress did not update for 30 minutes. Retry to start again from 0%.');
+    await stopExtractionJob(job, job.createdBy, 'Backup job stopped because progress did not update for 30 minutes. Retry to start again from 0%.');
   }
 };
 
+const stopExpiredExtractionJobs = async (actor?: string) => {
+  const jobs = await prisma.extractionJob.findMany({
+    where: {
+      ...(actor ? { createdBy: actor } : {}),
+      status: { in: ['queued', 'processing'] },
+      expiresAt: { lte: new Date() }
+    }
+  });
+  for (const job of jobs) {
+    await stopExtractionJob(
+      job,
+      job.createdBy,
+      'Backup job stopped because it expired before completion. Retry to start again from 0%.'
+    );
+  }
+};
+
+const totalStorageBytes = async () => {
+  const objects = await listStorageObjects();
+  return objects.reduce((total, object) => total + (object.size ?? 0), 0);
+};
+
+const pruneExtractionBackups = async (retentionCount: number, retentionDays: number) => {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const jobs = await prisma.extractionJob.findMany({
+    where: { status: { in: ['completed', 'failed', 'stopped'] } },
+    orderBy: { createdAt: 'desc' }
+  });
+  let retainedArtifactCount = 0;
+  const removable = jobs.filter((job) => {
+    if (job.createdAt < cutoff) return true;
+    if (job.status !== 'completed' || !job.artifactPath) return false;
+    retainedArtifactCount += 1;
+    return retainedArtifactCount > retentionCount;
+  });
+  for (const job of removable) {
+    await removeExtractionArtifact(job);
+  }
+  if (removable.length) {
+    await prisma.extractionJob.deleteMany({ where: { id: { in: removable.map((job) => job.id) } } });
+  }
+  return removable.length;
+};
+
+const enforceExtractionStorageLimit = async (
+  retentionCount: number,
+  retentionDays: number,
+  additionalBytes = 0
+) => {
+  await pruneExtractionBackups(retentionCount, retentionDays);
+  let usage = await totalStorageBytes();
+  if (usage >= STORAGE_CLEANUP_THRESHOLD_BYTES) {
+    await runStorageCleanup();
+    await pruneExtractionBackups(retentionCount, retentionDays);
+    usage = await totalStorageBytes();
+  }
+  if (usage + additionalBytes >= STORAGE_BLOCK_THRESHOLD_BYTES) {
+    throw new Error('Backup blocked because storage usage remains at or above 450 MiB after cleanup');
+  }
+  return usage;
+};
+
+const extractionRequestRecord = (job: ExtractionJobRecord) => {
+  if (!job.request || typeof job.request !== 'object' || Array.isArray(job.request)) return {};
+  return job.request as Record<string, unknown>;
+};
+
 const runExtractionJob = async (
-  jobId: string,
+  job: ExtractionJobRecord,
   mode: 'db' | 'images' | 'all',
   mediaSources: BackupMediaSource[],
-  actor: string,
-  downloadName: string
+  retentionCount: number,
+  retentionDays: number
 ) => {
+  const jobId = job.id;
+  const actor = job.createdBy;
+  const downloadName = job.downloadName ?? formatBackupDownloadName(job.createdAt);
+  let objectPath: string | null = null;
   try {
     const updateProgress = async (percent: number, stage: string, message: string) => {
       const result = await prisma.extractionJob.updateMany({
-        where: { id: jobId, status: 'processing' },
-        data: { progress: extractionProgress(percent, stage, message) }
+        where: { id: jobId, status: 'processing', leaseOwner: extractionWorkerId },
+        data: {
+          progress: extractionProgress(percent, stage, message),
+          leaseUntil: new Date(Date.now() + EXTRACTION_LEASE_MS)
+        }
       });
       if (!result.count) throw new Error('Extraction job stopped');
       const updated = await prisma.extractionJob.findUnique({ where: { id: jobId } });
@@ -711,6 +890,7 @@ const runExtractionJob = async (
       emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(updated) as Record<string, unknown> });
     };
 
+    await enforceExtractionStorageLimit(retentionCount, retentionDays);
     await updateProgress(10, 'collecting', 'Collecting backup data');
     const { files, mediaSummary } = await buildExtractionFiles(mode, mediaSources, updateProgress);
 
@@ -718,20 +898,26 @@ const runExtractionJob = async (
     const zip = makeZip(files);
 
     await updateProgress(85, 'uploading', 'Uploading backup artifact');
-    const objectPath = `backups/${jobId}/${downloadName}`;
+    await enforceExtractionStorageLimit(retentionCount, retentionDays, zip.length);
+    objectPath = `backups/${jobId}/${downloadName}`;
     const stored = await saveFileToStorage({ objectPath, buffer: zip, contentType: 'application/zip' });
 
     const result = await prisma.extractionJob.updateMany({
-      where: { id: jobId, status: 'processing' },
+      where: { id: jobId, status: 'processing', leaseOwner: extractionWorkerId },
       data: {
         status: 'completed',
         completedAt: new Date(),
         artifactPath: stored.objectPath,
         artifactUrl: stored.url,
-        progress: extractionProgress(100, 'completed', 'Backup ready')
+        progress: extractionProgress(100, 'completed', 'Backup ready'),
+        leaseOwner: null,
+        leaseUntil: null
       }
     });
-    if (!result.count) return;
+    if (!result.count) {
+      await deleteFileFromStorage(stored.objectPath).catch(() => undefined);
+      return;
+    }
     const completed = await prisma.extractionJob.findUnique({ where: { id: jobId } });
     if (!completed) return;
     emitToUser(actor, 'settings.extraction.updated', { job: serializeExtractionJob(completed) as Record<string, unknown> });
@@ -748,13 +934,23 @@ const runExtractionJob = async (
         failedMedia: mediaSummary.failedCount
       }
     });
+    await pruneExtractionBackups(retentionCount, retentionDays);
   } catch (error) {
+    if (objectPath) await deleteFileFromStorage(objectPath).catch(() => undefined);
+    const current = await prisma.extractionJob.findUnique({ where: { id: jobId } });
+    if (!current || current.status === 'stopped') return;
+    const message = error instanceof Error ? error.message : 'Backup failed';
     const result = await prisma.extractionJob.updateMany({
-      where: { id: jobId, status: 'processing' },
+      where: { id: jobId, status: 'processing', leaseOwner: extractionWorkerId },
       data: {
         status: 'failed',
-        error: (error as Error).message,
-        progress: extractionProgress(100, 'failed', 'Backup failed')
+        completedAt: new Date(),
+        error: message,
+        progress: extractionProgress(extractionProgressPercent(current), 'failed', message),
+        leaseOwner: null,
+        leaseUntil: null,
+        artifactPath: null,
+        artifactUrl: null
       }
     });
     if (!result.count) return;
@@ -764,34 +960,216 @@ const runExtractionJob = async (
   }
 };
 
-const createAndStartExtractionJob = async (input: {
+const createExtractionJob = async (input: {
   mode: 'db' | 'images' | 'all';
   mediaSources: BackupMediaSource[];
   autoDownload: boolean;
   actor: string;
+  idempotencyKey: string;
+  source?: 'manual' | 'scheduled' | 'retry';
+  parentJobId?: string;
+  attempt?: number;
+  retentionCount?: number;
+  retentionDays?: number;
 }) => {
+  const idempotencyKey = input.idempotencyKey.trim();
+  if (
+    !idempotencyKey ||
+    idempotencyKey.length > 160 ||
+    /[\u0000-\u001f\u007f]/.test(idempotencyKey)
+  ) {
+    throw new Error('Invalid extraction idempotency key');
+  }
+  await stopExpiredExtractionJobs(input.actor);
   const createdAt = new Date();
-  const expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const retentionCount = input.retentionCount ?? 3;
+  const retentionDays = input.retentionDays ?? 7;
+  const expiresAt = new Date(createdAt.getTime() + retentionDays * 24 * 60 * 60 * 1000);
   const downloadName = formatBackupDownloadName(createdAt);
-  const job = await prisma.extractionJob.create({
-    data: {
-      mode: input.mode,
-      autoDownload: input.autoDownload,
-      status: 'processing',
-      createdBy: input.actor,
-      expiresAt,
-      downloadName,
-      progress: extractionProgress(0, 'queued', 'Queued')
+  const existing = await prisma.extractionJob.findUnique({
+    where: {
+      createdBy_idempotencyKey: {
+        createdBy: input.actor,
+        idempotencyKey
+      }
     }
   });
-
-  setImmediate(() => {
-    void runExtractionJob(job.id, input.mode, input.mediaSources, input.actor, downloadName);
+  if (existing) return existing;
+  const active = await prisma.extractionJob.findFirst({
+    where: {
+      createdBy: input.actor,
+      status: { in: ['queued', 'processing'] },
+      expiresAt: { gt: new Date() }
+    },
+    orderBy: { createdAt: 'desc' }
   });
+  if (active) return active;
+
+  let job: ExtractionJobRecord;
+  try {
+    job = await prisma.extractionJob.create({
+      data: {
+        mode: input.mode,
+        autoDownload: input.autoDownload,
+        status: 'queued',
+        source: input.source ?? 'manual',
+        request: {
+          mediaSources: input.mediaSources,
+          retentionCount,
+          retentionDays
+        },
+        idempotencyKey,
+        parentJobId: input.parentJobId,
+        attempt: input.attempt ?? 1,
+        createdBy: input.actor,
+        expiresAt,
+        downloadName,
+        progress: extractionProgress(0, 'queued', 'Queued')
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const duplicate = await prisma.extractionJob.findUnique({
+        where: {
+          createdBy_idempotencyKey: {
+            createdBy: input.actor,
+            idempotencyKey
+          }
+        }
+      });
+      if (duplicate) return duplicate;
+      const activeDuplicate = await prisma.extractionJob.findFirst({
+        where: {
+          createdBy: input.actor,
+          status: { in: ['queued', 'processing'] },
+          expiresAt: { gt: new Date() }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      if (activeDuplicate) return activeDuplicate;
+    }
+    throw error;
+  }
 
   emitToUser(input.actor, 'settings.extraction.updated', { job: serializeExtractionJob(job) as Record<string, unknown> });
+  void runExtractionWorkerTick().catch((error) => {
+    console.error('Extraction worker tick failed after job creation', error);
+  });
   return job;
 };
+
+const claimQueuedExtractionJob = async () => {
+  const candidate = await prisma.extractionJob.findFirst({
+    where: {
+      status: 'queued',
+      expiresAt: { gt: new Date() },
+      OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }]
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+  if (!candidate) return null;
+  const claimed = await prisma.extractionJob.updateMany({
+    where: {
+      id: candidate.id,
+      status: 'queued',
+      OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }]
+    },
+    data: {
+      status: 'processing',
+      leaseOwner: extractionWorkerId,
+      leaseUntil: new Date(Date.now() + EXTRACTION_LEASE_MS),
+      progress: extractionProgress(0, 'starting', 'Starting backup')
+    }
+  });
+  if (!claimed.count) return null;
+  return prisma.extractionJob.findUnique({ where: { id: candidate.id } });
+};
+
+export const runExtractionWorkerTick = async () => {
+  if (extractionWorkerTicking) return;
+  extractionWorkerTicking = true;
+  try {
+    await stopExpiredExtractionJobs();
+    await stopStaleExtractionJobs();
+    for (;;) {
+      const job = await claimQueuedExtractionJob();
+      if (!job) break;
+      try {
+        const request = extractionRequestRecord(job);
+        const mediaSources = z.array(backupMediaSourceSchema).safeParse(request.mediaSources);
+        const mode = z.enum(['db', 'images', 'all']).parse(job.mode);
+        const retentionCount = z.coerce.number().int().min(1).max(10).catch(3).parse(request.retentionCount);
+        const retentionDays = z.coerce.number().int().min(1).max(30).catch(7).parse(request.retentionDays);
+        await runExtractionJob(
+          job,
+          mode,
+          mediaSources.success ? mediaSources.data : defaultBackupMediaSources,
+          retentionCount,
+          retentionDays
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Backup job could not be processed';
+        await prisma.extractionJob.updateMany({
+          where: { id: job.id, status: 'processing', leaseOwner: extractionWorkerId },
+          data: {
+            status: 'failed',
+            completedAt: new Date(),
+            error: message,
+            progress: extractionProgress(0, 'failed', message),
+            leaseOwner: null,
+            leaseUntil: null
+          }
+        });
+        const failed = await prisma.extractionJob.findUnique({ where: { id: job.id } });
+        if (failed) {
+          emitToUser(job.createdBy, 'settings.extraction.updated', {
+            job: serializeExtractionJob(failed) as Record<string, unknown>
+          });
+        }
+      }
+    }
+  } finally {
+    extractionWorkerTicking = false;
+  }
+};
+
+export const startExtractionWorker = () => {
+  if (extractionWorkerTimer) return () => undefined;
+  void runExtractionWorkerTick().catch((error) => {
+    console.error('Extraction worker initial tick failed', error);
+  });
+  extractionWorkerTimer = setInterval(() => {
+    void runExtractionWorkerTick().catch((error) => {
+      console.error('Extraction worker tick failed', error);
+    });
+  }, EXTRACTION_WORKER_POLL_MS);
+  extractionWorkerTimer.unref();
+  return () => {
+    if (extractionWorkerTimer) clearInterval(extractionWorkerTimer);
+    extractionWorkerTimer = null;
+  };
+};
+
+registerScheduledTaskHandler('extraction.backup', async (task, scheduledFor) => {
+  const payload = task.payload && typeof task.payload === 'object' && !Array.isArray(task.payload)
+    ? task.payload as Record<string, unknown>
+    : {};
+  const mode = z.enum(['db', 'images', 'all']).catch('all').parse(payload.mode);
+  const mediaSources = z.array(backupMediaSourceSchema).catch(defaultBackupMediaSources).parse(payload.mediaSources);
+  const retentionCount = z.coerce.number().int().min(1).max(10).catch(3).parse(payload.retentionCount);
+  const retentionDays = z.coerce.number().int().min(1).max(30).catch(7).parse(payload.retentionDays);
+  const job = await createExtractionJob({
+    mode,
+    mediaSources,
+    autoDownload: false,
+    actor: task.updatedBy,
+    idempotencyKey: `schedule:${task.id}:${scheduledFor.toISOString()}`,
+    source: 'scheduled',
+    retentionCount,
+    retentionDays
+  });
+  return { jobId: job.id, status: job.status };
+});
 
 const migrationProgress = (percent: number, stage: string, message: string) => ({ percent, stage, message });
 const MIGRATION_ASSET_PULL_MAX_ATTEMPTS = 4;
@@ -799,7 +1177,7 @@ const MIGRATION_ASSET_PULL_BASE_DELAY_MS = 750;
 
 const requireMigrationKey = (key?: string | null) => {
   if (!env.migrationKey) throw new Error('MIGRATION_KEY is not configured on this backend');
-  if (!key || key !== env.migrationKey) throw new Error('Invalid migration key');
+  if (!secretEquals(key, env.migrationKey)) throw new Error('Invalid migration key');
 };
 
 const secretEquals = (candidate: string | null | undefined, expected: string) => {
@@ -852,91 +1230,250 @@ const parseExtractionDownloadTicket = (ticket: string): ExtractionDownloadTicket
 };
 
 const parseMigrationPayload = (buffer: Buffer): MigrationPayload => {
-  const parsed = JSON.parse(buffer.toString('utf8')) as MigrationPayload;
-  if (!parsed || parsed.version !== 1 || !parsed.dataset || !parsed.source?.assetEndpoint) {
-    throw new Error('Invalid migration payload');
-  }
-  parsed.dataset = normalizeMigrationDataset(parsed.dataset);
-  return parsed;
+  const parsed = z.object({
+    version: z.literal(1),
+    exportedAt: z.string().datetime(),
+    source: z.object({ assetEndpoint: z.string().url() }),
+    dataset: z.record(z.unknown()),
+    assets: z.array(z.object({ objectPath: z.string().min(1).max(2048) })).max(100_000),
+    summary: z.object({
+      tables: z.record(z.number().int().nonnegative()),
+      assetCount: z.number().int().nonnegative()
+    })
+  }).parse(JSON.parse(buffer.toString('utf8')));
+  const assets = parsed.assets.map((asset) => {
+    const objectPath = normalizeObjectPath(asset.objectPath);
+    if (
+      objectPath !== asset.objectPath ||
+      !isReadableObjectPath(objectPath) ||
+      isGeneratedBackupArtifactPath(objectPath)
+    ) {
+      throw new Error(`Migration payload contains an unsafe storage object path: ${asset.objectPath}`);
+    }
+    return { objectPath };
+  });
+  return {
+    ...parsed,
+    dataset: prepareMigrationDatasetForRestore(parsed.dataset),
+    assets
+  };
 };
 
-const parseStoredZip = (buffer: Buffer) => {
-  const files = new Map<string, Buffer>();
-  let offset = 0;
+const backupManifestSchema = z.object({
+  format: z.literal('morneven-zeroclaw-backup/v1'),
+  generatedAt: z.string().datetime(),
+  mode: z.enum(['db', 'images', 'all']),
+  files: z.array(z.object({
+    path: z.string().min(1).max(1024),
+    size: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/)
+  }).strict()).max(10_000)
+}).strict();
 
-  while (offset + 30 <= buffer.length) {
-    const signature = buffer.readUInt32LE(offset);
-    if (signature === 0x02014b50 || signature === 0x06054b50) break;
-    if (signature !== 0x04034b50) throw new Error('Unsupported backup archive structure');
+const encryptedBackupRecordSchema = z.object({
+  encryptedValue: z.string().min(1)
+}).passthrough();
 
-    const method = buffer.readUInt16LE(offset + 8);
-    if (method !== 0) throw new Error('Backup archive uses unsupported compression');
+const zeroClawRuntimeBackupSchema = z.object({
+  format: z.literal('morneven-zeroclaw-runtime-backup/v1'),
+  restoreState: z.literal('disabled'),
+  generalConfig: z.array(z.record(z.unknown())),
+  identities: z.array(z.record(z.unknown())),
+  files: z.array(z.record(z.unknown())),
+  encryptedCredentials: z.array(encryptedBackupRecordSchema),
+  encryptedOpenRouterProfiles: z.array(encryptedBackupRecordSchema),
+  encryptedAnalyticsCredentials: z.array(encryptedBackupRecordSchema)
+}).passthrough();
 
-    const compressedSize = buffer.readUInt32LE(offset + 18);
-    const fileNameLength = buffer.readUInt16LE(offset + 26);
-    const extraLength = buffer.readUInt16LE(offset + 28);
-    const nameStart = offset + 30;
-    const dataStart = nameStart + fileNameLength + extraLength;
-    const dataEnd = dataStart + compressedSize;
+const scheduleDefinitionsBackupSchema = z.object({
+  format: z.literal('morneven-schedules/v1'),
+  restoreState: z.literal('disabled'),
+  tasks: z.array(z.object({
+    key: z.string().min(1),
+    kind: z.string().min(1),
+    targetId: z.string().nullable(),
+    timezone: z.string().min(1),
+    schedule: z.unknown(),
+    payload: z.unknown(),
+    createdBy: z.string().min(1),
+    updatedBy: z.string().min(1)
+  }).passthrough())
+}).passthrough();
 
-    if (dataEnd > buffer.length) throw new Error('Backup archive is truncated');
-    const name = buffer.subarray(nameStart, nameStart + fileNameLength).toString('utf8');
-    if (!name.endsWith('/')) files.set(name, buffer.subarray(dataStart, dataEnd));
-    offset = dataEnd;
+const runtimeControlBackupSchema = z.object({
+  format: z.literal('morneven-runtime-control-state/v1'),
+  restoreState: z.literal('stopped'),
+  previousState: z.record(z.unknown()).nullable()
+}).passthrough();
+
+const attachmentManifestSchema = z.object({
+  embeddedAssets: z.array(z.object({
+    objectPath: z.string().min(1).max(2048),
+    archivePath: z.string().min(1).max(1024),
+    source: backupMediaSourceSchema.optional(),
+    size: z.number().int().nonnegative().optional(),
+    contentType: z.string().min(1).max(200).optional()
+  }).passthrough()).max(10_000).default([])
+}).passthrough();
+
+type ValidatedAttachmentManifest = z.infer<typeof attachmentManifestSchema>;
+
+const parseArchiveJson = <T>(files: Map<string, Buffer>, name: string, schema: z.ZodType<T>): T => {
+  const entry = files.get(name);
+  if (!entry) throw new Error(`Backup archive does not include ${name}`);
+  try {
+    return schema.parse(JSON.parse(entry.toString('utf8')));
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Backup archive')) throw error;
+    throw new Error(`Backup archive contains invalid ${name}`);
+  }
+};
+
+const backupContentTypesByExtension: Record<string, string> = {
+  '.gif': 'image/gif',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.json': 'application/json',
+  '.jsonl': 'application/json',
+  '.md': 'text/markdown',
+  '.mov': 'video/quicktime',
+  '.mp4': 'video/mp4',
+  '.pdf': 'application/pdf',
+  '.png': 'image/png',
+  '.toml': 'text/plain',
+  '.txt': 'text/plain',
+  '.yaml': 'text/plain',
+  '.yml': 'text/plain',
+  '.webm': 'video/webm',
+  '.webp': 'image/webp'
+};
+
+const validateAttachmentManifest = (
+  files: Map<string, Buffer>
+): ValidatedAttachmentManifest => {
+  const manifestFile = files.get('attachments/manifest.json');
+  if (!manifestFile) return { embeddedAssets: [] };
+  let parsed: ValidatedAttachmentManifest;
+  try {
+    parsed = attachmentManifestSchema.parse(JSON.parse(manifestFile.toString('utf8')));
+  } catch {
+    throw new Error('Backup archive contains an invalid attachments/manifest.json');
   }
 
-  return files;
+  const objectPaths = new Set<string>();
+  const archivePaths = new Set<string>();
+  const embeddedAssets = parsed.embeddedAssets.map((asset) => {
+    const objectPath = normalizeObjectPath(asset.objectPath);
+    if (
+      objectPath !== asset.objectPath ||
+      !isReadableObjectPath(objectPath) ||
+      isGeneratedBackupArtifactPath(objectPath)
+    ) {
+      throw new Error(`Backup archive contains an unsafe storage object path: ${asset.objectPath}`);
+    }
+    if (!asset.archivePath.startsWith('attachments/') || asset.archivePath === 'attachments/manifest.json') {
+      throw new Error(`Backup archive contains an invalid attachment path: ${asset.archivePath}`);
+    }
+    if (objectPaths.has(objectPath) || archivePaths.has(asset.archivePath)) {
+      throw new Error('Backup archive contains duplicate attachment mappings');
+    }
+    const content = files.get(asset.archivePath);
+    if (!content) throw new Error(`Backup archive is missing ${asset.archivePath}`);
+    if (asset.size !== undefined && content.length !== asset.size) {
+      throw new Error(`Backup archive attachment size mismatch for ${asset.objectPath}`);
+    }
+    const contentType =
+      asset.contentType ??
+      backupContentTypesByExtension[path.extname(objectPath).toLowerCase()] ??
+      (objectPath.startsWith('bot-manager/workspace/') ? 'text/plain' : undefined) ??
+      'application/octet-stream';
+    const inspection = inspectUploadBuffer({ objectPath, buffer: content, mime: contentType });
+    if (inspection.verdict === 'blocked' || inspection.verdict === 'quarantined') {
+      throw new Error(
+        `Backup archive attachment is blocked for ${objectPath}: ${inspection.reason ?? inspection.verdict}`
+      );
+    }
+    objectPaths.add(objectPath);
+    archivePaths.add(asset.archivePath);
+    return { ...asset, objectPath, contentType };
+  });
+  return { ...parsed, embeddedAssets };
+};
+
+const parseValidatedBackupArchive = (buffer: Buffer) => {
+  const entries = readZip(buffer, {
+    maxEntries: 10_000,
+    maxTotalUncompressedBytes: MIGRATION_BACKUP_UPLOAD_LIMIT_MB * 1024 * 1024,
+    maxEntryUncompressedBytes: 256 * 1024 * 1024
+  });
+  const files = new Map(entries.map((entry) => [entry.name, entry.content]));
+  const manifest = parseArchiveJson(files, 'manifest.json', backupManifestSchema);
+  const listedPaths = new Set<string>();
+  for (const entry of manifest.files) {
+    if (entry.path === 'manifest.json' || listedPaths.has(entry.path)) {
+      throw new Error('Backup archive manifest contains a duplicate or self-referencing file entry');
+    }
+    const content = files.get(entry.path);
+    if (!content) throw new Error(`Backup archive is missing ${entry.path}`);
+    if (content.length !== entry.size) {
+      throw new Error(`Backup archive size mismatch for ${entry.path}`);
+    }
+    const digest = createHash('sha256').update(content).digest('hex');
+    if (!secretEquals(digest, entry.sha256)) {
+      throw new Error(`Backup archive checksum mismatch for ${entry.path}`);
+    }
+    listedPaths.add(entry.path);
+  }
+  const actualPaths = Array.from(files.keys()).filter((name) => name !== 'manifest.json');
+  if (
+    actualPaths.length !== listedPaths.size ||
+    actualPaths.some((name) => !listedPaths.has(name))
+  ) {
+    throw new Error('Backup archive contains files that are not covered by the manifest');
+  }
+  return { files, manifest };
 };
 
 const parseMigrationDatasetFromBackup = (buffer: Buffer) => {
-  const files = parseStoredZip(buffer);
+  const { files } = parseValidatedBackupArchive(buffer);
+  parseArchiveJson(files, 'zeroclaw/runtime-bundle.json', zeroClawRuntimeBackupSchema);
+  parseArchiveJson(files, 'schedules/definitions.json', scheduleDefinitionsBackupSchema);
+  parseArchiveJson(files, 'zeroclaw/runtime-control-state.json', runtimeControlBackupSchema);
+  const attachments = validateAttachmentManifest(files);
   const datasetFile = files.get('db/morneven-full-dataset.json');
   if (!datasetFile) throw new Error('Backup archive does not include db/morneven-full-dataset.json');
-  const dataset = normalizeMigrationDataset(JSON.parse(datasetFile.toString('utf8')) as Partial<MigrationDataset>);
-  return { files, dataset };
+  const rawDataset = JSON.parse(datasetFile.toString('utf8')) as unknown;
+  const dataset = prepareMigrationDatasetForRestore(rawDataset);
+  return { files, dataset, attachments };
 };
 
-const backupArchiveAssetCount = (files: Map<string, Buffer>) => {
-  const manifestFile = files.get('attachments/manifest.json');
-  if (!manifestFile) return 0;
-  const manifest = JSON.parse(manifestFile.toString('utf8')) as {
-    embeddedAssets?: Array<{ objectPath: string; archivePath: string; contentType?: string }>;
-  };
-  return manifest.embeddedAssets?.length ?? 0;
-};
+const backupArchiveAssetCount = (attachments: ValidatedAttachmentManifest) =>
+  attachments.embeddedAssets.length;
 
-const importParsedBackupArchive = async (files: Map<string, Buffer>, dataset: MigrationDataset): Promise<MigrationVerification> => {
+const importParsedBackupArchive = async (
+  files: Map<string, Buffer>,
+  dataset: MigrationDataset,
+  attachments: ValidatedAttachmentManifest
+): Promise<MigrationVerification> => {
   await importMigrationDataset(dataset);
 
-  const manifestFile = files.get('attachments/manifest.json');
   let uploadedAssetCount = 0;
   const failedAssets: Array<{ objectPath: string; error: string }> = [];
 
-  if (manifestFile) {
-    const manifest = JSON.parse(manifestFile.toString('utf8')) as {
-      embeddedAssets?: Array<{ objectPath: string; archivePath: string; contentType?: string }>;
-    };
-
-    for (const asset of manifest.embeddedAssets ?? []) {
-      const content = files.get(asset.archivePath);
-      if (!content) {
-        failedAssets.push({ objectPath: asset.objectPath, error: 'Attachment missing from backup archive' });
-        continue;
-      }
-
-      try {
-        await saveFileToStorage({
-          objectPath: asset.objectPath,
-          buffer: content,
-          contentType: asset.contentType ?? 'application/octet-stream'
-        });
-        uploadedAssetCount += 1;
-      } catch (error) {
-        failedAssets.push({
-          objectPath: asset.objectPath,
-          error: error instanceof Error ? error.message : 'Unknown asset restore failure'
-        });
-      }
+  for (const asset of attachments.embeddedAssets) {
+    const content = files.get(asset.archivePath)!;
+    try {
+      await saveFileToStorage({
+        objectPath: asset.objectPath,
+        buffer: content,
+        contentType: asset.contentType ?? 'application/octet-stream'
+      });
+      uploadedAssetCount += 1;
+    } catch (error) {
+      failedAssets.push({
+        objectPath: asset.objectPath,
+        error: error instanceof Error ? error.message : 'Unknown asset restore failure'
+      });
     }
   }
 
@@ -950,8 +1487,8 @@ const importParsedBackupArchive = async (files: Map<string, Buffer>, dataset: Mi
 };
 
 const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerification> => {
-  const { files, dataset } = parseMigrationDatasetFromBackup(buffer);
-  return importParsedBackupArchive(files, dataset);
+  const { files, dataset, attachments } = parseMigrationDatasetFromBackup(buffer);
+  return importParsedBackupArchive(files, dataset, attachments);
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1174,8 +1711,8 @@ const runBackupRestoreJob = async (
         backupSha256: backup.sha256
       }
     });
-    const { files, dataset } = parseMigrationDatasetFromBackup(backup.buffer);
-    const expectedSummary = summarizeMigrationDataset(dataset, backupArchiveAssetCount(files));
+    const { files, dataset, attachments } = parseMigrationDatasetFromBackup(backup.buffer);
+    const expectedSummary = summarizeMigrationDataset(dataset, backupArchiveAssetCount(attachments));
 
     await updateMetadata({
       summary: {
@@ -1186,7 +1723,7 @@ const runBackupRestoreJob = async (
       },
       progress: migrationProgress(35, 'restoring-backup', 'Restoring backup archive into current backend')
     });
-    const verification = await importParsedBackupArchive(files, dataset);
+    const verification = await importParsedBackupArchive(files, dataset, attachments);
 
     await updateMetadata({ progress: migrationProgress(80, 'verifying', 'Comparing restored data with backup manifest') });
     const comparison = {
@@ -1348,6 +1885,79 @@ settingsRouter.get('/extractions', auth, async (req, res) => {
   return ok(res, jobs.map(serializeExtractionJob));
 });
 
+settingsRouter.get('/extraction/schedule', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const task = await prisma.scheduledTask.findUnique({ where: { key: 'extraction.backup' } });
+  return ok(res, serializeScheduledTask(task));
+});
+
+settingsRouter.put('/extraction/schedule', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const parsed = extractionScheduleSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user || !await bcrypt.compare(parsed.data.password, user.passwordHash)) {
+      throw new Error('Password confirmation failed');
+    }
+    const task = await upsertScheduledTask({
+      key: 'extraction.backup',
+      kind: 'extraction.backup',
+      timezone: parsed.data.timezone,
+      schedule: parsed.data.schedule,
+      payload: {
+        mode: parsed.data.mode,
+        mediaSources: parsed.data.mediaSources,
+        retentionCount: parsed.data.retentionCount,
+        retentionDays: parsed.data.retentionDays
+      },
+      actor: req.user!.username
+    });
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'extraction.schedule.update',
+      entity: 'ScheduledTask',
+      entityId: task.id,
+      metadata: {
+        timezone: task.timezone,
+        nextRunAt: task.nextRunAt?.toISOString(),
+        retentionCount: parsed.data.retentionCount,
+        retentionDays: parsed.data.retentionDays
+      }
+    });
+    return ok(res, serializeScheduledTask(task));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Backup schedule update failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
+settingsRouter.delete('/extraction/schedule', auth, async (req, res) => {
+  if (!requirePl7Author(req, res)) return;
+  const parsed = extractionScheduleDeleteSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    requireExtractionKey(parsed.data.secretKey);
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user || !await bcrypt.compare(parsed.data.password, user.passwordHash)) {
+      throw new Error('Password confirmation failed');
+    }
+    const task = await deleteScheduledTask('extraction.backup');
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'extraction.schedule.delete',
+      entity: 'ScheduledTask',
+      entityId: task?.id,
+      metadata: { deleted: Boolean(task) }
+    });
+    return ok(res, { deleted: Boolean(task) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Backup schedule delete failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'EXTRACTION_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
 settingsRouter.post('/extractions', auth, async (req, res) => {
   if (!requirePl7Author(req, res)) return;
   await stopStaleExtractionJobs(req.user!.username);
@@ -1371,11 +1981,14 @@ settingsRouter.post('/extractions', auth, async (req, res) => {
   const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
 
-  const job = await createAndStartExtractionJob({
+  const requestedIdempotencyKey = req.header('Idempotency-Key')?.trim();
+  const job = await createExtractionJob({
     mode: parsed.data.mode,
     mediaSources: parsed.data.mediaSources,
     autoDownload: parsed.data.autoDownload,
-    actor: req.user!.username
+    actor: req.user!.username,
+    idempotencyKey: requestedIdempotencyKey || randomUUID(),
+    source: 'manual'
   });
   return res.status(202).json({ success: true, data: serializeExtractionJob(job) });
 });
@@ -1419,15 +2032,23 @@ settingsRouter.post('/extractions/:id/retry', auth, async (req, res) => {
 
   const mode = z.enum(['db', 'images', 'all']).safeParse(existing.mode);
   if (!mode.success) return fail(res, 409, 'Extraction job mode is not retryable', 'EXTRACTION_RETRY_UNAVAILABLE');
-  if (existing.status === 'processing') {
+  if (existing.status === 'queued' || existing.status === 'processing') {
     await stopExtractionJob(existing, req.user!.username, 'Backup job stopped before retry. New retry starts from 0%.');
   }
 
-  const job = await createAndStartExtractionJob({
+  const existingRequest = extractionRequestRecord(existing);
+  const requestedIdempotencyKey = req.header('Idempotency-Key')?.trim();
+  const job = await createExtractionJob({
     mode: mode.data,
     mediaSources: parsed.data.mediaSources,
     autoDownload: parsed.data.autoDownload ?? existing.autoDownload,
-    actor: req.user!.username
+    actor: req.user!.username,
+    idempotencyKey: requestedIdempotencyKey || `retry:${existing.id}:${existing.attempt + 1}`,
+    source: 'retry',
+    parentJobId: existing.id,
+    attempt: existing.attempt + 1,
+    retentionCount: z.coerce.number().int().min(1).max(10).catch(3).parse(existingRequest.retentionCount),
+    retentionDays: z.coerce.number().int().min(1).max(30).catch(7).parse(existingRequest.retentionDays)
   });
 
   return res.status(202).json({ success: true, data: serializeExtractionJob(job) });
@@ -1440,7 +2061,7 @@ settingsRouter.post('/extractions/:id/stop', auth, async (req, res) => {
     where: { id: req.params.id, createdBy: req.user!.username, expiresAt: { gt: new Date() } }
   });
   if (!job) return fail(res, 404, 'Extraction job not found', 'NOT_FOUND');
-  if (job.status !== 'processing') return fail(res, 409, 'Extraction job is not running', 'EXTRACTION_NOT_RUNNING');
+  if (!['queued', 'processing'].includes(job.status)) return fail(res, 409, 'Extraction job is not running', 'EXTRACTION_NOT_RUNNING');
 
   const stopped = await stopExtractionJob(job, req.user!.username, 'Backup job stopped by user. Retry to start again from 0%.');
   if (!stopped) return fail(res, 409, 'Extraction job is not running', 'EXTRACTION_NOT_RUNNING');
@@ -1523,7 +2144,9 @@ settingsRouter.post('/migrations', auth, async (req, res) => {
   if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
   const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
-  if (parsed.data.secretKey !== env.migrationKey) return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
+  if (!secretEquals(parsed.data.secretKey, env.migrationKey)) {
+    return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
+  }
 
   const targetUrl = parsed.data.migrationUrl || buildDefaultMigrationReceiveUrl(parsed.data.newBaseUrl || '');
   const createdAt = new Date();
@@ -1563,7 +2186,9 @@ settingsRouter.post('/migrations/from-backup', auth, migrationBackupUploadSingle
   if (!user) return fail(res, 401, 'Invalid user', 'UNAUTHORIZED');
   const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!passwordOk) return fail(res, 403, 'Password confirmation failed', 'FORBIDDEN');
-  if (parsed.data.secretKey !== env.migrationKey) return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
+  if (!secretEquals(parsed.data.secretKey, env.migrationKey)) {
+    return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
+  }
 
   const createdAt = new Date();
   const downloadName = `morneven-migration-report-${createdAt.toISOString().slice(0, 10)}.json`;

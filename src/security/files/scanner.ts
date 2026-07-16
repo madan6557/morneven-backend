@@ -77,6 +77,10 @@ const BLOCKED_EXTENSIONS = new Set([
 const hasBytes = (buffer: Buffer, bytes: number[]) => bytes.every((byte, index) => buffer[index] === byte);
 
 const detectMagicMime = (buffer: Buffer) => {
+  if (hasBytes(buffer, [0x4d, 0x5a])) return 'application/x-msdownload';
+  if (hasBytes(buffer, [0x7f, 0x45, 0x4c, 0x46])) return 'application/x-executable';
+  if (hasBytes(buffer, [0x23, 0x21])) return 'application/x-sh';
+  if (hasBytes(buffer, [0x50, 0x4b, 0x03, 0x04])) return 'application/zip';
   if (hasBytes(buffer, [0x89, 0x50, 0x4e, 0x47])) return 'image/png';
   if (hasBytes(buffer, [0xff, 0xd8, 0xff])) return 'image/jpeg';
   if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
@@ -94,7 +98,7 @@ const looksText = (buffer: Buffer) => {
 };
 
 const isMimeCompatible = (declared: string, magic: string | undefined, buffer: Buffer) => {
-  if (!magic) return declared.startsWith('text/') ? looksText(buffer) : declared === 'application/json' || declared === 'application/octet-stream';
+  if (!magic) return declared.startsWith('text/') ? looksText(buffer) : declared === 'application/json' && looksText(buffer);
   if (declared === magic) return true;
   if (declared === 'video/quicktime' && magic === 'video/mp4') return true;
   if (declared === 'application/octet-stream' && ALLOWED_MIME.has(magic)) return true;
@@ -122,11 +126,11 @@ const looksLikeActiveWebContent = (buffer: Buffer) => {
   ].some((needle) => sample.includes(needle));
 };
 
-export const scanUploadBuffer = async (input: {
+export const inspectUploadBuffer = (input: {
   objectPath: string;
   buffer: Buffer;
   mime: string;
-}): Promise<FileScanResult> => {
+}): FileScanResult => {
   const sha256 = createHash('sha256').update(input.buffer).digest('hex');
   const mime = (input.mime || 'application/octet-stream').toLowerCase();
   const size = input.buffer.length;
@@ -136,7 +140,10 @@ export const scanUploadBuffer = async (input: {
   const magic = detectMagicMime(input.buffer);
   const extension = fileExtension(input.objectPath);
 
-  if (BLOCKED_EXTENSIONS.has(extension)) {
+  if (magic && BLOCKED_MIME.has(magic)) {
+    verdict = 'blocked';
+    reason = 'Blocked executable or archive file signature';
+  } else if (BLOCKED_EXTENSIONS.has(extension)) {
     verdict = 'blocked';
     reason = 'Blocked active file extension';
   } else if (BLOCKED_MIME.has(mime)) {
@@ -156,6 +163,18 @@ export const scanUploadBuffer = async (input: {
     reason = 'Mock malware signature detected';
   }
 
+  return { verdict, sha256, mime, size, reason };
+};
+
+export const scanUploadBuffer = async (input: {
+  objectPath: string;
+  buffer: Buffer;
+  mime: string;
+}): Promise<FileScanResult> => {
+  const result = inspectUploadBuffer(input);
+  const { sha256, mime, size, reason } = result;
+  const { verdict } = result;
+
   if (!securityEnabled && verdict === 'clean') {
     return { verdict: 'skipped', sha256, mime, size };
   }
@@ -171,8 +190,8 @@ export const scanUploadBuffer = async (input: {
         provider: env.fileScanProvider,
         metadata: {
           reason,
-          magic,
-          extension
+          magic: detectMagicMime(input.buffer),
+          extension: fileExtension(input.objectPath)
         }
       }
     });

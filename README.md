@@ -1,80 +1,62 @@
 # Morneven Backend
 
-Morneven Backend is the stable API, database, realtime, storage, security, extraction, backup, migration, and Bot Manager integration service for the Morneven platform.
+Morneven Backend is the source of truth for authentication, authorization,
+PostgreSQL data, object storage, realtime events, security controls, backup,
+restore, scheduled tasks, and ZeroClaw Bot Manager integration.
 
-The canonical documentation lives in the shared workspace `Document/` folder.
+## Responsibilities
 
-## Repository Role
-
-`morneven-backend` is responsible for:
-
-- Express API under `/api` and `/v1`.
-- JWT auth, refresh sessions, account status, and security sessions.
-- Personnel role and PL authority enforcement.
+- Express APIs under `/api` and `/v1`.
+- JWT access and refresh sessions.
+- Personnel roles and PL authority enforcement.
 - PostgreSQL persistence through Prisma.
-- Content APIs for projects, lore, gallery, news, map, management, chat, notifications, activity, and command center.
-- Authenticated object storage proxy and uploads.
-- Storage cleanup, extraction, full backup, backup restore, and migration.
-- Security module, rate limits, audit logs, blocks, sessions, and file scan records.
-- WebSocket realtime events.
-- Bot Manager data model, credentials, identities, files, backups, and Nanobot runtime sync.
+- Authenticated uploads and validated storage object delivery.
+- Security events, file scan records, rate limits, and audit logs.
+- WebSocket realtime updates.
+- Durable extraction and backup jobs.
+- Persistent scheduled backup and runtime tasks.
+- ZeroClaw runtime bundle, identity, credential, and control state.
 
-Backend authorization is the source of truth. Frontend visibility is not a security boundary.
+Frontend visibility is not a security boundary. Every privileged action is
+validated by the backend.
 
-## Related Repositories
-
-| Repository | Relationship |
-| --- | --- |
-| `morneven-website` | Consumes backend REST APIs, websocket events, and media proxy URLs |
-| `morneven-backend` | Owns data, auth, storage, security, migration, extraction, backup, and Bot Manager source of truth |
-| `morneven_nanobot` | Pulls Bot Manager runtime bundles from backend and exposes runtime control endpoints |
-
-## Core Modules
-
-| Module | Purpose |
-| --- | --- |
-| `auth` | Login, register, guest, refresh, logout, password reset |
-| `me` | Current user account snapshot |
-| `projects` | Project records, patches, docs, metadata |
-| `lore` | Characters, creatures, places, technology, events, other lore, docs, discussion |
-| `gallery` | Gallery media, tags, reactions, publisher identity |
-| `map` | Map image and markers |
-| `personnel` | Personnel list, lookup, create, update, status, moderation |
-| `settings` | Presets, extraction, backup, migration, storage cleanup, chat reset, reports |
-| `news` | News feed and attachments |
-| `files` | Upload and object proxy |
-| `management` | Personnel workflow requests |
-| `notifications` | Notification records and read state |
-| `chat` | Conversations, members, messages, attachments, realtime chat state |
-| `content-stats` | Views, likes, dislikes, stars, reactions |
-| `activity` | Visitor and content analytics |
-| `command-center` | Global command center settings |
-| `security` | Security events, blocks, sessions, file scans |
-| `bot-manager` | Bot Manager credentials, personalities, files, backups, runtime sync |
-
-## Runtime Requirements
+## Requirements
 
 - Node.js 24 or newer.
 - npm 10 or newer.
 - PostgreSQL.
-- Prisma migrations.
-- Storage driver: local, S3-compatible, or GCS-compatible.
+- Local, S3-compatible, or GCS-compatible object storage.
 
 ## Environment
 
-Create `.env` from `.env.example` and fill production-safe values.
+Copy `.env.example` to `.env` and replace every placeholder. Important values:
 
-Important groups:
+```dotenv
+NODE_ENV=production
+DATABASE_URL=postgresql://...
+JWT_ACCESS_SECRET=<unique secret>
+JWT_REFRESH_SECRET=<unique secret>
+CORS_ORIGIN=https://morneven.com
+MIGRATION_KEY=<unique secret>
+EXTRACTION_KEY=<unique secret>
+BOT_MANAGER_KEY=<unique secret>
+BOT_MANAGER_ENCRYPTION_KEY=<unique secret, minimum 32 characters>
+BOT_MANAGER_SYNC_TOKEN=<same value as ZeroClaw MORNEVEN_BOT_MANAGER_SYNC_TOKEN>
+ZEROCLAW_INTERNAL_BASE_URL=http://<zeroclaw-private-domain>:8080
+ZEROCLAW_MORNEVEN_RELOAD_TOKEN=<same value as ZeroClaw MORNEVEN_RELOAD_TOKEN>
+```
 
-- Core: `DATABASE_URL`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`.
-- Auth: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `AUTH_COOKIE_ENABLED`, `AUTH_COOKIE_DOMAIN`.
-- Rate limits: `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_RATE_LIMIT_MAX`.
-- Security: `SECURITY_LEVEL`, `SECURITY_BLOCK_TTL_MS`, `SECURITY_RETENTION_DAYS`, `SECURITY_HASH_PEPPER`, `FILE_SCAN_PROVIDER`.
-- Storage: `STORAGE_DRIVER`, local storage vars, S3 vars, or GCS vars.
-- Upload: `MAX_UPLOAD_MB`.
-- Extraction and migration: `EXTRACTION_KEY`, `MIGRATION_KEY`.
-- Bot Manager: `BOT_MANAGER_KEY`, `BOT_MANAGER_ENCRYPTION_KEY`, `BOT_MANAGER_SYNC_TOKEN`, `NANOBOT_INTERNAL_BASE_URL`, `NANOBOT_MORNEVEN_RELOAD_TOKEN`.
-- Bot Manager legacy runtime import: set `NANOBOT_LEGACY_INTERNAL_BASE_URL` to the old Nanobot service while `NANOBOT_INTERNAL_BASE_URL` points to ZeroClaw. `NANOBOT_LEGACY_MORNEVEN_RELOAD_TOKEN` is optional and falls back to `NANOBOT_MORNEVEN_RELOAD_TOKEN`.
+ZeroClaw uses the persistent mount:
+
+```text
+/zeroclaw-data/data
+```
+
+Its Morneven runtime root is:
+
+```text
+/zeroclaw-data/data/morneven
+```
 
 ## Development
 
@@ -86,16 +68,16 @@ npm run prisma:seed
 npm run dev
 ```
 
-Validation:
+Quality gate:
 
 ```bash
 npm run build
+npm test
 npx prisma validate
+npm audit
 ```
 
 ## Deployment
-
-Recommended production deployment flow:
 
 ```bash
 npm ci
@@ -105,84 +87,75 @@ npm run prisma:migrate:deploy
 npm run start
 ```
 
-Railway deployment uses:
+Railway can use:
 
 ```bash
 npm run start:railway
 ```
 
-Production requirements:
+The scheduler and extraction worker start with the API process. Database leases,
+unique run keys, and idempotency keys make them safe across multiple backend
+replicas.
 
-- `NODE_ENV=production`.
-- Strong JWT secrets.
-- Correct CORS origin.
-- Prisma migrations applied.
-- Persistent storage or object storage configured.
-- Health checks passing.
-- Backup and migration keys set before operational use.
+## Scheduled Operations
 
-Health endpoints:
+PL7 Authors can manage:
 
-```text
-/health
-/ready
-/version
-/api/health
-/api/ready
-/api/version
-/v1/health
-/v1/ready
-/v1/version
-```
+- `GET/PUT/DELETE /api/settings/extraction/schedule`
+- `GET/PUT/DELETE /api/bot-manager/identities/:id/runtime-schedule`
+- `GET/PUT/DELETE /api/bot-manager/runtime-freeze`
 
-## Data Operations
+Mutations require account password confirmation. Backup schedule mutations also
+require `EXTRACTION_KEY`. Secrets are validated in memory and are not persisted
+in task payloads.
 
-Extraction and backup can export:
+Supported schedules:
 
-- Database JSON snapshot.
-- SQL dump.
-- Attachment manifest.
-- Media files.
-- Backup README wiring instructions.
+- One-time local date and time.
+- After 1 to 3650 days.
+- Weekly selected weekdays and local time.
+- IANA timezone per task.
 
-Migration supports:
+## Backup Contract
 
-- Live backend payload to clone backend.
-- Custom migration endpoint.
-- Restore from backup ZIP into the current backend.
+Full archives use `morneven-zeroclaw-backup/v1`. They contain a checksum
+manifest, backend datasets, storage objects, encrypted Bot Manager data,
+ZeroClaw runtime bundle, schedule definitions, and runtime control state.
 
-Storage cleanup scans storage objects against database references. Bot Manager backup coverage includes the full `bot-manager/` storage prefix.
+Restore validates ZIP safety, schema, file sizes, and SHA-256 before import.
+Restored schedules are disabled and restored runtime state is stopped.
+
+Default retention is three backups for seven days. Cleanup starts at 350 MiB.
+A new backup is blocked at 450 MiB when cleanup cannot create enough space.
+
+## Extraction Reliability
+
+- Jobs are queued and claimed by a durable worker.
+- Only one queued or processing job is allowed per Author.
+- Duplicate create and retry requests are deduplicated.
+- A processing job without progress heartbeat for 30 minutes becomes
+  `stopped`.
+- Partial artifacts are removed.
+- Retry creates a new attempt starting at 0 percent.
+- API timestamps are RFC3339 UTC values.
 
 ## Security
 
-The security module includes:
+- Helmet, strict CORS, rate limits, and audit records.
+- MIME allowlist plus file signature validation.
+- Executables, archives, SVG, HTML, scripts, stylesheets, and active markup are
+  blocked from normal uploads.
+- Storage paths reject traversal, separators, and control characters.
+- Storage is not exposed through `express.static`.
+- Active or document content is forced to download with `nosniff`, framing
+  denial, and sandboxed CSP headers.
 
-- Helmet and CORS.
-- Global and route-group rate limits.
-- Security sessions.
-- Temporary blocks.
-- Security event history.
-- File scan records.
-- Upload validation.
-- History cleanup per section.
-
-`SECURITY_LEVEL` ranges from `0` to `5`, where `0` disables the module and `5` enables the full configured posture.
-
-## Documentation
-
-Active shared documentation:
-
-- [Platform Architecture](../Document/Documentation/General/2026-05-29-platform-architecture-v02.md)
-- [Backend API Contract](../Document/Documentation/Backend/root-docs/2026-05-29-backend-api-contract-v02.md)
-- [Website Feature Documentation](../Document/Documentation/Website/docs/2026-05-29-website-feature-documentation-v02.md)
-- [Website Guidebook](../Document/Guide/Website/docs/2026-05-29-website-guidebook-v02.md)
-- [Bot Manager Guide](../Document/Guide/General/2026-05-29-bot-manager-guide-v02.md)
-- [Document Index](../Document/Documentation/General/2026-05-29-document-index-v03.md)
-
-When API, schema, extraction, migration, backup, security, or Bot Manager behavior changes, update the active `Document/` docs with the code change.
+See [guide.md](./guide.md) for deployment, hardening, backup, restore, scheduler,
+storage, redeployment, and shutdown procedures.
 
 ## License
 
 Copyright (c) 2026 madan6557.
 
-No license is granted to use, copy, modify, or distribute this repository's contents without explicit written permission from the owner.
+No license is granted to use, copy, modify, or distribute this repository's
+contents without explicit written permission from the owner.

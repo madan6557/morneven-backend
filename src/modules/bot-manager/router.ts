@@ -13,6 +13,13 @@ import { securityLimiters } from '../../security/rate-limit/limiters.js';
 import { fail, ok } from '../../utils/response.js';
 import { writeAudit } from '../../utils/audit.js';
 import { makeZip, readZip, ZipFile } from '../../utils/zip.js';
+import {
+  deleteScheduledTask,
+  registerScheduledTaskHandler,
+  scheduleInputSchema,
+  serializeScheduledTask,
+  upsertScheduledTask
+} from '../../scheduler/index.js';
 
 export const botManagerRouter = Router();
 
@@ -153,6 +160,24 @@ const syncTokenSchema = z.object({
 });
 
 const runtimeActionSchema = z.enum(['start', 'stop', 'restart']);
+const runtimeScheduleSchema = z.object({
+  password: z.string().min(1),
+  start: scheduleInputSchema.nullable().optional(),
+  stop: scheduleInputSchema.nullable().optional()
+});
+const runtimeScheduleDeleteSchema = z.object({
+  password: z.string().min(1)
+});
+const runtimeFreezeSchema = scheduleInputSchema.extend({
+  password: z.string().min(1),
+  reason: z.string().trim().max(300).optional().default('Project freeze')
+}).refine((value) => value.schedule.type !== 'weekly', {
+  message: 'Runtime freeze supports one-time or relative schedules only',
+  path: ['schedule']
+});
+const runtimeFreezeDeleteSchema = z.object({
+  password: z.string().min(1)
+});
 
 const telegramTopicLockGroupSchema = z.object({
   chatId: z.string().trim().min(1).max(80),
@@ -633,6 +658,14 @@ const requireBotManagerAccess = (req: Request, res: Response) => {
   return true;
 };
 
+const requireBotManagerAuthor = (req: Request, res: Response) => {
+  if (!req.user || !isPl7Author(req.user)) {
+    fail(res, 403, 'PL7 author access required', 'FORBIDDEN');
+    return false;
+  }
+  return true;
+};
+
 const botManagerRateLimiter = (req: Request, res: Response, next: NextFunction) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return securityLimiters.botManagerRead(req, res, next);
@@ -878,12 +911,6 @@ const formatBotManagerBackupName = (date: Date) => {
 
 const botManagerWorkspaceObjectPrefix = 'bot-manager/workspace/';
 const identityWorkspaceObjectPrefix = (slug: string) => `${botManagerWorkspaceObjectPrefix}${slug}/`;
-const legacyRuntimeArchivePrefix = 'legacy/nanobot/';
-
-const isLegacyRuntimeArchivePath = (workspacePath: string) => {
-  const normalized = normalizeWorkspacePath(workspacePath);
-  return normalized ? normalized.toLowerCase().startsWith(legacyRuntimeArchivePrefix) : false;
-};
 
 const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFile[]> => {
   const where = identityIds.length ? { id: { in: identityIds } } : {};
@@ -952,7 +979,7 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
       name: `identities/${identity.slug}/identity.json`,
       content: JSON.stringify(serializeIdentity(identity), null, 2)
     });
-    const trackedWorkspaceFiles = identity.files.filter((file) => !isLegacyRuntimeArchivePath(file.path));
+    const trackedWorkspaceFiles = identity.files;
     const trackedObjectPaths = new Set(trackedWorkspaceFiles.map((file) => file.objectPath));
     for (const workspaceFile of trackedWorkspaceFiles.sort((left, right) => left.path.localeCompare(right.path))) {
       await addWorkspaceObjectFile(
@@ -966,7 +993,7 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
     for (const object of storageObjects.filter((item) => item.objectPath.startsWith(workspacePrefix))) {
       if (trackedObjectPaths.has(object.objectPath)) continue;
       const relativePath = object.objectPath.slice(workspacePrefix.length);
-      if (!relativePath || isLegacyRuntimeArchivePath(relativePath)) continue;
+      if (!relativePath) continue;
       await addWorkspaceObjectFile(
         object.objectPath,
         `identities/${identity.slug}/workspace/${relativePath}`,
@@ -993,12 +1020,7 @@ const buildBotManagerBackupFiles = async (identityIds: string[]): Promise<ZipFil
   if (!identityIds.length) {
     for (const object of storageObjects.filter((item) => item.objectPath.startsWith(botManagerWorkspaceObjectPrefix))) {
       const relativePath = object.objectPath.slice(botManagerWorkspaceObjectPrefix.length);
-      const normalizedRelativePath = relativePath.toLowerCase();
-      if (
-        !relativePath
-        || normalizedRelativePath.startsWith(legacyRuntimeArchivePrefix)
-        || normalizedRelativePath.includes('/legacy/nanobot/')
-      ) continue;
+      if (!relativePath) continue;
       await addWorkspaceObjectFile(
         object.objectPath,
         `workspace-objects/${relativePath}`,
@@ -2301,14 +2323,11 @@ const zeroClawRequiredRootFiles = ['AGENTS.md', 'SOUL.md', 'MEMORY.md', 'TOOLS.m
 const canonicalizeZeroClawWorkspacePath = (workspacePath: string) => {
   const normalized = workspacePath.trim().replace(/\\/g, '/').replace(/^\/+/, '');
   const lower = normalized.toLowerCase();
-  if (lower.startsWith('sessions/')) return `legacy/nanobot/${normalized}`;
   if (!normalized.includes('/')) return zeroClawCanonicalRootPaths.get(lower) ?? normalized;
   return normalized;
 };
 
 const inferZeroClawWorkspaceKind = (workspacePath: string): (typeof fileKinds)[number] => {
-  const lower = workspacePath.toLowerCase();
-  if (lower.startsWith('legacy/nanobot/sessions/')) return 'session';
   return inferWorkspaceFileKind(workspacePath);
 };
 
@@ -2586,7 +2605,7 @@ const buildZeroClawMemoryTranslation = (files: RuntimeIdentityFilePayload[]) => 
     summaryPath: canonicalPaths.includes('MEMORY.md') ? 'MEMORY.md' : null,
     historyPaths: canonicalPaths.filter((path) => path.toLowerCase() === 'memory/history.jsonl'),
     referencePaths: canonicalPaths.filter((path) => path.toLowerCase().startsWith('memory/') && path.toLowerCase() !== 'memory/history.jsonl'),
-    legacySessionArchivePaths: canonicalPaths.filter((path) => path.toLowerCase().startsWith('legacy/nanobot/sessions/'))
+    sessionPaths: canonicalPaths.filter((path) => path.toLowerCase().startsWith('sessions/'))
   };
 };
 
@@ -2806,34 +2825,15 @@ const runtimeWorkspacePayloads = (payload: unknown) => {
   }];
 };
 
-const normalizedRuntimeBase = (value?: string) => value?.replace(/\/+$/, '').toLowerCase() ?? '';
-
 const runtimeWorkspacePullSources = (): Array<RuntimeEndpoint & { includeAll: boolean; optional: boolean }> => {
-  const sources: Array<RuntimeEndpoint & { includeAll: boolean; optional: boolean }> = [];
-  if (env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken) {
-    sources.push({
-      baseUrl: env.nanobotInternalBaseUrl,
-      token: env.nanobotMornevenReloadToken,
-      label: 'Runtime',
-      includeAll: false,
-      optional: false
-    });
-  }
-  const legacyToken = env.nanobotLegacyMornevenReloadToken ?? env.nanobotMornevenReloadToken;
-  if (
-    env.nanobotLegacyInternalBaseUrl
-    && legacyToken
-    && normalizedRuntimeBase(env.nanobotLegacyInternalBaseUrl) !== normalizedRuntimeBase(env.nanobotInternalBaseUrl)
-  ) {
-    sources.push({
-      baseUrl: env.nanobotLegacyInternalBaseUrl,
-      token: legacyToken,
-      label: 'Legacy Nanobot',
-      includeAll: true,
-      optional: true
-    });
-  }
-  return sources;
+  if (!env.zeroClawInternalBaseUrl || !env.zeroClawMornevenReloadToken) return [];
+  return [{
+    baseUrl: env.zeroClawInternalBaseUrl,
+    token: env.zeroClawMornevenReloadToken,
+    label: 'ZeroClaw',
+    includeAll: false,
+    optional: false
+  }];
 };
 
 const conflictWorkspacePath = (workspacePath: string) => {
@@ -4106,8 +4106,8 @@ const callRuntimeService = async (
   path: string,
   init: { method?: string; body?: unknown; allowNotFound?: boolean } = {},
   runtimeEndpoint: RuntimeEndpoint = {
-    baseUrl: env.nanobotInternalBaseUrl,
-    token: env.nanobotMornevenReloadToken,
+    baseUrl: env.zeroClawInternalBaseUrl,
+    token: env.zeroClawMornevenReloadToken,
     label: 'ZeroClaw'
   }
 ) => {
@@ -4166,9 +4166,174 @@ const getRuntimeStatus = async (force = false) => {
   return payload;
 };
 
+const ensureRuntimeControlState = () =>
+  prisma.runtimeControlState.upsert({
+    where: { id: 'global' },
+    create: { id: 'global' },
+    update: {}
+  });
+
+const executeRuntimeAction = async (
+  identity: { id: string; name: string; isActive: boolean },
+  action: z.infer<typeof runtimeActionSchema>,
+  actor: string,
+  source: 'manual' | 'scheduled' | 'freeze' = 'manual'
+) => {
+  if (!identity.isActive) throw new Error('Runtime controls require an active personality');
+  if (action !== 'stop') {
+    const state = await ensureRuntimeControlState();
+    if (state.frozen) {
+      throw new Error(`Runtime start is blocked by global freeze${state.reason ? `: ${state.reason}` : ''}`);
+    }
+  }
+  clearRuntimeStatusCache();
+  const { payload } = await callRuntimeService(`/api/morneven/runtimes/${identity.id}/gateway/${action}`, {
+    method: 'POST',
+    body: { requestedBy: actor, source }
+  });
+  setRuntimeStatusCache(payload);
+  if (action !== 'stop') {
+    const stateAfterAction = await ensureRuntimeControlState();
+    if (stateAfterAction.frozen) {
+      clearRuntimeStatusCache();
+      const reverted = await callRuntimeService(`/api/morneven/runtimes/${identity.id}/gateway/stop`, {
+        method: 'POST',
+        body: { requestedBy: actor, source: 'freeze' }
+      });
+      setRuntimeStatusCache(reverted.payload);
+      await writeAudit(prisma, {
+        actor,
+        action: 'bot-manager.runtime.start.reverted',
+        entity: 'ZeroClawGateway',
+        entityId: identity.id,
+        metadata: {
+          requestedAction: action,
+          source,
+          reason: stateAfterAction.reason,
+          identityId: identity.id,
+          identityName: identity.name
+        }
+      });
+      throw new Error(
+        `Runtime ${action} was reverted because global freeze became active${
+          stateAfterAction.reason ? `: ${stateAfterAction.reason}` : ''
+        }`
+      );
+    }
+  }
+  await writeAudit(prisma, {
+    actor,
+    action: `bot-manager.runtime.${action}`,
+    entity: 'ZeroClawGateway',
+    entityId: identity.id,
+    metadata: {
+      action,
+      source,
+      identityId: identity.id,
+      identityName: identity.name
+    }
+  });
+  return payload;
+};
+
+const hasStopAtScheduledTime = async (identityId: string, scheduledFor: Date) => {
+  const stopTask = await prisma.scheduledTask.findUnique({
+    where: { key: `runtime:${identityId}:stop` }
+  });
+  if (!stopTask) return false;
+  if (stopTask.nextRunAt?.getTime() === scheduledFor.getTime()) return true;
+  const stopRun = await prisma.scheduledTaskRun.findUnique({
+    where: {
+      taskId_scheduledFor: {
+        taskId: stopTask.id,
+        scheduledFor
+      }
+    }
+  });
+  return Boolean(stopRun);
+};
+
+registerScheduledTaskHandler('runtime.start', async (task, scheduledFor) => {
+  if (!task.targetId) throw new Error('Runtime start schedule has no personality target');
+  if (await hasStopAtScheduledTime(task.targetId, scheduledFor)) {
+    return {
+      identityId: task.targetId,
+      action: 'start',
+      skipped: true,
+      reason: 'A stop event is scheduled for the same instant'
+    };
+  }
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: task.targetId } });
+  if (!identity) throw new Error('Scheduled runtime personality was not found');
+  const payload = await executeRuntimeAction(identity, 'start', task.updatedBy, 'scheduled');
+  return { identityId: identity.id, action: 'start', payload };
+});
+
+registerScheduledTaskHandler('runtime.stop', async (task) => {
+  if (!task.targetId) throw new Error('Runtime stop schedule has no personality target');
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: task.targetId } });
+  if (!identity) throw new Error('Scheduled runtime personality was not found');
+  const payload = await executeRuntimeAction(identity, 'stop', task.updatedBy, 'scheduled');
+  return { identityId: identity.id, action: 'stop', payload };
+});
+
+registerScheduledTaskHandler('runtime.freeze', async (task, scheduledFor) => {
+  const payload = task.payload && typeof task.payload === 'object' && !Array.isArray(task.payload)
+    ? task.payload as Record<string, unknown>
+    : {};
+  const reason = textValue(payload.reason, 'Project freeze');
+  await prisma.runtimeControlState.upsert({
+    where: { id: 'global' },
+    create: {
+      id: 'global',
+      frozen: true,
+      frozenAt: scheduledFor,
+      reason,
+      updatedBy: task.updatedBy
+    },
+    update: {
+      frozen: true,
+      frozenAt: scheduledFor,
+      reason,
+      updatedBy: task.updatedBy
+    }
+  });
+
+  const identities = await prisma.botManagerIdentity.findMany({
+    where: { isActive: true },
+    orderBy: [{ isMain: 'desc' }, { name: 'asc' }]
+  });
+  const stopped: string[] = [];
+  const failed: Array<{ identityId: string; error: string }> = [];
+  for (const identity of identities) {
+    try {
+      await executeRuntimeAction(identity, 'stop', task.updatedBy, 'freeze');
+      stopped.push(identity.id);
+    } catch (error) {
+      failed.push({
+        identityId: identity.id,
+        error: error instanceof Error ? error.message : 'Runtime stop failed'
+      });
+    }
+  }
+  await writeAudit(prisma, {
+    actor: task.updatedBy,
+    action: 'bot-manager.runtime.freeze.activate',
+    entity: 'RuntimeControlState',
+    entityId: 'global',
+    metadata: { reason, stopped, failed }
+  });
+  return { frozen: true, reason, stopped, failed };
+});
+
 botManagerRouter.get('/runtime/bundle', async (req, res) => {
   const parsed = syncTokenSchema.safeParse({ token: req.header('x-bot-manager-sync-token') });
-  if (!parsed.success || !env.botManagerSyncToken || parsed.data.token !== env.botManagerSyncToken) {
+  if (
+    !parsed.success ||
+    !parsed.data.token ||
+    !env.botManagerSyncToken ||
+    !safeEquals(parsed.data.token, env.botManagerSyncToken)
+  ) {
     return fail(res, 403, 'Invalid bot manager sync token', 'FORBIDDEN');
   }
 
@@ -4181,7 +4346,12 @@ botManagerRouter.get('/runtime/bundle', async (req, res) => {
 
 botManagerRouter.post('/runtime/config-secrets', async (req, res) => {
   const parsed = syncTokenSchema.safeParse({ token: req.header('x-bot-manager-sync-token') });
-  if (!parsed.success || !env.botManagerSyncToken || parsed.data.token !== env.botManagerSyncToken) {
+  if (
+    !parsed.success ||
+    !parsed.data.token ||
+    !env.botManagerSyncToken ||
+    !safeEquals(parsed.data.token, env.botManagerSyncToken)
+  ) {
     return fail(res, 403, 'Invalid bot manager sync token', 'FORBIDDEN');
   }
 
@@ -4229,7 +4399,7 @@ botManagerRouter.get('/summary', async (req, res) => {
     : mainIdentity
       ? [mainIdentity]
       : [];
-  const runtimeConfigured = Boolean(env.nanobotInternalBaseUrl && env.nanobotMornevenReloadToken);
+  const runtimeConfigured = Boolean(env.zeroClawInternalBaseUrl && env.zeroClawMornevenReloadToken);
 
   return ok(res, {
     credentials,
@@ -4257,6 +4427,182 @@ botManagerRouter.get('/runtime/status', async (req, res) => {
     return ok(res, await getRuntimeStatus(req.query.fresh === 'true'));
   } catch (error) {
     return fail(res, 502, error instanceof Error ? error.message : 'ZeroClaw status request failed', 'RUNTIME_REQUEST_FAILED');
+  }
+});
+
+botManagerRouter.get('/identities/:id/runtime-schedule', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  const [start, stop] = await Promise.all([
+    prisma.scheduledTask.findUnique({ where: { key: `runtime:${identity.id}:start` } }),
+    prisma.scheduledTask.findUnique({ where: { key: `runtime:${identity.id}:stop` } })
+  ]);
+  return ok(res, {
+    identityId: identity.id,
+    start: serializeScheduledTask(start),
+    stop: serializeScheduledTask(stop)
+  });
+});
+
+botManagerRouter.put('/identities/:id/runtime-schedule', async (req, res) => {
+  if (!requireBotManagerAuthor(req, res)) return;
+  const parsed = runtimeScheduleSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  try {
+    await verifyAccountPassword(req, parsed.data.password);
+    const updateTask = async (
+      action: 'start' | 'stop',
+      value: z.infer<typeof scheduleInputSchema> | null | undefined
+    ) => {
+      const key = `runtime:${identity.id}:${action}`;
+      if (value === null) {
+        await deleteScheduledTask(key);
+        return null;
+      }
+      if (value === undefined) {
+        return prisma.scheduledTask.findUnique({ where: { key } });
+      }
+      return upsertScheduledTask({
+        key,
+        kind: `runtime.${action}`,
+        targetId: identity.id,
+        timezone: value.timezone,
+        schedule: value.schedule,
+        payload: { action },
+        actor: req.user!.username
+      });
+    };
+    const [start, stop] = await Promise.all([
+      updateTask('start', parsed.data.start),
+      updateTask('stop', parsed.data.stop)
+    ]);
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.runtime.schedule.update',
+      entity: 'BotManagerIdentity',
+      entityId: identity.id,
+      metadata: {
+        startNextRunAt: start?.nextRunAt?.toISOString() ?? null,
+        stopNextRunAt: stop?.nextRunAt?.toISOString() ?? null
+      }
+    });
+    return ok(res, {
+      identityId: identity.id,
+      start: serializeScheduledTask(start),
+      stop: serializeScheduledTask(stop)
+    });
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Runtime schedule update failed', 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.delete('/identities/:id/runtime-schedule', async (req, res) => {
+  if (!requireBotManagerAuthor(req, res)) return;
+  const parsed = runtimeScheduleDeleteSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: req.params.id } });
+  if (!identity) return fail(res, 404, 'Bot personality not found', 'NOT_FOUND');
+  try {
+    await verifyAccountPassword(req, parsed.data.password);
+    const [start, stop] = await Promise.all([
+      deleteScheduledTask(`runtime:${identity.id}:start`),
+      deleteScheduledTask(`runtime:${identity.id}:stop`)
+    ]);
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.runtime.schedule.delete',
+      entity: 'BotManagerIdentity',
+      entityId: identity.id,
+      metadata: { deletedStart: Boolean(start), deletedStop: Boolean(stop) }
+    });
+    return ok(res, { deletedStart: Boolean(start), deletedStop: Boolean(stop) });
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Runtime schedule delete failed', 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.get('/runtime-freeze', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const [task, state] = await Promise.all([
+    prisma.scheduledTask.findUnique({ where: { key: 'runtime:freeze' } }),
+    ensureRuntimeControlState()
+  ]);
+  return ok(res, {
+    schedule: serializeScheduledTask(task),
+    state: {
+      frozen: state.frozen,
+      frozenAt: state.frozenAt?.toISOString() ?? null,
+      reason: state.reason,
+      updatedBy: state.updatedBy,
+      updatedAt: state.updatedAt.toISOString()
+    }
+  });
+});
+
+botManagerRouter.put('/runtime-freeze', async (req, res) => {
+  if (!requireBotManagerAuthor(req, res)) return;
+  const parsed = runtimeFreezeSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyAccountPassword(req, parsed.data.password);
+    const task = await upsertScheduledTask({
+      key: 'runtime:freeze',
+      kind: 'runtime.freeze',
+      timezone: parsed.data.timezone,
+      schedule: parsed.data.schedule,
+      payload: { reason: parsed.data.reason },
+      actor: req.user!.username
+    });
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.runtime.freeze.schedule',
+      entity: 'ScheduledTask',
+      entityId: task.id,
+      metadata: {
+        reason: parsed.data.reason,
+        timezone: task.timezone,
+        nextRunAt: task.nextRunAt?.toISOString()
+      }
+    });
+    return ok(res, serializeScheduledTask(task));
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Runtime freeze schedule failed', 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.delete('/runtime-freeze', async (req, res) => {
+  if (!requireBotManagerAuthor(req, res)) return;
+  const parsed = runtimeFreezeDeleteSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyAccountPassword(req, parsed.data.password);
+    const task = await deleteScheduledTask('runtime:freeze');
+    const state = await prisma.runtimeControlState.upsert({
+      where: { id: 'global' },
+      create: { id: 'global', frozen: false, updatedBy: req.user!.username },
+      update: {
+        frozen: false,
+        frozenAt: null,
+        reason: null,
+        updatedBy: req.user!.username
+      }
+    });
+    await writeAudit(prisma, {
+      actor: req.user!.username,
+      action: 'bot-manager.runtime.freeze.cancel',
+      entity: 'RuntimeControlState',
+      entityId: 'global',
+      metadata: { deletedSchedule: Boolean(task) }
+    });
+    return ok(res, {
+      deletedSchedule: Boolean(task),
+      frozen: state.frozen
+    });
+  } catch (error) {
+    return fail(res, 403, error instanceof Error ? error.message : 'Runtime freeze cancellation failed', 'FORBIDDEN');
   }
 });
 
@@ -4383,22 +4729,11 @@ botManagerRouter.post('/runtime/:identityId/:action', async (req, res) => {
   if (!identity.isActive) return fail(res, 409, 'Runtime controls require an active personality', 'INACTIVE_PERSONALITY');
 
   try {
-    clearRuntimeStatusCache();
-    const { payload } = await callRuntimeService(`/api/morneven/runtimes/${identity.id}/gateway/${parsed.data}`, {
-      method: 'POST',
-      body: { requestedBy: req.user!.username }
-    });
-    setRuntimeStatusCache(payload);
-    await writeAudit(prisma, {
-      actor: req.user!.username,
-      action: `bot-manager.runtime.${parsed.data}`,
-      entity: 'ZeroClawGateway',
-      entityId: identity.id,
-      metadata: { action: parsed.data, identityId: identity.id, identityName: identity.name }
-    });
+    const payload = await executeRuntimeAction(identity, parsed.data, req.user!.username);
     return ok(res, payload);
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'ZeroClaw runtime action failed', 'RUNTIME_REQUEST_FAILED');
+    const message = error instanceof Error ? error.message : 'ZeroClaw runtime action failed';
+    return fail(res, message.includes('global freeze') ? 423 : 502, message, message.includes('global freeze') ? 'RUNTIME_FROZEN' : 'RUNTIME_REQUEST_FAILED');
   }
 });
 
@@ -4410,21 +4745,11 @@ botManagerRouter.post('/runtime/:action', async (req, res) => {
   try {
     const main = await ensureMainIdentity(req.user!.username);
     if (!main) return fail(res, 409, 'No main bot personality is configured', 'NO_MAIN_PERSONALITY');
-    clearRuntimeStatusCache();
-    const { payload } = await callRuntimeService(`/api/morneven/runtimes/${main.id}/gateway/${parsed.data}`, {
-      method: 'POST',
-      body: { requestedBy: req.user!.username }
-    });
-    setRuntimeStatusCache(payload);
-    await writeAudit(prisma, {
-      actor: req.user!.username,
-      action: `bot-manager.runtime.${parsed.data}`,
-      entity: 'ZeroClawGateway',
-      metadata: { action: parsed.data }
-    });
+    const payload = await executeRuntimeAction(main, parsed.data, req.user!.username);
     return ok(res, payload);
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'ZeroClaw runtime request failed', 'RUNTIME_REQUEST_FAILED');
+    const message = error instanceof Error ? error.message : 'ZeroClaw runtime request failed';
+    return fail(res, message.includes('global freeze') ? 423 : 502, message, message.includes('global freeze') ? 'RUNTIME_FROZEN' : 'RUNTIME_REQUEST_FAILED');
   }
 });
 
@@ -4864,7 +5189,7 @@ botManagerRouter.post('/identities/:id/telegram/topics/refresh', async (req, res
     const latest = await ensureIdentitySecretsEncrypted(await prisma.botManagerIdentity.findUniqueOrThrow({ where: { id: identityRecord.id } }));
     return ok(res, { ...serializeTelegramTopics(latest), pull });
   } catch (error) {
-    return fail(res, 502, error instanceof Error ? error.message : 'Telegram topic refresh failed', 'NANOBOT_TOPIC_REFRESH_FAILED');
+    return fail(res, 502, error instanceof Error ? error.message : 'Telegram topic refresh failed', 'ZEROCLAW_TOPIC_REFRESH_FAILED');
   }
 });
 
@@ -5368,7 +5693,7 @@ botManagerRouter.post('/sync', async (req, res) => {
     return fail(res, 409, message, 'BOT_MANAGER_UNAVAILABLE');
   }
 
-  if (!env.nanobotInternalBaseUrl || !env.nanobotMornevenReloadToken) {
+  if (!env.zeroClawInternalBaseUrl || !env.zeroClawMornevenReloadToken) {
     const message = 'ZeroClaw reload endpoint is not configured';
     const runtimeSync = await markRuntimeSyncFailed(req.user!.username, message);
     return fail(res, 502, message, 'RUNTIME_RELOAD_FAILED', { runtimeSync });

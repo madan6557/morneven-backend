@@ -84,39 +84,47 @@ const getS3BucketName = () => {
   return env.s3BucketName;
 };
 
-const buildGcsUrl = (objectPath: string) => {
-  if (env.gcsPublicBaseUrl) {
-    return `${env.gcsPublicBaseUrl.replace(/\/$/, '')}/${objectPath}`;
+const buildStorageReference = (objectPath: string) =>
+  `${env.localStorageBasePath.replace(/\/+$/, '')}/${objectPath}`;
+
+const validateStorageObjectPath = (objectPath: string) => {
+  if (
+    !objectPath ||
+    objectPath.length > 2048 ||
+    objectPath.startsWith('/') ||
+    objectPath.includes('\\') ||
+    /[\u0000-\u001f\u007f]/.test(objectPath)
+  ) {
+    throw new Error('Invalid storage object path');
   }
-  return `https://storage.googleapis.com/${env.gcsBucketName}/${objectPath}`;
+  const segments = objectPath.split('/');
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error('Invalid storage object path');
+  }
+  return objectPath;
 };
 
-const buildS3Url = (objectPath: string, bucketName: string) => {
-  if (env.s3PublicBaseUrl) {
-    return `${env.s3PublicBaseUrl.replace(/\/$/, '')}/${objectPath}`;
+const localStorageFilePath = (objectPath: string) => {
+  const safeObjectPath = validateStorageObjectPath(objectPath);
+  const root = path.resolve(env.localStoragePath);
+  const target = path.resolve(root, ...safeObjectPath.split('/'));
+  if (target !== root && !target.startsWith(`${root}${path.sep}`)) {
+    throw new Error('Storage object path is outside the configured root');
   }
-
-  if (env.s3Endpoint) {
-    const endpoint = env.s3Endpoint.replace(/\/$/, '');
-    return `${endpoint}/${bucketName}/${objectPath}`;
-  }
-
-  const region = env.s3Region ?? 'us-east-1';
-  return `https://${bucketName}.s3.${region}.amazonaws.com/${objectPath}`;
+  return target;
 };
-
-const buildLocalUrl = (objectPath: string) => `${env.localStorageBasePath.replace(/\/$/, '')}/${objectPath}`;
 
 export const saveFileToStorage = async (input: SaveFileInput): Promise<SaveFileResult> => {
+  validateStorageObjectPath(input.objectPath);
   if (env.storageDriver === 'local') {
-    const fullPath = path.join(env.localStoragePath, input.objectPath);
+    const fullPath = localStorageFilePath(input.objectPath);
     await mkdir(path.dirname(fullPath), { recursive: true });
     await writeFile(fullPath, input.buffer);
 
     return {
       objectPath: input.objectPath,
       location: env.localStoragePath,
-      url: buildLocalUrl(input.objectPath)
+      url: buildStorageReference(input.objectPath)
     };
   }
 
@@ -134,7 +142,7 @@ export const saveFileToStorage = async (input: SaveFileInput): Promise<SaveFileR
     return {
       objectPath: input.objectPath,
       location: bucketName,
-      url: buildS3Url(input.objectPath, bucketName)
+      url: buildStorageReference(input.objectPath)
     };
   }
 
@@ -149,7 +157,7 @@ export const saveFileToStorage = async (input: SaveFileInput): Promise<SaveFileR
   return {
     objectPath: input.objectPath,
     location: bucket.name,
-    url: buildGcsUrl(input.objectPath)
+    url: buildStorageReference(input.objectPath)
   };
 };
 
@@ -162,8 +170,9 @@ const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
 };
 
 export const readFileWithMetadataFromStorage = async (objectPath: string): Promise<ReadFileFromStorageResult> => {
+  validateStorageObjectPath(objectPath);
   if (env.storageDriver === 'local') {
-    const fullPath = path.join(env.localStoragePath, objectPath);
+    const fullPath = localStorageFilePath(objectPath);
     const { readFile } = await import('fs/promises');
     const buffer = await readFile(fullPath);
     return {
@@ -209,8 +218,9 @@ export const readFileFromStorage = async (objectPath: string): Promise<Buffer> =
 };
 
 export const createReadStreamFromStorage = async (objectPath: string): Promise<ReadStreamFromStorageResult> => {
+  validateStorageObjectPath(objectPath);
   if (env.storageDriver === 'local') {
-    const fullPath = path.join(env.localStoragePath, objectPath);
+    const fullPath = localStorageFilePath(objectPath);
     const [{ createReadStream }, metadata] = await Promise.all([
       import('fs'),
       stat(fullPath)
@@ -253,6 +263,7 @@ const walkLocalStorage = async (rootPath: string, prefix = ''): Promise<StorageO
     dirents.map(async (dirent) => {
       const fullPath = path.join(rootPath, dirent.name);
       const objectPath = prefix ? `${prefix}/${dirent.name}` : dirent.name;
+      if (dirent.isSymbolicLink()) return [];
       if (dirent.isDirectory()) {
         return walkLocalStorage(fullPath, objectPath);
       }
@@ -314,8 +325,9 @@ export const listStorageObjects = async (): Promise<StorageObjectEntry[]> => {
 };
 
 export const deleteFileFromStorage = async (objectPath: string): Promise<void> => {
+  validateStorageObjectPath(objectPath);
   if (env.storageDriver === 'local') {
-    const fullPath = path.join(env.localStoragePath, objectPath);
+    const fullPath = localStorageFilePath(objectPath);
     await rm(fullPath, { force: true });
     return;
   }

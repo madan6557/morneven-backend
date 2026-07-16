@@ -32,7 +32,8 @@ const activeContentTypes = new Set([
   'text/javascript',
   'application/javascript',
   'application/ecmascript',
-  'text/css'
+  'text/css',
+  'application/pdf'
 ]);
 
 const shouldForceDownload = (contentType?: string) => {
@@ -127,6 +128,7 @@ filesRouter.get('/object', auth, async (req, res) => {
 
     res.setHeader('Content-Type', forceDownload ? 'application/octet-stream' : file.contentType ?? 'application/octet-stream');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     if (typeof file.contentLength === 'number' && Number.isFinite(file.contentLength)) {
       res.setHeader('Content-Length', String(file.contentLength));

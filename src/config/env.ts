@@ -30,33 +30,24 @@ const schema = z.object({
   LOCAL_STORAGE_BASE_PATH: z.string().default('/storage'),
   GCS_BUCKET_NAME: z.string().optional(),
   GCS_PROJECT_ID: z.string().optional(),
-  GCS_PUBLIC_BASE_URL: z.string().url().optional(),
   S3_BUCKET_NAME: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ENDPOINT: z.string().url().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_PUBLIC_BASE_URL: z.string().url().optional(),
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
   MIGRATION_KEY: z.string().min(16).optional(),
   EXTRACTION_KEY: z.string().min(16).optional(),
   BOT_MANAGER_KEY: z.string().min(16).optional(),
   BOT_MANAGER_ENCRYPTION_KEY: z.string().min(32).optional(),
   BOT_MANAGER_SYNC_TOKEN: z.string().min(16).optional(),
-  NANOBOT_INTERNAL_BASE_URL: z.preprocess((value) => {
+  ZEROCLAW_INTERNAL_BASE_URL: z.preprocess((value) => {
     if (typeof value !== 'string') return value;
     const trimmed = value.trim();
     if (!trimmed) return undefined;
     return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
   }, z.string().url().optional()),
-  NANOBOT_LEGACY_INTERNAL_BASE_URL: z.preprocess((value) => {
-    if (typeof value !== 'string') return value;
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
-  }, z.string().url().optional()),
-  NANOBOT_LEGACY_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional(),
-  NANOBOT_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional()
+  ZEROCLAW_MORNEVEN_RELOAD_TOKEN: z.string().min(16).optional()
 });
 
 
@@ -103,21 +94,17 @@ export const env = {
   localStorageBasePath: parsed.data.LOCAL_STORAGE_BASE_PATH,
   gcsBucketName: parsed.data.GCS_BUCKET_NAME,
   gcsProjectId: parsed.data.GCS_PROJECT_ID,
-  gcsPublicBaseUrl: parsed.data.GCS_PUBLIC_BASE_URL,
   s3BucketName: parsed.data.S3_BUCKET_NAME,
   s3Region: parsed.data.S3_REGION,
   s3Endpoint: parsed.data.S3_ENDPOINT,
   s3AccessKeyId: parsed.data.S3_ACCESS_KEY_ID,
   s3SecretAccessKey: parsed.data.S3_SECRET_ACCESS_KEY,
-  s3PublicBaseUrl: parsed.data.S3_PUBLIC_BASE_URL,
   s3ForcePathStyle: parsed.data.S3_FORCE_PATH_STYLE,
   migrationKey: parsed.data.MIGRATION_KEY,
   extractionKey: parsed.data.EXTRACTION_KEY,
   botManagerKey: parsed.data.BOT_MANAGER_KEY,
   botManagerEncryptionKey: parsed.data.BOT_MANAGER_ENCRYPTION_KEY,
   botManagerSyncToken: parsed.data.BOT_MANAGER_SYNC_TOKEN,
-  nanobotInternalBaseUrl: parsed.data.NANOBOT_INTERNAL_BASE_URL,
-  nanobotLegacyInternalBaseUrl: parsed.data.NANOBOT_LEGACY_INTERNAL_BASE_URL,
-  nanobotLegacyMornevenReloadToken: parsed.data.NANOBOT_LEGACY_MORNEVEN_RELOAD_TOKEN,
-  nanobotMornevenReloadToken: parsed.data.NANOBOT_MORNEVEN_RELOAD_TOKEN
+  zeroClawInternalBaseUrl: parsed.data.ZEROCLAW_INTERNAL_BASE_URL,
+  zeroClawMornevenReloadToken: parsed.data.ZEROCLAW_MORNEVEN_RELOAD_TOKEN
 };

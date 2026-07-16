@@ -14,19 +14,7 @@ const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
   count: () => Promise<number>;
 };
 
-const isLegacyRuntimeArchivePath = (value: string) => {
-  const normalized = value.trim().replace(/^\/+/, '').toLowerCase();
-  return normalized.startsWith('legacy/nanobot/') || normalized.includes('/legacy/nanobot/');
-};
-
 const activeArtifactWhere = () => ({ expiresAt: { gt: new Date() } });
-
-const findActiveBotManagerIdentityFiles = async () => {
-  const files = await prisma.botManagerIdentityFile.findMany();
-  return files.filter((file) => !isLegacyRuntimeArchivePath(file.path) && !isLegacyRuntimeArchivePath(file.objectPath));
-};
-
-const countActiveBotManagerIdentityFiles = async () => (await findActiveBotManagerIdentityFiles()).length;
 
 export type ExportSnapshot = {
   characters: ReturnType<typeof serializeLoreItem>[];
@@ -137,6 +125,9 @@ export type MigrationDataset = {
   chatMessages: Awaited<ReturnType<typeof prisma.chatMessage.findMany>>;
   chatReadStates: Awaited<ReturnType<typeof prisma.chatReadState.findMany>>;
   extractionJobs: Awaited<ReturnType<typeof prisma.extractionJob.findMany>>;
+  scheduledTasks: Awaited<ReturnType<typeof prisma.scheduledTask.findMany>>;
+  scheduledTaskRuns: Awaited<ReturnType<typeof prisma.scheduledTaskRun.findMany>>;
+  runtimeControlStates: Awaited<ReturnType<typeof prisma.runtimeControlState.findMany>>;
   auditLogs: Awaited<ReturnType<typeof prisma.auditLog.findMany>>;
   securityEvents: Awaited<ReturnType<typeof prisma.securityEvent.findMany>>;
   securityBlocks: Awaited<ReturnType<typeof prisma.securityBlock.findMany>>;
@@ -188,7 +179,7 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'botManagerProviderUsageEvents', sqlTable: 'BotManagerProviderUsageEvent', findMany: () => prisma.botManagerProviderUsageEvent.findMany(), count: () => prisma.botManagerProviderUsageEvent.count(), deleteMany: (tx) => tx.botManagerProviderUsageEvent.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderUsageEvent.createMany({ data: rows, skipDuplicates: true }) },
   { key: 'botManagerGeneralConfigs', sqlTable: 'BotManagerGeneralConfig', findMany: () => prisma.botManagerGeneralConfig.findMany(), count: () => prisma.botManagerGeneralConfig.count(), deleteMany: (tx) => tx.botManagerGeneralConfig.deleteMany(), createMany: (tx, rows) => tx.botManagerGeneralConfig.createMany({ data: rows }) },
   { key: 'botManagerIdentities', sqlTable: 'BotManagerIdentity', findMany: () => prisma.botManagerIdentity.findMany(), count: () => prisma.botManagerIdentity.count(), deleteMany: (tx) => tx.botManagerIdentity.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentity.createMany({ data: rows }) },
-  { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: findActiveBotManagerIdentityFiles, count: countActiveBotManagerIdentityFiles, deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
+  { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: () => prisma.botManagerIdentityFile.findMany(), count: () => prisma.botManagerIdentityFile.count(), deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
   { key: 'botManagerBackupJobs', sqlTable: 'BotManagerBackupJob', findMany: () => prisma.botManagerBackupJob.findMany({ where: activeArtifactWhere() }), count: () => prisma.botManagerBackupJob.count({ where: activeArtifactWhere() }), deleteMany: (tx) => tx.botManagerBackupJob.deleteMany(), createMany: (tx, rows) => tx.botManagerBackupJob.createMany({ data: rows }) },
   { key: 'refreshTokens', sqlTable: 'RefreshToken', findMany: () => prisma.refreshToken.findMany(), count: () => prisma.refreshToken.count(), deleteMany: (tx) => tx.refreshToken.deleteMany(), createMany: (tx, rows) => tx.refreshToken.createMany({ data: rows }) },
   { key: 'projects', sqlTable: 'Project', findMany: () => prisma.project.findMany(), count: () => prisma.project.count(), deleteMany: (tx) => tx.project.deleteMany(), createMany: (tx, rows) => tx.project.createMany({ data: rows }) },
@@ -217,6 +208,9 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'chatMessages', sqlTable: 'ChatMessage', findMany: () => prisma.chatMessage.findMany(), count: () => prisma.chatMessage.count(), deleteMany: (tx) => tx.chatMessage.deleteMany(), createMany: (tx, rows) => tx.chatMessage.createMany({ data: rows }) },
   { key: 'chatReadStates', sqlTable: 'ChatReadState', findMany: () => prisma.chatReadState.findMany(), count: () => prisma.chatReadState.count(), deleteMany: (tx) => tx.chatReadState.deleteMany(), createMany: (tx, rows) => tx.chatReadState.createMany({ data: rows }) },
   { key: 'extractionJobs', sqlTable: 'ExtractionJob', findMany: () => prisma.extractionJob.findMany({ where: activeArtifactWhere() }), count: () => prisma.extractionJob.count({ where: activeArtifactWhere() }), deleteMany: (tx) => tx.extractionJob.deleteMany(), createMany: (tx, rows) => tx.extractionJob.createMany({ data: rows }) },
+  { key: 'scheduledTasks', sqlTable: 'ScheduledTask', findMany: () => prisma.scheduledTask.findMany(), count: () => prisma.scheduledTask.count(), deleteMany: (tx) => tx.scheduledTask.deleteMany(), createMany: (tx, rows) => tx.scheduledTask.createMany({ data: rows }) },
+  { key: 'scheduledTaskRuns', sqlTable: 'ScheduledTaskRun', findMany: () => prisma.scheduledTaskRun.findMany(), count: () => prisma.scheduledTaskRun.count(), deleteMany: (tx) => tx.scheduledTaskRun.deleteMany(), createMany: (tx, rows) => tx.scheduledTaskRun.createMany({ data: rows }) },
+  { key: 'runtimeControlStates', sqlTable: 'RuntimeControlState', findMany: () => prisma.runtimeControlState.findMany(), count: () => prisma.runtimeControlState.count(), deleteMany: (tx) => tx.runtimeControlState.deleteMany(), createMany: (tx, rows) => tx.runtimeControlState.createMany({ data: rows }) },
   { key: 'auditLogs', sqlTable: 'AuditLog', findMany: () => prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } }), count: () => prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }), deleteMany: (tx) => tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } }), createMany: (tx, rows) => tx.auditLog.createMany({ data: rows }) },
   { key: 'securityEvents', sqlTable: 'SecurityEvent', findMany: () => prisma.securityEvent.findMany(), count: () => prisma.securityEvent.count(), deleteMany: (tx) => tx.securityEvent.deleteMany(), createMany: (tx, rows) => tx.securityEvent.createMany({ data: rows }) },
   { key: 'securityBlocks', sqlTable: 'SecurityBlock', findMany: () => prisma.securityBlock.findMany(), count: () => prisma.securityBlock.count(), deleteMany: (tx) => tx.securityBlock.deleteMany(), createMany: (tx, rows) => tx.securityBlock.createMany({ data: rows }) },
@@ -316,7 +310,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.botManagerBackupJob.findMany({ where: activeArtifactWhere() }),
     prisma.botManagerGeneralConfig.findMany(),
     prisma.botManagerIdentity.findMany(),
-    findActiveBotManagerIdentityFiles(),
+    prisma.botManagerIdentityFile.findMany(),
     prisma.loreItem.findMany(),
     prisma.entityDoc.findMany()
   ]);
@@ -366,10 +360,50 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
   };
 };
 
+export function assertMigrationDatasetShape(raw: unknown): asserts raw is MigrationDataset {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Migration dataset must be an object');
+  }
+  const dataset = raw as Record<string, unknown>;
+  const invalidKeys = MIGRATION_TABLES
+    .map((table) => table.key)
+    .filter((key) => !Array.isArray(dataset[key]));
+  if (invalidKeys.length) {
+    throw new Error(`Migration dataset is missing required table arrays: ${invalidKeys.join(', ')}`);
+  }
+}
+
 export const normalizeMigrationDataset = (dataset: Partial<MigrationDataset>): MigrationDataset =>
   Object.fromEntries(
     MIGRATION_TABLES.map((table) => [table.key, Array.isArray(dataset[table.key]) ? dataset[table.key] : []])
   ) as MigrationDataset;
+
+export const prepareMigrationDatasetForRestore = (rawDataset: unknown): MigrationDataset => {
+  assertMigrationDatasetShape(rawDataset);
+  const dataset = normalizeMigrationDataset(rawDataset);
+  return {
+    ...dataset,
+    extractionJobs: [],
+    botManagerBackupJobs: [],
+    scheduledTasks: dataset.scheduledTasks.map((task) => ({
+      ...task,
+      enabled: false,
+      nextRunAt: null,
+      lastStatus: 'restored-disabled',
+      lastError: null,
+      leaseOwner: null,
+      leaseUntil: null
+    })),
+    scheduledTaskRuns: [],
+    runtimeControlStates: dataset.runtimeControlStates.map((state) => ({
+      ...state,
+      frozen: false,
+      frozenAt: null,
+      reason: null,
+      updatedBy: 'restore'
+    }))
+  };
+};
 
 export const summarizeMigrationDataset = (dataset: MigrationDataset, assetCount: number) => ({
   tables: Object.fromEntries(
@@ -386,8 +420,12 @@ export const collectMigrationDataset = async (): Promise<MigrationDataset> => {
 };
 
 export const collectMigrationPayload = async (assetEndpoint: string): Promise<MigrationPayload> => {
-  const dataset = await collectMigrationDataset();
+  const dataset = prepareMigrationDatasetForRestore(await collectMigrationDataset());
   const assets = Array.from(await collectReferencedStoragePaths())
+    .filter((objectPath) => {
+      const normalized = objectPath.toLowerCase().replace(/^\/+/, '');
+      return !normalized.startsWith('backups/') && !normalized.startsWith('bot-manager/backups/');
+    })
     .sort((left, right) => left.localeCompare(right))
     .map((objectPath) => ({ objectPath }));
 
@@ -413,7 +451,7 @@ export const countCurrentMigrationState = async () => {
 };
 
 export const importMigrationDataset = async (rawDataset: Partial<MigrationDataset>) => {
-  const dataset = normalizeMigrationDataset(rawDataset);
+  const dataset = prepareMigrationDatasetForRestore(rawDataset);
   await prisma.$transaction(async (tx) => {
     for (const table of [...MIGRATION_TABLES].reverse()) {
       await table.deleteMany(tx);
@@ -441,7 +479,10 @@ const jsonColumns = new Set([
   'attachments',
   'replyTo',
   'progress',
-  'config'
+  'config',
+  'request',
+  'schedule',
+  'result'
 ]);
 
 const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
