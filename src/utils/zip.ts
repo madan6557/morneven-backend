@@ -112,7 +112,7 @@ export const readZip = (archive: Buffer, options: ReadZipOptions = {}): ZipEntry
         throw new Error(`ZIP entry size mismatch: ${name}`);
       }
       const content = method === 8
-        ? inflateRawSync(compressed, { maxOutputLength: uncompressedSize })
+        ? inflateRawSync(compressed, { maxOutputLength: Math.max(uncompressedSize, 1) })
         : Buffer.from(compressed);
       if (content.length !== uncompressedSize) throw new Error(`ZIP entry size mismatch: ${name}`);
       names.add(name);

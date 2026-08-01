@@ -46,3 +46,11 @@ test('ZIP reader enforces entry and uncompressed size limits', () => {
     /entry exceeds the uncompressed size limit/
   );
 });
+
+test('ZIP reader accepts deflated empty entries', () => {
+  const archive = Buffer.from(
+    'UEsDBBQAAAAIAHeEAV0AAAAAAgAAAAAAAAAJAAAAZW1wdHkudHh0AwBQSwECFAAUAAAACAB3hAFdAAAAAAIAAAAAAAAACQAAAAAAAAAAAAAAgAEAAAAAZW1wdHkudHh0UEsFBgAAAAABAAEANwAAACkAAAAAAA==',
+    'base64'
+  );
+  assert.deepEqual(readZip(archive), [{ name: 'empty.txt', content: Buffer.alloc(0) }]);
+});

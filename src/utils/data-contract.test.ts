@@ -6,16 +6,22 @@ process.env.JWT_ACCESS_SECRET ??= 'test-access-secret-at-least-16';
 process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret-at-least-16';
 process.env.S3_ENDPOINT = 'http://localhost:9000';
 
-test('migration dataset validation requires every current table array', async () => {
+test('migration dataset validation accepts legacy runtime tables as empty', async () => {
   const { assertMigrationDatasetShape, MIGRATION_TABLES } = await import('./data-contract.js');
   const complete = Object.fromEntries(MIGRATION_TABLES.map((table) => [table.key, []]));
   assert.doesNotThrow(() => assertMigrationDatasetShape(complete));
 
+  const legacy: Record<string, unknown> = { ...complete };
+  delete legacy.scheduledTasks;
+  delete legacy.scheduledTaskRuns;
+  delete legacy.runtimeControlStates;
+  assert.doesNotThrow(() => assertMigrationDatasetShape(legacy));
+
   const incomplete: Record<string, unknown> = { ...complete };
-  delete incomplete.scheduledTasks;
+  delete incomplete.users;
   assert.throws(
     () => assertMigrationDatasetShape(incomplete),
-    /scheduledTasks/
+    /users/
   );
 });
 

@@ -1357,9 +1357,6 @@ const backupContentTypesByExtension: Record<string, string> = {
   '.webp': 'image/webp'
 };
 
-const isAllowedBackupScannerOverride = (objectPath: string) =>
-  objectPath.startsWith('bot-manager/workspace/') && path.extname(objectPath).toLowerCase() === '.sh';
-
 const parseAllowedBlockedFiles = (raw: string | undefined) => {
   if (raw === undefined) return { provided: false, paths: new Set<string>() };
   let parsed: unknown;
@@ -1427,8 +1424,9 @@ const validateAttachmentManifest = (
         skippedScannerAssets.push(blocked);
         return [];
       }
-      if (inspection.verdict === 'quarantined' || !isAllowedBackupScannerOverride(objectPath)) {
-        throw new Error(`Backup archive attachment cannot be approved for ${objectPath}`);
+      // Archive/path validation is the trust boundary; author approval may restore blocked content.
+      if (inspection.verdict === 'quarantined') {
+        throw new Error(`Backup archive attachment is quarantined and cannot be approved for ${objectPath}`);
       }
     }
     return [{ ...asset, objectPath, contentType }];

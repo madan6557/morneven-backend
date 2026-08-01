@@ -159,6 +159,15 @@ export type MigrationVerification = {
 };
 
 type MigrationTableKey = keyof MigrationDataset;
+
+// These tables were added after older backups were produced. A missing table
+// means that the older backup had no data for that feature.
+const LEGACY_EMPTY_TABLE_KEYS = new Set<MigrationTableKey>([
+  'scheduledTasks',
+  'scheduledTaskRuns',
+  'runtimeControlStates'
+]);
+
 type MigrationTableContract = {
   key: MigrationTableKey;
   sqlTable: string;
@@ -368,7 +377,7 @@ export function assertMigrationDatasetShape(raw: unknown): asserts raw is Migrat
   const dataset = raw as Record<string, unknown>;
   const invalidKeys = MIGRATION_TABLES
     .map((table) => table.key)
-    .filter((key) => !Array.isArray(dataset[key]));
+    .filter((key) => !Array.isArray(dataset[key]) && !LEGACY_EMPTY_TABLE_KEYS.has(key));
   if (invalidKeys.length) {
     throw new Error(`Migration dataset is missing required table arrays: ${invalidKeys.join(', ')}`);
   }
