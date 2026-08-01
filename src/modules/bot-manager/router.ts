@@ -49,7 +49,7 @@ const backupUploadSingle = (req: Request, res: Response, next: NextFunction) => 
   });
 };
 
-const providers = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter', 'deepseek', 'zhipu', 'vllm'] as const;
+const providers = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter', 'opencode', 'deepseek', 'zhipu', 'vllm'] as const;
 type BotProvider = (typeof providers)[number];
 const fileKinds = ['identity', 'memory', 'cron', 'skill', 'session', 'tool', 'user', 'system', 'other'] as const;
 const runtimeModes = ['single-active-personality', 'multi-active-personality'] as const;
@@ -1499,6 +1499,7 @@ const providerAnalyticsCacheMs = 5 * 60 * 1000;
 const providerAnalyticsCapabilities: Record<BotProvider, { requiresAnalyticsCredential: boolean; providerBalance: boolean; message: string }> = {
   deepseek: { requiresAnalyticsCredential: false, providerBalance: true, message: 'Balance from DeepSeek API, usage chart from local runtime events.' },
   openrouter: { requiresAnalyticsCredential: false, providerBalance: true, message: 'Limit and remaining credit from OpenRouter, usage chart from local runtime events.' },
+  opencode: { requiresAnalyticsCredential: false, providerBalance: false, message: 'OpenCode usage analytics are not available; usage chart from local runtime events.' },
   openai: { requiresAnalyticsCredential: true, providerBalance: false, message: 'Usage and cost require an OpenAI admin key.' },
   anthropic: { requiresAnalyticsCredential: true, providerBalance: false, message: 'Usage and cost require an Anthropic admin key.' },
   gemini: { requiresAnalyticsCredential: false, providerBalance: false, message: 'Gemini v1 shows local runtime usage only.' },
@@ -1540,6 +1541,7 @@ const normalizedProviderName = (value: unknown): BotProvider | '' => {
   const raw = textValue(value).trim().toLowerCase();
   if (!raw) return '';
   if (raw.includes('openrouter')) return 'openrouter';
+  if (raw.includes('opencode')) return 'opencode';
   if (raw.includes('deepseek')) return 'deepseek';
   if (raw.includes('anthropic') || raw.includes('claude')) return 'anthropic';
   if (raw.includes('gemini') || raw.includes('google')) return 'gemini';
