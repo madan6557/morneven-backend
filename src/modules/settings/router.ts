@@ -167,7 +167,8 @@ const migrationSchema = z
 const backupMigrationSchema = z.object({
   confirmText: z.literal('MIGRATION'),
   password: z.string().min(1),
-  secretKey: z.string().min(16)
+  secretKey: z.string().min(16),
+  allowBlockedFiles: z.string().optional()
 });
 
 const clearExtractionSchema = z.object({
@@ -1316,7 +1317,15 @@ const attachmentManifestSchema = z.object({
   }).passthrough()).max(10_000).default([])
 }).passthrough();
 
-type ValidatedAttachmentManifest = z.infer<typeof attachmentManifestSchema>;
+type ScannerBlockedAsset = {
+  objectPath: string;
+  reason: string;
+};
+
+type ValidatedAttachmentManifest = z.infer<typeof attachmentManifestSchema> & {
+  scannerBlockedAssets: ScannerBlockedAsset[];
+  skippedScannerAssets: ScannerBlockedAsset[];
+};
 
 const parseArchiveJson = <T>(files: Map<string, Buffer>, name: string, schema: z.ZodType<T>): T => {
   const entry = files.get(name);
@@ -1348,12 +1357,28 @@ const backupContentTypesByExtension: Record<string, string> = {
   '.webp': 'image/webp'
 };
 
+const isAllowedBackupScannerOverride = (objectPath: string) =>
+  objectPath.startsWith('bot-manager/workspace/') && path.extname(objectPath).toLowerCase() === '.sh';
+
+const parseAllowedBlockedFiles = (raw: string | undefined) => {
+  if (raw === undefined) return { provided: false, paths: new Set<string>() };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('allowBlockedFiles must be a JSON array');
+  }
+  const paths = z.array(z.string().min(1).max(2048)).max(100).parse(parsed);
+  return { provided: true, paths: new Set(paths) };
+};
+
 const validateAttachmentManifest = (
-  files: Map<string, Buffer>
+  files: Map<string, Buffer>,
+  allowedBlockedPaths = new Set<string>()
 ): ValidatedAttachmentManifest => {
   const manifestFile = files.get('attachments/manifest.json');
-  if (!manifestFile) return { embeddedAssets: [] };
-  let parsed: ValidatedAttachmentManifest;
+  if (!manifestFile) return { embeddedAssets: [], scannerBlockedAssets: [], skippedScannerAssets: [] };
+  let parsed: z.infer<typeof attachmentManifestSchema>;
   try {
     parsed = attachmentManifestSchema.parse(JSON.parse(manifestFile.toString('utf8')));
   } catch {
@@ -1362,7 +1387,9 @@ const validateAttachmentManifest = (
 
   const objectPaths = new Set<string>();
   const archivePaths = new Set<string>();
-  const embeddedAssets = parsed.embeddedAssets.map((asset) => {
+  const scannerBlockedAssets: ScannerBlockedAsset[] = [];
+  const skippedScannerAssets: ScannerBlockedAsset[] = [];
+  const embeddedAssets = parsed.embeddedAssets.flatMap((asset) => {
     const objectPath = normalizeObjectPath(asset.objectPath);
     if (
       objectPath !== asset.objectPath ||
@@ -1377,6 +1404,8 @@ const validateAttachmentManifest = (
     if (objectPaths.has(objectPath) || archivePaths.has(asset.archivePath)) {
       throw new Error('Backup archive contains duplicate attachment mappings');
     }
+    objectPaths.add(objectPath);
+    archivePaths.add(asset.archivePath);
     const content = files.get(asset.archivePath);
     if (!content) throw new Error(`Backup archive is missing ${asset.archivePath}`);
     if (asset.size !== undefined && content.length !== asset.size) {
@@ -1389,15 +1418,22 @@ const validateAttachmentManifest = (
       'application/octet-stream';
     const inspection = inspectUploadBuffer({ objectPath, buffer: content, mime: contentType });
     if (inspection.verdict === 'blocked' || inspection.verdict === 'quarantined') {
-      throw new Error(
-        `Backup archive attachment is blocked for ${objectPath}: ${inspection.reason ?? inspection.verdict}`
-      );
+      const blocked = {
+        objectPath,
+        reason: inspection.reason ?? inspection.verdict
+      };
+      scannerBlockedAssets.push(blocked);
+      if (!allowedBlockedPaths.has(objectPath)) {
+        skippedScannerAssets.push(blocked);
+        return [];
+      }
+      if (inspection.verdict === 'quarantined' || !isAllowedBackupScannerOverride(objectPath)) {
+        throw new Error(`Backup archive attachment cannot be approved for ${objectPath}`);
+      }
     }
-    objectPaths.add(objectPath);
-    archivePaths.add(asset.archivePath);
-    return { ...asset, objectPath, contentType };
+    return [{ ...asset, objectPath, contentType }];
   });
-  return { ...parsed, embeddedAssets };
+  return { ...parsed, embeddedAssets, scannerBlockedAssets, skippedScannerAssets };
 };
 
 const parseValidatedBackupArchive = (buffer: Buffer) => {
@@ -1434,12 +1470,12 @@ const parseValidatedBackupArchive = (buffer: Buffer) => {
   return { files, manifest };
 };
 
-const parseMigrationDatasetFromBackup = (buffer: Buffer) => {
+const parseMigrationDatasetFromBackup = (buffer: Buffer, allowedBlockedPaths = new Set<string>()) => {
   const { files } = parseValidatedBackupArchive(buffer);
   parseArchiveJson(files, 'zeroclaw/runtime-bundle.json', zeroClawRuntimeBackupSchema);
   parseArchiveJson(files, 'schedules/definitions.json', scheduleDefinitionsBackupSchema);
   parseArchiveJson(files, 'zeroclaw/runtime-control-state.json', runtimeControlBackupSchema);
-  const attachments = validateAttachmentManifest(files);
+  const attachments = validateAttachmentManifest(files, allowedBlockedPaths);
   const datasetFile = files.get('db/morneven-full-dataset.json');
   if (!datasetFile) throw new Error('Backup archive does not include db/morneven-full-dataset.json');
   const rawDataset = JSON.parse(datasetFile.toString('utf8')) as unknown;
@@ -1482,12 +1518,16 @@ const importParsedBackupArchive = async (
     tables: counts.tables,
     assetCount: counts.assetCount,
     uploadedAssetCount,
-    failedAssets
+    failedAssets,
+    skippedAssets: attachments.skippedScannerAssets
   };
 };
 
 const importBackupArchive = async (buffer: Buffer): Promise<MigrationVerification> => {
   const { files, dataset, attachments } = parseMigrationDatasetFromBackup(buffer);
+  if (attachments.scannerBlockedAssets.length) {
+    throw new Error(`Backup archive requires scanner approval for ${attachments.scannerBlockedAssets.map((asset) => asset.objectPath).join(', ')}`);
+  }
   return importParsedBackupArchive(files, dataset, attachments);
 };
 
@@ -1685,7 +1725,7 @@ const runBackupRestoreJob = async (
   jobId: string,
   actor: string,
   downloadName: string,
-  backup: { originalName: string; buffer: Buffer; size: number; sha256: string }
+  backup: { originalName: string; buffer: Buffer; size: number; sha256: string; allowedBlockedPaths: Set<string> }
 ) => {
   const updateMetadata = async (patch: Record<string, unknown>) => {
     const current = await prisma.auditLog.findUnique({ where: { id: jobId } });
@@ -1711,7 +1751,7 @@ const runBackupRestoreJob = async (
         backupSha256: backup.sha256
       }
     });
-    const { files, dataset, attachments } = parseMigrationDatasetFromBackup(backup.buffer);
+    const { files, dataset, attachments } = parseMigrationDatasetFromBackup(backup.buffer, backup.allowedBlockedPaths);
     const expectedSummary = summarizeMigrationDataset(dataset, backupArchiveAssetCount(attachments));
 
     await updateMetadata({
@@ -2190,13 +2230,39 @@ settingsRouter.post('/migrations/from-backup', auth, migrationBackupUploadSingle
     return fail(res, 403, 'Migration secret key is invalid', 'FORBIDDEN');
   }
 
+  let scannerApproval: ReturnType<typeof parseAllowedBlockedFiles>;
+  try {
+    scannerApproval = parseAllowedBlockedFiles(parsed.data.allowBlockedFiles);
+  } catch (error) {
+    return fail(res, 422, error instanceof Error ? error.message : 'Invalid scanner approval', 'VALIDATION_ERROR');
+  }
+  let preflight: ReturnType<typeof parseMigrationDatasetFromBackup>;
+  try {
+    preflight = parseMigrationDatasetFromBackup(req.file.buffer, scannerApproval.paths);
+  } catch (error) {
+    return fail(res, 400, error instanceof Error ? error.message : 'Backup archive validation failed', 'MIGRATION_ERROR');
+  }
+  if (preflight.attachments.scannerBlockedAssets.length && !scannerApproval.provided) {
+    return fail(
+      res,
+      409,
+      'Backup contains files blocked by the security scanner. Review and approve the files to restore.',
+      'BACKUP_SCANNER_APPROVAL_REQUIRED',
+      preflight.attachments.scannerBlockedAssets.map((asset) => ({
+        path: asset.objectPath,
+        message: asset.reason
+      }))
+    );
+  }
+
   const createdAt = new Date();
   const downloadName = `morneven-migration-report-${createdAt.toISOString().slice(0, 10)}.json`;
   const backup = {
     originalName: req.file.originalname || 'backup.zip',
     buffer: req.file.buffer,
     size: req.file.size,
-    sha256: createHash('sha256').update(req.file.buffer).digest('hex')
+    sha256: createHash('sha256').update(req.file.buffer).digest('hex'),
+    allowedBlockedPaths: scannerApproval.paths
   };
   const job = await prisma.auditLog.create({
     data: {

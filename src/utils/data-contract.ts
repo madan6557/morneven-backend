@@ -155,6 +155,7 @@ export type MigrationVerification = {
   assetCount: number;
   uploadedAssetCount: number;
   failedAssets: Array<{ objectPath: string; error: string }>;
+  skippedAssets?: Array<{ objectPath: string; reason: string }>;
 };
 
 type MigrationTableKey = keyof MigrationDataset;
