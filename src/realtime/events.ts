@@ -3,13 +3,46 @@ import { getNavigationBadges } from '../modules/me/badges.js';
 
 export type RealtimePayload = Record<string, unknown>;
 
+export type RealtimeEventMeta = {
+  eventId: string;
+  sequence: number;
+  emittedAt: string;
+};
+
 type RealtimeClient = {
   user: AuthUser;
-  send: (event: string, payload: RealtimePayload) => void;
+  send: (event: string, payload: RealtimePayload, meta?: RealtimeEventMeta) => void;
   close?: () => void;
 };
 
 const clientsByUsername = new Map<string, Set<RealtimeClient>>();
+const eventHistoryByUsername = new Map<string, Array<{ event: string; payload: RealtimePayload; meta: RealtimeEventMeta }>>();
+let realtimeSequence = 0;
+const MAX_EVENT_HISTORY = 256;
+
+const createEventMeta = (): RealtimeEventMeta => ({
+  eventId: crypto.randomUUID(),
+  sequence: ++realtimeSequence,
+  emittedAt: new Date().toISOString()
+});
+
+const rememberEvent = (username: string, event: string, payload: RealtimePayload, meta: RealtimeEventMeta) => {
+  const history = eventHistoryByUsername.get(username) ?? [];
+  history.push({ event, payload, meta });
+  if (history.length > MAX_EVENT_HISTORY) history.splice(0, history.length - MAX_EVENT_HISTORY);
+  eventHistoryByUsername.set(username, history);
+};
+
+export const replayRealtimeEvents = (
+  username: string,
+  afterSequence: number,
+  send: (event: string, payload: RealtimePayload, meta?: RealtimeEventMeta) => void
+) => {
+  const history = eventHistoryByUsername.get(username) ?? [];
+  const events = history.filter((entry) => entry.meta.sequence > afterSequence);
+  for (const entry of events) send(entry.event, entry.payload, entry.meta);
+  return events.length;
+};
 type RealtimeSessionSelector = string | {
   username?: string;
   sessionId?: string;
@@ -27,8 +60,10 @@ export const registerRealtimeClient = (client: RealtimeClient) => {
 };
 
 export const emitToUser = (username: string, event: string, payload: RealtimePayload) => {
+  const meta = createEventMeta();
+  rememberEvent(username, event, payload, meta);
   for (const client of clientsByUsername.get(username) ?? []) {
-    client.send(event, payload);
+    client.send(event, payload, meta);
   }
 };
 
@@ -58,7 +93,9 @@ export const emitToMatchingClients = (
   for (const clients of clientsByUsername.values()) {
     for (const client of clients) {
       if (predicate(client.user)) {
-        client.send(event, payload);
+        const meta = createEventMeta();
+        rememberEvent(client.user.username, event, payload, meta);
+        client.send(event, payload, meta);
       }
     }
   }

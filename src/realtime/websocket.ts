@@ -7,7 +7,7 @@ import { AccountStatus, Role, Track } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { AuthUser } from '../types/auth.js';
-import { emitToMatchingClients, emitToUsers, registerRealtimeClient } from './events.js';
+import { emitToMatchingClients, emitToUsers, registerRealtimeClient, replayRealtimeEvents, RealtimeEventMeta } from './events.js';
 import { markPresenceOffline, markPresenceOnline } from '../modules/presence/service.js';
 import { normalizeUserRole } from '../utils/serializers.js';
 import { securityFeatures } from '../security/config.js';
@@ -112,8 +112,18 @@ const conversationRecipients = async (conversationId: string, exclude?: string) 
   return members.map((member) => member.username);
 };
 
-const handleClientEvent = async (user: AuthUser, raw: string) => {
-  const parsed = JSON.parse(raw) as { event?: string; payload?: Record<string, unknown> };
+const handleClientEvent = async (
+  user: AuthUser,
+  raw: string,
+  send: (event: string, payload: Record<string, unknown>, meta?: RealtimeEventMeta) => void
+) => {
+  const parsed = JSON.parse(raw) as { event?: string; clientEventId?: string; payload?: Record<string, unknown> };
+  if (parsed.event === 'chat.resume') {
+    const afterSequence = typeof parsed.payload?.afterSequence === 'number' ? parsed.payload.afterSequence : 0;
+    const replayed = replayRealtimeEvents(user.username, afterSequence, send);
+    send('socket.resume.completed', { afterSequence, replayed, latestSequence: afterSequence + replayed });
+    return;
+  }
   const conversationId = typeof parsed.payload?.conversationId === 'string' ? parsed.payload.conversationId : undefined;
   if (!conversationId) return;
 
@@ -128,6 +138,9 @@ const handleClientEvent = async (user: AuthUser, raw: string) => {
       username: user.username,
       at: new Date().toISOString()
     });
+    if (parsed.clientEventId) {
+      send('client.ack', { clientEventId: parsed.clientEventId, event: parsed.event, accepted: true });
+    }
   }
 };
 
@@ -165,7 +178,7 @@ export const attachRealtimeWebSocket = (server: Server) => {
 
     const unregister = registerRealtimeClient({
       user,
-      send: (event, payload) => writeFrame(socket, { event, payload }),
+      send: (event, payload, meta) => writeFrame(socket, { event, payload, ...(meta ? { meta } : {}) }),
       close: () => socket.end()
     });
 
@@ -178,7 +191,7 @@ export const attachRealtimeWebSocket = (server: Server) => {
       );
     }
 
-    writeFrame(socket, { event: 'socket.ready', payload: { username: user.username } });
+    writeFrame(socket, { event: 'socket.ready', payload: { username: user.username, resumeSupported: true } });
 
     socket.on('data', (buffer) => {
       if (!Buffer.isBuffer(buffer)) return;
@@ -188,7 +201,9 @@ export const attachRealtimeWebSocket = (server: Server) => {
         return;
       }
       if (!text) return;
-      void handleClientEvent(user, text).catch(() => undefined);
+      void handleClientEvent(user, text, (event, payload, meta) => {
+        writeFrame(socket, { event, payload, ...(meta ? { meta } : {}) });
+      }).catch(() => undefined);
     });
     const teardown = () => {
       unregister();

@@ -55,6 +55,17 @@ enum EntityType {
   project
 }
 
+enum SyncEntity {
+  project
+  lore
+  gallery
+}
+
+enum SyncAction {
+  upsert
+  delete
+}
+
 enum ContentReactionKind {
   like
   dislike
@@ -245,6 +256,21 @@ model GalleryTag {
   galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id], onDelete: Cascade)
 }
 
+model SyncChange {
+  sequence    BigInt     @id @default(autoincrement())
+  operationId String     @unique
+  clientId    String?
+  entity      SyncEntity
+  entityId    String
+  action      SyncAction
+  record      Json?
+  actorId     String?
+  createdAt   DateTime   @default(now())
+
+  @@index([entity, entityId, sequence])
+  @@index([sequence])
+}
+
 model ContentMetric {
   id         String     @id @default(uuid())
   entityType EntityType
@@ -415,17 +441,21 @@ model NotificationRead {
 }
 
 model ChatConversation {
-  id            String                   @id @default(uuid())
-  kind          String
-  name          String
-  source        Json?
-  systemManaged Boolean                  @default(false)
-  createdBy     String
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  members       ChatConversationMember[]
-  messages      ChatMessage[]
-  readStates    ChatReadState[]
+  id                 String                   @id @default(uuid())
+  kind               String
+  name               String
+  source             Json?
+  systemManaged      Boolean                  @default(false)
+  botPolicy          Json                     @default("{\"mode\":\"disabled\",\"allowedIdentityIds\":[],\"allowBotToBot\":false,\"maxTurns\":2,\"maxTokensPerRun\":1200}")
+  lastServerSequence Int                      @default(0)
+  createdBy          String
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  members            ChatConversationMember[]
+  messages           ChatMessage[]
+  readStates         ChatReadState[]
+
+  @@index([updatedAt])
 }
 
 model ChatConversationMember {
@@ -442,15 +472,27 @@ model ChatConversationMember {
 }
 
 model ChatMessage {
-  id             String           @id @default(uuid())
-  conversationId String
-  author         String
-  text           String           @default("")
-  attachments    Json             @default("[]")
-  system         Boolean          @default(false)
-  replyTo        Json?
-  createdAt      DateTime         @default(now())
-  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  conversationId  String
+  clientId        String?
+  author          String
+  senderType      String           @default("user")
+  botIdentityId   String?
+  text            String           @default("")
+  attachments     Json             @default("[]")
+  system          Boolean          @default(false)
+  replyTo         Json?
+  deliveryStatus  String           @default("sent")
+  serverSequence  Int              @default(0)
+  metadata        Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, clientId])
+  @@index([conversationId, serverSequence])
+  @@index([botIdentityId])
 }
 
 model ChatReadState {
@@ -721,6 +763,7 @@ model BotManagerIdentity {
   profileImageUrl            String?
   channels                   Json                     @default("{}")
   settings                   Json                     @default("{}")
+  chatAccess                Json                     @default("{\"mode\":\"disabled\",\"allowBotToBot\":false,\"maxTurns\":2,\"maxTokensPerRun\":1200}")
   createdBy                  String?
   updatedBy                  String?
   createdAt                  DateTime                 @default(now())

@@ -17,9 +17,40 @@ export const chatRouter = Router();
 
 const messageSchema = z.object({
   conversationId: z.string().min(1),
+  clientId: z.string().min(8).max(128).optional(),
   text: z.string().optional().default(''),
   attachments: z.array(z.record(z.unknown())).optional().default([]),
   replyTo: z.record(z.unknown()).optional()
+});
+
+const botPolicyDefault = {
+  mode: 'disabled' as const,
+  allowedIdentityIds: [] as string[],
+  allowBotToBot: false,
+  maxTurns: 2,
+  maxTokensPerRun: 1200
+};
+
+const botPolicySchema = z.object({
+  mode: z.enum(['disabled', 'mention-only', 'respond']).default('disabled'),
+  allowedIdentityIds: z.array(z.string().min(1)).max(100).default([]),
+  allowBotToBot: z.boolean().default(false),
+  maxTurns: z.number().int().min(0).max(6).default(2),
+  maxTokensPerRun: z.number().int().min(128).max(4096).default(1200)
+}).default(botPolicyDefault);
+
+const botPolicyUpdateSchema = botPolicySchema;
+
+const botMessageSchema = z.object({
+  conversationId: z.string().min(1),
+  botIdentityId: z.string().min(1),
+  clientId: z.string().min(8).max(128).optional(),
+  text: z.string().trim().min(1).max(20000),
+  replyTo: z.record(z.unknown()).optional(),
+  attachments: z.array(z.record(z.unknown())).optional().default([]),
+  triggeredByMention: z.boolean().optional().default(false),
+  botToBot: z.boolean().optional().default(false),
+  metadata: z.record(z.unknown()).optional().default({})
 });
 
 const messageUpdateSchema = z.object({
@@ -84,6 +115,7 @@ const serializeConversation = (conversation: ConversationWithMembers) => ({
   })),
   source: conversation.source ?? undefined,
   systemManaged: conversation.systemManaged,
+  botPolicy: conversation.botPolicy ?? botPolicyDefault,
   createdBy: conversation.createdBy,
   createdAt: conversation.createdAt.toISOString()
 });
@@ -98,6 +130,81 @@ const canManage = (conversation: ConversationWithMembers, username: string) => {
 
 const getConversation = async (id: string) =>
   prisma.chatConversation.findUnique({ where: { id }, include: conversationInclude });
+
+const normalizeBotPolicy = (value: unknown) => {
+  const parsed = botPolicySchema.safeParse(value);
+  return parsed.success ? parsed.data : botPolicyDefault;
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+const normalizeChatAccess = (value: unknown) => {
+  const record = asRecord(value);
+  const mode = record.mode === 'respond' || record.mode === 'mention-only' ? record.mode : 'disabled';
+  const allowedConversationIds = Array.isArray(record.allowedConversationIds)
+    ? record.allowedConversationIds.filter((item): item is string => typeof item === 'string').slice(0, 500)
+    : [];
+  return {
+    mode,
+    allowedConversationIds,
+    allowBotToBot: record.allowBotToBot === true,
+    maxTurns: typeof record.maxTurns === 'number' ? Math.max(0, Math.min(6, Math.trunc(record.maxTurns))) : 2,
+    maxTokensPerRun: typeof record.maxTokensPerRun === 'number' ? Math.max(128, Math.min(4096, Math.trunc(record.maxTokensPerRun))) : 1200
+  };
+};
+
+const nextServerSequence = async (conversationId: string) => {
+  const updated = await prisma.chatConversation.update({
+    where: { id: conversationId },
+    data: { lastServerSequence: { increment: 1 } },
+    select: { lastServerSequence: true }
+  });
+  return updated.lastServerSequence;
+};
+
+const findIdempotentMessage = async (conversationId: string, clientId?: string) => {
+  if (!clientId) return null;
+  return prisma.chatMessage.findUnique({ where: { conversationId_clientId: { conversationId, clientId } } });
+};
+
+const zeroClawToken = () => {
+  const configured = process.env.ZEROCLAW_INTERNAL_TOKEN;
+  const header = process.env.ZEROCLAW_INTERNAL_HEADER || 'x-zeroclaw-token';
+  return configured ? { configured, header } : null;
+};
+
+const requireZeroClawAccess = (req: any, res: any) => {
+  const config = zeroClawToken();
+  if (!config) {
+    fail(res, 503, 'ZeroClaw bot gateway is not configured', 'BOT_GATEWAY_NOT_CONFIGURED');
+    return false;
+  }
+  const provided = req.headers[config.header.toLowerCase()];
+  if (typeof provided !== 'string' || provided.length < 16 || provided !== config.configured) {
+    fail(res, 401, 'ZeroClaw bot gateway authentication failed', 'BOT_GATEWAY_UNAUTHORIZED');
+    return false;
+  }
+  return true;
+};
+
+const assertBotCanPost = async (conversation: ConversationWithMembers, botIdentityId: string, botToBot: boolean, triggeredByMention: boolean) => {
+  const policy = normalizeBotPolicy(conversation.botPolicy);
+  if (policy.mode === 'disabled') return { ok: false as const, code: 'BOT_POLICY_DISABLED' };
+  if (!policy.allowedIdentityIds.includes(botIdentityId)) return { ok: false as const, code: 'BOT_IDENTITY_NOT_ALLOWED' };
+  if (policy.mode === 'mention-only' && !triggeredByMention) return { ok: false as const, code: 'BOT_MENTION_REQUIRED' };
+  if (botToBot && !policy.allowBotToBot) return { ok: false as const, code: 'BOT_TO_BOT_DISABLED' };
+  const identity = await prisma.botManagerIdentity.findUnique({ where: { id: botIdentityId }, select: { id: true, slug: true, name: true, isActive: true, chatAccess: true } });
+  if (!identity || !identity.isActive) return { ok: false as const, code: 'BOT_IDENTITY_INACTIVE' };
+  const access = normalizeChatAccess(identity.chatAccess);
+  if (access.mode === 'disabled') return { ok: false as const, code: 'BOT_CHAT_ACCESS_DISABLED' };
+  if (access.allowedConversationIds.length && !access.allowedConversationIds.includes(conversation.id)) {
+    return { ok: false as const, code: 'BOT_CONVERSATION_NOT_ALLOWED' };
+  }
+  if (botToBot && !access.allowBotToBot) return { ok: false as const, code: 'BOT_TO_BOT_PERSONALITY_DISABLED' };
+  return { ok: true as const, identity, policy, access };
+};
+
 
 const notifyConversationMembers = async (conversationId: string, sender: string, title: string, link = '/chat') => {
   const members = await prisma.chatConversationMember.findMany({
@@ -350,6 +457,26 @@ chatRouter.get('/invites', auth, async (req, res) => {
   return ok(res, conversations.map(serializeConversation));
 });
 
+chatRouter.patch('/conversations/:id/bot-policy', auth, async (req, res) => {
+  const parsed = botPolicyUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const conversation = await getConversation(req.params.id);
+  if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
+  if (!canManage(conversation, req.user!.username)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const nextPolicy = parsed.data;
+  if (nextPolicy.allowedIdentityIds.length) {
+    const identities = await prisma.botManagerIdentity.findMany({ where: { id: { in: nextPolicy.allowedIdentityIds } }, select: { id: true } });
+    const found = new Set(identities.map((identity) => identity.id));
+    if (nextPolicy.allowedIdentityIds.some((id) => !found.has(id))) {
+      return fail(res, 422, 'One or more bot identities do not exist', 'BOT_IDENTITY_NOT_FOUND');
+    }
+  }
+  const updated = await prisma.chatConversation.update({ where: { id: conversation.id }, data: { botPolicy: nextPolicy as Prisma.InputJsonValue }, include: conversationInclude });
+  const serialized = serializeConversation(updated);
+  emitToUsers(activeUsernames(updated), 'chat.conversation.bot-policy.updated', serialized as unknown as Record<string, unknown>);
+  return ok(res, serialized);
+});
+
 chatRouter.get('/conversations/:id/messages', auth, async (req, res) => {
   const conversation = await getConversation(req.params.id);
   if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
@@ -358,7 +485,7 @@ chatRouter.get('/conversations/:id/messages', auth, async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req, { pageSize: 50, maxPageSize: 100 });
   const where = { conversationId: conversation.id };
   const [messages, total] = await Promise.all([
-    prisma.chatMessage.findMany({ where, orderBy: { createdAt: 'asc' }, skip, take }),
+    prisma.chatMessage.findMany({ where, orderBy: [{ serverSequence: 'asc' }, { createdAt: 'asc' }], skip, take }),
     prisma.chatMessage.count({ where })
   ]);
   return ok(res, paginated(messages.map(normalizeMessageAttachments), page, pageSize, total));
@@ -375,13 +502,21 @@ chatRouter.post('/messages', auth, async (req, res) => {
   if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
   if (!getActiveMember(conversation, req.user!.username)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
 
+  const existing = await findIdempotentMessage(conversation.id, parsed.data.clientId);
+  if (existing) return ok(res, normalizeMessageAttachments(existing));
+  const serverSequence = await nextServerSequence(conversation.id);
   const message = await prisma.chatMessage.create({
     data: {
       conversationId: conversation.id,
+      clientId: parsed.data.clientId ?? null,
       author: req.user!.username,
+      senderType: 'user',
       text: parsed.data.text,
       attachments: parsed.data.attachments as Prisma.InputJsonArray,
-      replyTo: parsed.data.replyTo as Prisma.InputJsonObject | undefined
+      replyTo: parsed.data.replyTo as Prisma.InputJsonObject | undefined,
+      deliveryStatus: 'sent',
+      serverSequence,
+      metadata: {}
     }
   });
   await notifyMentionedMembers(conversation, req.user!.username, parsed.data.text);
@@ -394,6 +529,39 @@ chatRouter.post('/messages', auth, async (req, res) => {
   );
   await Promise.all(recipients.filter((username) => username !== req.user!.username).map((username) => emitNavigationBadgesUpdated(username)));
   return res.status(201).json({ success: true, data: normalizeMessageAttachments(message) });
+});
+
+chatRouter.post('/bot/messages', async (req, res) => {
+  if (!requireZeroClawAccess(req, res)) return;
+  const parsed = botMessageSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  const conversation = await getConversation(parsed.data.conversationId);
+  if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
+  const gate = await assertBotCanPost(conversation, parsed.data.botIdentityId, parsed.data.botToBot, parsed.data.triggeredByMention);
+  if (!gate.ok) return fail(res, 403, 'Bot is not allowed to post in this conversation', gate.code);
+  const existing = await findIdempotentMessage(conversation.id, parsed.data.clientId);
+  if (existing) return ok(res, normalizeMessageAttachments(existing));
+  const serverSequence = await nextServerSequence(conversation.id);
+  const message = await prisma.chatMessage.create({
+    data: {
+      conversationId: conversation.id,
+      clientId: parsed.data.clientId ?? null,
+      author: gate.identity.slug,
+      senderType: 'bot',
+      botIdentityId: gate.identity.id,
+      text: parsed.data.text,
+      attachments: parsed.data.attachments as Prisma.InputJsonArray,
+      replyTo: parsed.data.replyTo as Prisma.InputJsonObject | undefined,
+      deliveryStatus: 'sent',
+      serverSequence,
+      metadata: { ...parsed.data.metadata, botToBot: parsed.data.botToBot, source: 'zeroclaw' } as Prisma.InputJsonObject
+    }
+  });
+  const recipients = activeUsernames(conversation);
+  const normalized = normalizeMessageAttachments(message) as unknown as Record<string, unknown>;
+  emitToUsers(recipients, 'chat.message.created', normalized);
+  await Promise.all(recipients.map((username) => emitNavigationBadgesUpdated(username)));
+  return res.status(201).json({ success: true, data: normalized });
 });
 
 chatRouter.put('/messages/:id', auth, async (req, res) => {
@@ -438,9 +606,9 @@ chatRouter.delete('/messages/:id', auth, async (req, res) => {
   if (message.author !== req.user!.username && !canManage(conversation, req.user!.username)) {
     return fail(res, 403, 'Forbidden', 'FORBIDDEN');
   }
-  await prisma.chatMessage.delete({ where: { id: message.id } });
+  await prisma.chatMessage.update({ where: { id: message.id }, data: { deletedAt: new Date(), deliveryStatus: 'deleted', text: '', attachments: [] } });
   const recipients = activeUsernames(conversation);
-  emitToUsers(recipients, 'chat.message.deleted', { id: message.id, conversationId: conversation.id });
+  emitToUsers(recipients, 'chat.message.deleted', { id: message.id, conversationId: conversation.id, deletedAt: new Date().toISOString() });
   await Promise.all(recipients.map((username) => emitNavigationBadgesUpdated(username)));
   return ok(res, { deleted: true });
 });

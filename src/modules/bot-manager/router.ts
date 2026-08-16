@@ -93,6 +93,27 @@ const generalConfigSchema = z.object({
   config: z.record(z.unknown()).default({})
 });
 
+const chatAccessDefault = {
+  mode: 'disabled' as const,
+  allowedConversationIds: [] as string[],
+  allowBotToBot: false,
+  maxTurns: 2,
+  maxTokensPerRun: 1200
+};
+
+const chatAccessSchema = z.object({
+  mode: z.enum(['disabled', 'mention-only', 'respond']).default('disabled'),
+  allowedConversationIds: z.array(z.string().trim().min(1)).max(500).default([]),
+  allowBotToBot: z.boolean().default(false),
+  maxTurns: z.number().int().min(0).max(6).default(2),
+  maxTokensPerRun: z.number().int().min(128).max(4096).default(1200)
+}).default(chatAccessDefault);
+
+const normalizeChatAccess = (value: unknown) => {
+  const parsed = chatAccessSchema.safeParse(value);
+  return parsed.success ? parsed.data : chatAccessDefault;
+};
+
 const identitySchema = z.object({
   name: z.string().trim().min(2).max(80),
   roleTitle: z.string().trim().min(2).max(120),
@@ -100,6 +121,7 @@ const identitySchema = z.object({
   profileImageUrl: z.string().trim().max(2048).optional().or(z.literal('')),
   channels: z.record(z.unknown()).optional().default({}),
   settings: z.record(z.unknown()).optional().default({}),
+  chatAccess: chatAccessSchema,
   runtimeProvider: z.enum(providers).optional().or(z.literal('')),
   runtimeOpenRouterProfileId: z.string().trim().min(1).optional().or(z.literal('')),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
@@ -112,6 +134,7 @@ const identityUpdateSchema = z.object({
   profileImageUrl: z.string().trim().max(2048).optional().or(z.literal('')),
   channels: z.record(z.unknown()).optional(),
   settings: z.record(z.unknown()).optional(),
+  chatAccess: chatAccessSchema.optional(),
   runtimeProvider: z.enum(providers).optional().or(z.literal('')),
   runtimeOpenRouterProfileId: z.string().trim().min(1).optional().or(z.literal('')),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
@@ -218,6 +241,7 @@ type IdentityRecord = {
   profileImageUrl: string | null;
   channels: Prisma.JsonValue;
   settings: Prisma.JsonValue;
+  chatAccess: Prisma.JsonValue;
   createdAt: Date;
   updatedAt: Date;
   files?: Array<unknown>;
@@ -1146,6 +1170,8 @@ const importBotManagerBackupArchive = async (buffer: Buffer, actor: string) => {
       : null;
     const submittedChannels = stripPublicSecretMarkersForImport(normalizeChannelConfigAliases(importedIdentity.channels));
     const submittedSettings = stripPublicSecretMarkersForImport(importedIdentity.settings);
+    const hasImportedChatAccess = Object.prototype.hasOwnProperty.call(importedIdentity, 'chatAccess');
+    const importedChatAccess = normalizeChatAccess(importedIdentity.chatAccess);
     const existingFilters = [
       importedId ? { id: importedId } : null,
       importedSlug ? { slug: importedSlug } : null
@@ -1166,6 +1192,7 @@ const importBotManagerBackupArchive = async (buffer: Buffer, actor: string) => {
           profileImageUrl: profileImageUrl ?? existing.profileImageUrl,
           channels: mergeSubmittedSecretsForStorage(existing.channels, submittedChannels) as Prisma.InputJsonValue,
           settings: mergeSubmittedSecretsForStorage(existing.settings, submittedSettings) as Prisma.InputJsonValue,
+          ...(hasImportedChatAccess ? { chatAccess: importedChatAccess as Prisma.InputJsonValue } : {}),
           runtimeProvider,
           runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null,
           updatedBy: actor
@@ -1397,6 +1424,7 @@ const serializeIdentity = (identity: IdentityRecord) => ({
   profileImageUrl: identity.profileImageUrl,
   channels: sanitizeSensitiveConfig(normalizeChannelConfigAliases(identity.channels)),
   settings: sanitizeSensitiveConfig(identity.settings),
+  chatAccess: normalizeChatAccess(identity.chatAccess),
   createdAt: identity.createdAt.toISOString(),
   updatedAt: identity.updatedAt.toISOString(),
   fileCount: identity.files?.length
@@ -5085,6 +5113,7 @@ botManagerRouter.post('/identities', async (req, res) => {
       profileImageUrl: parsed.data.profileImageUrl || loreCharacterProfileImage(loreCharacter) || null,
       channels: channels as Prisma.InputJsonValue,
       settings: settings as Prisma.InputJsonValue,
+      chatAccess: parsed.data.chatAccess as Prisma.InputJsonValue,
       isActive: activeCount === 0,
       isMain: activeCount === 0,
       runtimeProvider: parsed.data.runtimeProvider || null,
@@ -5274,6 +5303,7 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
       ...profileImagePatch,
       ...(nextChannels !== undefined ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
       ...(nextSettings !== undefined ? { settings: nextSettings as Prisma.InputJsonValue } : {}),
+      ...(parsed.data.chatAccess !== undefined ? { chatAccess: parsed.data.chatAccess as Prisma.InputJsonValue } : {}),
       updatedBy: req.user!.username
     },
     include: { files: true }
