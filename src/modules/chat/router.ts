@@ -477,6 +477,46 @@ chatRouter.patch('/conversations/:id/bot-policy', auth, async (req, res) => {
   return ok(res, serialized);
 });
 
+chatRouter.get('/conversations/:id/bot-policy', auth, async (req, res) => {
+  const conversation = await getConversation(req.params.id);
+  if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
+  if (!getActiveMember(conversation, req.user!.username)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  return ok(res, normalizeBotPolicy(conversation.botPolicy));
+});
+
+chatRouter.get('/conversations/:id/available-bots', auth, async (req, res) => {
+  const conversation = await getConversation(req.params.id);
+  if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
+  if (!getActiveMember(conversation, req.user!.username)) return fail(res, 403, 'Forbidden', 'FORBIDDEN');
+  const policy = normalizeBotPolicy(conversation.botPolicy);
+  const identities = await prisma.botManagerIdentity.findMany({
+    where: { isActive: true },
+    select: { id: true, slug: true, name: true, roleTitle: true, profileImageUrl: true, chatAccess: true },
+    orderBy: [{ isMain: 'desc' }, { name: 'asc' }]
+  });
+  const available = identities.map((identity) => {
+    const access = normalizeChatAccess(identity.chatAccess);
+    const allowedByConversation = policy.allowedIdentityIds.includes(identity.id);
+    const allowedByPersonality = !access.allowedConversationIds.length || access.allowedConversationIds.includes(conversation.id);
+    let denialReason: string | undefined;
+    if (policy.mode === 'disabled') denialReason = 'Conversation bot policy is disabled';
+    else if (!allowedByConversation) denialReason = 'Not in conversation allowlist';
+    else if (access.mode === 'disabled') denialReason = 'Personality chat access is disabled';
+    else if (!allowedByPersonality) denialReason = 'Personality does not allow this conversation';
+    return {
+      personalityId: identity.id,
+      slug: identity.slug,
+      name: identity.name,
+      roleTitle: identity.roleTitle,
+      avatarUrl: identity.profileImageUrl ?? null,
+      personalityMode: access.mode,
+      effectiveAllowed: !denialReason,
+      ...(denialReason ? { denialReason } : {})
+    };
+  });
+  return ok(res, available);
+});
+
 chatRouter.get('/conversations/:id/messages', auth, async (req, res) => {
   const conversation = await getConversation(req.params.id);
   if (!conversation) return fail(res, 404, 'Conversation not found', 'NOT_FOUND');
