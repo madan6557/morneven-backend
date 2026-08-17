@@ -63,3 +63,24 @@ test('restore preparation disables schedules and clears transient runtime state'
   assert.equal(source.scheduledTasks[0]?.enabled, true);
   assert.equal(source.runtimeControlStates[0]?.frozen, true);
 });
+
+test('restore preparation migrates legacy provider credentials into default accounts', async () => {
+  const { MIGRATION_TABLES, prepareMigrationDatasetForRestore } = await import('./data-contract.js');
+  const source = Object.fromEntries(MIGRATION_TABLES
+    .filter((table) => table.key !== 'botManagerProviderAccounts')
+    .map((table) => [table.key, []])) as Record<string, any[]>;
+  source.botManagerCredentials = [{
+    id: 'credential-openai',
+    provider: 'openai',
+    encryptedValue: 'encrypted-openai',
+    keyPreview: 'sk-***',
+    metadata: { modelId: 'gpt-4.1-mini' },
+    createdAt: '2026-08-17T00:00:00.000Z',
+    updatedAt: '2026-08-17T00:00:00.000Z'
+  }];
+  const prepared = prepareMigrationDatasetForRestore(source);
+  assert.equal(prepared.botManagerProviderAccounts.length, 1);
+  assert.equal(prepared.botManagerProviderAccounts[0]?.provider, 'openai');
+  assert.equal(prepared.botManagerProviderAccounts[0]?.name, 'default');
+  assert.equal(prepared.botManagerProviderAccounts[0]?.isActive, true);
+});

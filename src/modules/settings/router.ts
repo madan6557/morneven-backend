@@ -603,6 +603,7 @@ const buildExtractionFiles = async (
         generalConfig: snapshot.botManager.generalConfig,
         identities: snapshot.botManager.identities,
         files: snapshot.botManager.files,
+        encryptedProviderAccounts: snapshot.botManager.providerAccounts,
         encryptedCredentials: snapshot.botManager.credentials,
         encryptedOpenRouterProfiles: snapshot.botManager.openRouterProfiles,
         encryptedAnalyticsCredentials: snapshot.botManager.analyticsCredentials
@@ -1281,6 +1282,7 @@ const zeroClawRuntimeBackupSchema = z.object({
   generalConfig: z.array(z.record(z.unknown())),
   identities: z.array(z.record(z.unknown())),
   files: z.array(z.record(z.unknown())),
+  encryptedProviderAccounts: z.array(encryptedBackupRecordSchema).optional().default([]),
   encryptedCredentials: z.array(encryptedBackupRecordSchema),
   encryptedOpenRouterProfiles: z.array(encryptedBackupRecordSchema),
   encryptedAnalyticsCredentials: z.array(encryptedBackupRecordSchema)

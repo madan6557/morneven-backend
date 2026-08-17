@@ -670,6 +670,30 @@ model BotManagerCredential {
   updatedAt      DateTime @updatedAt
 }
 
+/// Canonical named provider account storage. The legacy credential and
+/// OpenRouter profile tables remain readable during the migration window, but
+/// all new Bot Manager provider account operations use this model.
+model BotManagerProviderAccount {
+  id             String   @id @default(uuid())
+  provider       String
+  name           String
+  encryptedValue String
+  keyPreview     String?
+  modelId        String
+  apiBase        String?
+  tags           Json     @default("[]")
+  notes          String   @default("")
+  metadata       Json     @default("{}")
+  isActive       Boolean  @default(false)
+  updatedBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([provider, name])
+  @@index([provider, isActive])
+  @@index([updatedAt])
+}
+
 model BotManagerOpenRouterProfile {
   id             String   @id @default(uuid())
   name           String
@@ -758,6 +782,7 @@ model BotManagerIdentity {
   isActive                   Boolean                  @default(false)
   isMain                     Boolean                  @default(false)
   runtimeProvider            String?
+  runtimeProviderAccountId   String?
   runtimeOpenRouterProfileId String?
   profileImageObjectPath     String?
   profileImageUrl            String?

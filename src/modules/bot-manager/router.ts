@@ -87,6 +87,16 @@ const openRouterProfileSchema = credentialGateSchema.extend({
   notes: z.string().trim().max(800).optional().default('')
 });
 
+const providerAccountSchema = credentialGateSchema.extend({
+  provider: z.enum(providers),
+  name: z.string().trim().min(2).max(80),
+  apiKey: z.string().trim().max(4096).optional().default(''),
+  apiBase: z.string().trim().url().optional().or(z.literal('')),
+  modelId: z.string().trim().min(1).max(160),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional().default([]),
+  notes: z.string().trim().max(800).optional().default('')
+});
+
 const providerActivationSchema = credentialGateSchema;
 
 const generalConfigSchema = z.object({
@@ -123,6 +133,7 @@ const identitySchema = z.object({
   settings: z.record(z.unknown()).optional().default({}),
   chatAccess: chatAccessSchema,
   runtimeProvider: z.enum(providers).optional().or(z.literal('')),
+  runtimeProviderAccountId: z.string().trim().min(1).optional().or(z.literal('')),
   runtimeOpenRouterProfileId: z.string().trim().min(1).optional().or(z.literal('')),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
 });
@@ -136,6 +147,7 @@ const identityUpdateSchema = z.object({
   settings: z.record(z.unknown()).optional(),
   chatAccess: chatAccessSchema.optional(),
   runtimeProvider: z.enum(providers).optional().or(z.literal('')),
+  runtimeProviderAccountId: z.string().trim().min(1).optional().or(z.literal('')),
   runtimeOpenRouterProfileId: z.string().trim().min(1).optional().or(z.literal('')),
   loreCharacterId: z.string().trim().min(1).optional().or(z.literal(''))
 });
@@ -236,6 +248,7 @@ type IdentityRecord = {
   isActive: boolean;
   isMain: boolean;
   runtimeProvider: string | null;
+  runtimeProviderAccountId: string | null;
   runtimeOpenRouterProfileId: string | null;
   profileImageObjectPath: string | null;
   profileImageUrl: string | null;
@@ -792,18 +805,19 @@ const attachRuntimeSyncState = (
 
 const setRuntimeProviderConfig = async (
   actor: string,
-  input: { provider: string; openRouterProfileId?: string | null }
+  input: { provider: string; providerAccountId?: string | null; openRouterProfileId?: string | null }
 ) => {
   const current = await ensureGeneralConfig();
   const publicConfig = stripInternalGeneralConfig(current.config);
   const nextConfig = {
     ...publicConfig,
     activeProvider: input.provider,
+    activeProviderAccountId: input.providerAccountId ?? input.openRouterProfileId ?? null,
     activeOpenRouterProfileId: input.openRouterProfileId ?? null
   };
   const runtimeSync = createDirtyRuntimeSyncState(
     getRuntimeSyncState(current.config),
-    input.provider === 'openrouter' ? 'OpenRouter profile activated' : `Provider activated: ${input.provider}`
+    input.provider === 'openrouter' ? 'OpenRouter account activated' : `Provider activated: ${input.provider}`
   );
   await prisma.botManagerGeneralConfig.update({
     where: { id: 'default' },
@@ -1165,6 +1179,9 @@ const importBotManagerBackupArchive = async (buffer: Buffer, actor: string) => {
     const runtimeProvider = providers.includes(importedIdentity.runtimeProvider as (typeof providers)[number])
       ? importedIdentity.runtimeProvider as string
       : null;
+    const runtimeProviderAccountId = typeof importedIdentity.runtimeProviderAccountId === 'string' && importedIdentity.runtimeProviderAccountId
+      ? importedIdentity.runtimeProviderAccountId
+      : null;
     const runtimeOpenRouterProfileId = typeof importedIdentity.runtimeOpenRouterProfileId === 'string' && importedIdentity.runtimeOpenRouterProfileId
       ? importedIdentity.runtimeOpenRouterProfileId
       : null;
@@ -1194,6 +1211,7 @@ const importBotManagerBackupArchive = async (buffer: Buffer, actor: string) => {
           settings: mergeSubmittedSecretsForStorage(existing.settings, submittedSettings) as Prisma.InputJsonValue,
           ...(hasImportedChatAccess ? { chatAccess: importedChatAccess as Prisma.InputJsonValue } : {}),
           runtimeProvider,
+          runtimeProviderAccountId: runtimeProviderAccountId || (runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null),
           runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null,
           updatedBy: actor
         }
@@ -1210,6 +1228,7 @@ const importBotManagerBackupArchive = async (buffer: Buffer, actor: string) => {
           isActive: importedIsActive,
           isMain: importedIsMain,
           runtimeProvider,
+          runtimeProviderAccountId: runtimeProviderAccountId || (runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null),
           runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? runtimeOpenRouterProfileId : null,
           createdBy: actor,
           updatedBy: actor
@@ -1419,6 +1438,7 @@ const serializeIdentity = (identity: IdentityRecord) => ({
   isActive: identity.isActive,
   isMain: identity.isMain,
   runtimeProvider: identity.runtimeProvider,
+  runtimeProviderAccountId: identity.runtimeProviderAccountId,
   runtimeOpenRouterProfileId: identity.runtimeOpenRouterProfileId,
   profileImageObjectPath: identity.profileImageObjectPath,
   profileImageUrl: identity.profileImageUrl,
@@ -1436,6 +1456,37 @@ const serializeCredential = (credential: { provider: string; keyPreview?: string
   keyPreview: credential.keyPreview ?? '***',
   metadata: credential.metadata ?? {},
   updatedAt: credential.updatedAt.toISOString()
+});
+
+const serializeProviderAccount = (account: {
+  id: string;
+  provider: string;
+  name: string;
+  keyPreview?: string | null;
+  modelId: string;
+  apiBase?: string | null;
+  tags: Prisma.JsonValue;
+  notes: string;
+  metadata: Prisma.JsonValue;
+  isActive: boolean;
+  updatedBy?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) => ({
+  id: account.id,
+  provider: account.provider,
+  name: account.name,
+  configured: true,
+  keyPreview: account.keyPreview ?? '***',
+  modelId: account.modelId,
+  apiBase: account.apiBase ?? '',
+  tags: asStringArray(account.tags),
+  notes: account.notes,
+  metadata: account.metadata ?? {},
+  isActive: account.isActive,
+  updatedBy: account.updatedBy ?? null,
+  createdAt: account.createdAt.toISOString(),
+  updatedAt: account.updatedAt.toISOString()
 });
 
 const serializeOpenRouterProfile = (profile: {
@@ -1466,7 +1517,10 @@ const serializeOpenRouterProfile = (profile: {
 });
 
 const listMaskedCredentials = async () => {
-  const configured = await prisma.botManagerCredential.findMany({ orderBy: { provider: 'asc' } });
+  const configured = await prisma.botManagerProviderAccount.findMany({
+    where: { isActive: true },
+    orderBy: { provider: 'asc' }
+  });
   const byProvider = new Map(configured.map((credential) => [credential.provider, serializeCredential(credential)]));
   return providers.map((provider) => byProvider.get(provider) ?? {
     provider,
@@ -1475,6 +1529,29 @@ const listMaskedCredentials = async () => {
     metadata: {},
     updatedAt: null
   });
+};
+
+const listProviderAccounts = async (input: {
+  provider?: string;
+  search?: string;
+  filter?: string;
+  page?: number;
+  pageSize?: number;
+} = {}) => {
+  const page = Math.max(input.page ?? 1, 1);
+  const pageSize = Math.min(Math.max(input.pageSize ?? 12, 1), 100);
+  const search = input.search?.trim() ?? '';
+  const where: Prisma.BotManagerProviderAccountWhereInput = {
+    ...(input.provider && providers.includes(input.provider as BotProvider) ? { provider: input.provider } : {}),
+    ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { modelId: { contains: search, mode: 'insensitive' } }, { notes: { contains: search, mode: 'insensitive' } }] } : {}),
+    ...(input.filter === 'active' ? { isActive: true } : {}),
+    ...(input.filter === 'incomplete' ? { OR: [{ modelId: '' }, { keyPreview: null }] } : {})
+  };
+  const [items, total] = await Promise.all([
+    prisma.botManagerProviderAccount.findMany({ where, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }], skip: (page - 1) * pageSize, take: pageSize }),
+    prisma.botManagerProviderAccount.count({ where })
+  ]);
+  return { items: items.map(serializeProviderAccount), page, pageSize, total, totalPages: Math.max(Math.ceil(total / pageSize), 1) };
 };
 
 const serializeAnalyticsCredential = (credential: { provider: string; keyPreview?: string | null; metadata?: Prisma.JsonValue | null; updatedAt: Date }) => ({
@@ -2641,6 +2718,7 @@ const buildZeroClawMemoryTranslation = (files: RuntimeIdentityFilePayload[]) => 
 
 const buildZeroClawTranslation = (input: {
   identity: IdentityRecord;
+  account?: { id: string; name: string } | null;
   credentials: Record<string, unknown>;
   channels: unknown;
   settings: unknown;
@@ -2658,6 +2736,8 @@ const buildZeroClawTranslation = (input: {
     provider: {
       provider,
       runtimeProvider: input.identity.runtimeProvider,
+      accountId: input.account?.id ?? input.identity.runtimeProviderAccountId,
+      accountName: input.account?.name ?? null,
       openRouterProfileId: input.identity.runtimeOpenRouterProfileId
     },
     runtimePolicy: {
@@ -2999,49 +3079,16 @@ const applyRuntimeProviderSecretPull = async (
     const apiKey = runtimeSecretValue(providerConfig, 'apiKey', 'api_key');
     if (!apiKey) continue;
     const apiBase = textValue(providerConfig.apiBase ?? providerConfig.api_base);
-    const existingCredential = await prisma.botManagerCredential.findUnique({ where: { provider } });
-    const existingValue = decryptRecordOrEmpty(existingCredential?.encryptedValue);
+    const activeAccountId = textValue(publicConfig.activeProviderAccountId) || textValue(publicConfig.activeOpenRouterProfileId);
+    const selectedAccount = activeAccountId
+      ? await prisma.botManagerProviderAccount.findFirst({ where: { id: activeAccountId, provider } })
+      : null;
+    const existingAccount = selectedAccount
+      ?? await prisma.botManagerProviderAccount.findFirst({ where: { provider, isActive: true }, orderBy: { updatedAt: 'desc' } })
+      ?? await prisma.botManagerProviderAccount.findFirst({ where: { provider }, orderBy: { updatedAt: 'desc' } });
+    const existingValue = decryptRecordOrEmpty(existingAccount?.encryptedValue);
     if (textValue(existingValue.apiKey ?? existingValue.api_key)) continue;
     const modelId = providerModelFromRuntime(provider, providerConfig, agents, existingValue);
-
-    if (provider === 'openrouter') {
-      const activeProfileId = textValue(publicConfig.activeOpenRouterProfileId);
-      const existingProfile = activeProfileId
-        ? await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: activeProfileId } })
-        : await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } })
-          ?? await prisma.botManagerOpenRouterProfile.findFirst({ orderBy: { updatedAt: 'desc' } });
-      if (existingProfile) {
-        const profileValue = decryptRecordOrEmpty(existingProfile.encryptedValue);
-        if (textValue(profileValue.apiKey ?? profileValue.api_key)) continue;
-        await prisma.botManagerOpenRouterProfile.update({
-          where: { id: existingProfile.id },
-          data: {
-            encryptedValue: encryptJson({ ...profileValue, apiKey, apiBase: apiBase || null, modelId }),
-            keyPreview: keyPreview(apiKey),
-            modelId: modelId || existingProfile.modelId,
-            apiBase: apiBase || existingProfile.apiBase,
-            updatedBy: actor
-          }
-        });
-        appliedPaths.push('openrouterProfiles.active.apiKey');
-      } else {
-        await prisma.botManagerOpenRouterProfile.create({
-          data: {
-            name: 'Imported OpenRouter',
-            encryptedValue: encryptJson({ apiKey, apiBase: apiBase || null, modelId }),
-            keyPreview: keyPreview(apiKey),
-            modelId: modelId || 'runtime-import',
-            apiBase: apiBase || null,
-            tags: ['runtime-import'] as Prisma.InputJsonValue,
-            notes: 'Imported from runtime config.',
-            isActive: textValue(publicConfig.activeProvider) === 'openrouter',
-            updatedBy: actor
-          }
-        });
-        appliedPaths.push('openrouterProfiles.imported.apiKey');
-      }
-      continue;
-    }
 
     const nextValue = {
       ...existingValue,
@@ -3053,23 +3100,29 @@ const applyRuntimeProviderSecretPull = async (
       apiBaseConfigured: Boolean(nextValue.apiBase),
       modelId
     };
-    await prisma.botManagerCredential.upsert({
-      where: { provider },
+    const saved = await prisma.botManagerProviderAccount.upsert({
+      where: { provider_name: { provider, name: existingAccount?.name ?? 'default' } },
       create: {
         provider,
+        name: existingAccount?.name ?? 'default',
         encryptedValue: encryptJson(nextValue),
         keyPreview: keyPreview(apiKey),
+        modelId: modelId || 'runtime-import',
+        apiBase: apiBase || null,
         metadata,
+        isActive: existingAccount?.isActive ?? textValue(publicConfig.activeProvider) === provider,
         updatedBy: actor
       },
       update: {
         encryptedValue: encryptJson(nextValue),
         keyPreview: keyPreview(apiKey),
+        modelId: modelId || existingAccount?.modelId || 'runtime-import',
+        apiBase: apiBase || existingAccount?.apiBase || null,
         metadata,
         updatedBy: actor
       }
     });
-    appliedPaths.push(`credentials.${provider}.apiKey`);
+    appliedPaths.push(`providerAccounts.${saved.id}.apiKey`);
   }
 
   if (!Object.keys(providersRecord).length) skippedPaths.push('providers: no runtime provider config returned');
@@ -3084,7 +3137,7 @@ const applyRuntimeProviderSecretPush = async (
   const providersRecord = asJsonRecord(payload.providers as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const agents = asJsonRecord(payload.agents as Prisma.JsonValue | Record<string, unknown> | null | undefined);
   const defaults = asJsonRecord(agents.defaults as Prisma.JsonValue | Record<string, unknown> | null | undefined);
-  let activeOpenRouterProfileId: string | null = null;
+  let activeProviderAccountId: string | null = null;
 
   for (const provider of providers) {
     const providerConfig = asJsonRecord(providersRecord[provider] as Prisma.JsonValue | Record<string, unknown> | null | undefined);
@@ -3092,47 +3145,10 @@ const applyRuntimeProviderSecretPush = async (
     if (!apiKey) continue;
 
     const apiBase = textValue(providerConfig.apiBase ?? providerConfig.api_base);
-    const existingCredential = await prisma.botManagerCredential.findUnique({ where: { provider } });
-    const existingValue = decryptRecordOrEmpty(existingCredential?.encryptedValue);
+    const existingAccount = await prisma.botManagerProviderAccount.findFirst({ where: { provider, isActive: true }, orderBy: { updatedAt: 'desc' } })
+      ?? await prisma.botManagerProviderAccount.findFirst({ where: { provider }, orderBy: { updatedAt: 'desc' } });
+    const existingValue = decryptRecordOrEmpty(existingAccount?.encryptedValue);
     const modelId = providerModelFromRuntime(provider, providerConfig, agents, existingValue);
-
-    if (provider === 'openrouter') {
-      const existingProfile = await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } })
-        ?? await prisma.botManagerOpenRouterProfile.findFirst({ orderBy: { updatedAt: 'desc' } });
-      const value = {
-        ...(existingProfile ? decryptRecordOrEmpty(existingProfile.encryptedValue) : {}),
-        apiKey,
-        apiBase: apiBase || null,
-        modelId
-      };
-      const savedProfile = existingProfile
-        ? await prisma.botManagerOpenRouterProfile.update({
-          where: { id: existingProfile.id },
-          data: {
-            encryptedValue: encryptJson(value),
-            keyPreview: keyPreview(apiKey),
-            modelId: modelId || existingProfile.modelId,
-            apiBase: apiBase || existingProfile.apiBase,
-            updatedBy: actor
-          }
-        })
-        : await prisma.botManagerOpenRouterProfile.create({
-          data: {
-            name: 'Imported OpenRouter',
-            encryptedValue: encryptJson(value),
-            keyPreview: keyPreview(apiKey),
-            modelId: modelId || 'runtime-import',
-            apiBase: apiBase || null,
-            tags: ['runtime-import'] as Prisma.InputJsonValue,
-            notes: 'Imported from runtime config.',
-            isActive: textValue(defaults.provider) === 'openrouter',
-            updatedBy: actor
-          }
-        });
-      activeOpenRouterProfileId = savedProfile.id;
-      appliedPaths.push('openrouterProfiles.active.apiKey');
-      continue;
-    }
 
     const nextValue = {
       ...existingValue,
@@ -3144,23 +3160,30 @@ const applyRuntimeProviderSecretPush = async (
       apiBaseConfigured: Boolean(nextValue.apiBase),
       modelId
     };
-    await prisma.botManagerCredential.upsert({
-      where: { provider },
+    const saved = await prisma.botManagerProviderAccount.upsert({
+      where: { provider_name: { provider, name: existingAccount?.name ?? 'default' } },
       create: {
         provider,
+        name: existingAccount?.name ?? 'default',
         encryptedValue: encryptJson(nextValue),
         keyPreview: keyPreview(apiKey),
+        modelId: modelId || 'runtime-import',
+        apiBase: apiBase || null,
         metadata,
+        isActive: existingAccount?.isActive ?? textValue(defaults.provider) === provider,
         updatedBy: actor
       },
       update: {
         encryptedValue: encryptJson(nextValue),
         keyPreview: keyPreview(apiKey),
+        modelId: modelId || existingAccount?.modelId || 'runtime-import',
+        apiBase: apiBase || existingAccount?.apiBase || null,
         metadata,
         updatedBy: actor
       }
     });
-    appliedPaths.push(`credentials.${provider}.apiKey`);
+    if (textValue(defaults.provider) === provider) activeProviderAccountId = saved.id;
+    appliedPaths.push(`providerAccounts.${saved.id}.apiKey`);
   }
 
   const activeProvider = textValue(defaults.provider);
@@ -3169,7 +3192,7 @@ const applyRuntimeProviderSecretPush = async (
     if (hasProviderConfig) {
       await setRuntimeProviderConfig(actor, {
         provider: activeProvider,
-        openRouterProfileId: activeProvider === 'openrouter' ? activeOpenRouterProfileId : null
+        providerAccountId: activeProviderAccountId
       });
       appliedPaths.push(`generalConfig.activeProvider:${activeProvider}`);
     }
@@ -3961,9 +3984,9 @@ const loadIdentityFiles = async (identity: IdentityWithFiles) => {
 const buildRuntimeBundle = async () => {
   if (!env.botManagerSyncToken) throw new Error('BOT_MANAGER_SYNC_TOKEN is not configured');
   await ensureMainIdentity();
-  const [generalConfig, credentials] = await Promise.all([
+  const [generalConfig, providerAccounts] = await Promise.all([
     ensureGeneralConfig(),
-    prisma.botManagerCredential.findMany({ orderBy: { provider: 'asc' } })
+    prisma.botManagerProviderAccount.findMany({ orderBy: [{ provider: 'asc' }, { isActive: 'desc' }, { updatedAt: 'desc' }] })
   ]);
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
   const mode = runtimeModeFromConfig(publicConfig);
@@ -3974,37 +3997,48 @@ const buildRuntimeBundle = async () => {
   });
   if (!activeIdentityRecords.length) throw new Error('No active bot personality is configured');
   const activeIdentities = await ensureIdentityListSecretsEncrypted(activeIdentityRecords);
-  const credentialMap = new Map(credentials.map((credential) => [credential.provider, credential]));
-  const fallbackProvider = typeof publicConfig.activeProvider === 'string' ? publicConfig.activeProvider : credentials[0]?.provider ?? null;
-  const fallbackOpenRouterProfileId = typeof publicConfig.activeOpenRouterProfileId === 'string' ? publicConfig.activeOpenRouterProfileId : undefined;
+  const fallbackProvider = typeof publicConfig.activeProvider === 'string' ? publicConfig.activeProvider : providerAccounts[0]?.provider ?? null;
+  const fallbackProviderAccountId = typeof publicConfig.activeProviderAccountId === 'string'
+    ? publicConfig.activeProviderAccountId
+    : typeof publicConfig.activeOpenRouterProfileId === 'string'
+      ? publicConfig.activeOpenRouterProfileId
+      : null;
 
   const runtimeCredentialsForIdentity = async (identity: IdentityRecord) => {
     const provider = identity.runtimeProvider || fallbackProvider;
-    if (!provider) return {};
-    if (provider === 'openrouter') {
-      const openRouterProfile = identity.runtimeOpenRouterProfileId || fallbackOpenRouterProfileId
-        ? await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: identity.runtimeOpenRouterProfileId || fallbackOpenRouterProfileId! } })
-        : await prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } });
-      return openRouterProfile ? { openrouter: decryptJson<Record<string, unknown>>(openRouterProfile.encryptedValue) } : {};
-    }
-    const credential = credentialMap.get(provider);
-    return credential ? { [provider]: decryptJson<Record<string, unknown>>(credential.encryptedValue) } : {};
+    if (!provider) return { provider: null, account: null, credentials: {} };
+    const requestedAccountId = identity.runtimeProviderAccountId
+      || (provider === 'openrouter' ? identity.runtimeOpenRouterProfileId : null)
+      || (provider === fallbackProvider ? fallbackProviderAccountId : null);
+    const account = (requestedAccountId
+      ? providerAccounts.find((candidate) => candidate.id === requestedAccountId && candidate.provider === provider)
+      : null)
+      ?? providerAccounts.find((candidate) => candidate.provider === provider && candidate.isActive)
+      ?? providerAccounts.find((candidate) => candidate.provider === provider)
+      ?? null;
+    return {
+      provider,
+      account,
+      credentials: account ? { [provider]: decryptJson<Record<string, unknown>>(account.encryptedValue) } : {}
+    };
   };
 
   const runtimeIdentities = await Promise.all(activeIdentities.map(async (identity) => {
-    const credentials = await runtimeCredentialsForIdentity(identity);
+    const runtimeProvider = await runtimeCredentialsForIdentity(identity);
     const channels = decryptSensitiveConfig(identity.channels);
     const settings = decryptSensitiveConfig(identity.settings);
     const files = await loadRuntimeIdentityFiles(identity as IdentityWithFiles, publicConfig);
     return {
       identity: serializeIdentity(identity),
-      credentials,
+      credentials: runtimeProvider.credentials,
+      providerAccount: runtimeProvider.account ? { id: runtimeProvider.account.id, name: runtimeProvider.account.name } : null,
       channels,
       settings,
       files,
       zeroclaw: buildZeroClawTranslation({
         identity,
-        credentials,
+        account: runtimeProvider.account ? { id: runtimeProvider.account.id, name: runtimeProvider.account.name } : null,
+        credentials: runtimeProvider.credentials,
         channels,
         settings,
         files,
@@ -4413,12 +4447,12 @@ botManagerRouter.get('/access', async (req, res) => {
 
 botManagerRouter.get('/summary', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const [generalConfig, credentials, analyticsCredentials, identityRecords, openRouterProfiles] = await Promise.all([
+  const [generalConfig, credentials, analyticsCredentials, identityRecords, providerAccounts] = await Promise.all([
     ensureGeneralConfig(),
     listMaskedCredentials(),
     listMaskedAnalyticsCredentials(),
     prisma.botManagerIdentity.findMany({ include: { files: true }, orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }] }),
-    prisma.botManagerOpenRouterProfile.findMany({ orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }], take: 5 })
+    prisma.botManagerProviderAccount.findMany({ orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }], take: 100 })
   ]);
   const identities = await ensureIdentityListSecretsEncrypted(identityRecords);
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
@@ -4434,7 +4468,8 @@ botManagerRouter.get('/summary', async (req, res) => {
   return ok(res, {
     credentials,
     analyticsCredentials,
-    openRouterProfiles: openRouterProfiles.map(serializeOpenRouterProfile),
+    providerAccounts: providerAccounts.map(serializeProviderAccount),
+    openRouterProfiles: providerAccounts.filter((account) => account.provider === 'openrouter').map(serializeProviderAccount),
     generalConfig: publicConfig,
     identities: identities.map(serializeIdentity),
     runtimeSync: getRuntimeSyncState(generalConfig.config),
@@ -4446,6 +4481,9 @@ botManagerRouter.get('/summary', async (req, res) => {
       activeIdentityIds: activeIdentities.map((identity) => identity.id),
       mainIdentityId: mainIdentity?.id ?? null,
       activeProvider: typeof publicConfig.activeProvider === 'string' ? publicConfig.activeProvider : null,
+      activeProviderAccountId: typeof publicConfig.activeProviderAccountId === 'string'
+        ? publicConfig.activeProviderAccountId
+        : typeof publicConfig.activeOpenRouterProfileId === 'string' ? publicConfig.activeOpenRouterProfileId : null,
       activeOpenRouterProfileId: typeof publicConfig.activeOpenRouterProfileId === 'string' ? publicConfig.activeOpenRouterProfileId : null
     }
   });
@@ -4642,22 +4680,20 @@ botManagerRouter.get('/providers/analytics', async (req, res) => {
   const range = analyticsRangeSchema.safeParse(req.query.range ?? '30d');
   if (!provider.success || !range.success) return fail(res, 422, 'Invalid provider analytics query', 'VALIDATION_ERROR');
 
-  const [generalConfig, credentialRows, analyticsCredentialRows, activeOpenRouterProfile] = await Promise.all([
+  const [generalConfig, providerAccountRows, analyticsCredentialRows, activeProviderAccount] = await Promise.all([
     ensureGeneralConfig(),
-    prisma.botManagerCredential.findMany(),
+    prisma.botManagerProviderAccount.findMany(),
     prisma.botManagerProviderAnalyticsCredential.findMany(),
-    prisma.botManagerOpenRouterProfile.findFirst({ where: { isActive: true }, orderBy: { updatedAt: 'desc' } })
+    prisma.botManagerProviderAccount.findFirst({ where: { provider: provider.data, isActive: true }, orderBy: { updatedAt: 'desc' } })
   ]);
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
-  const credentialMap = new Map(credentialRows.map((credential) => [credential.provider, credential]));
+  const credentialMap = new Map(providerAccountRows.map((account) => [account.provider, account]));
   const analyticsCredentialMap = new Map(analyticsCredentialRows.map((credential) => [credential.provider, credential]));
   const ingest = await ingestRuntimeProviderUsage(range.data);
   const localPoints = await localUsagePoints(provider.data, range.data);
-  const remote = await fetchRemoteAnalytics(provider.data, range.data, credentialMap, analyticsCredentialMap, activeOpenRouterProfile);
+  const remote = await fetchRemoteAnalytics(provider.data, range.data, credentialMap, analyticsCredentialMap, activeProviderAccount);
   const capability = providerAnalyticsCapabilities[provider.data];
-  const configured = provider.data === 'openrouter'
-    ? Boolean(activeOpenRouterProfile)
-    : Boolean(credentialMap.get(provider.data));
+  const configured = Boolean(activeProviderAccount ?? credentialMap.get(provider.data));
   const analyticsCredentialConfigured = Boolean(analyticsCredentialMap.get(provider.data));
   const useRemotePoints = remote.status === 'ok' && Array.isArray(remote.points) && remote.points.length > 0;
   const points = useRemotePoints ? remote.points! : localPoints;
@@ -4783,6 +4819,139 @@ botManagerRouter.post('/runtime/:action', async (req, res) => {
   }
 });
 
+botManagerRouter.get('/provider-accounts', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const provider = typeof req.query.provider === 'string' ? req.query.provider : undefined;
+  const filter = typeof req.query.filter === 'string' ? req.query.filter : undefined;
+  const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+  const page = Math.max(Number(req.query.page ?? 1) || 1, 1);
+  const pageSize = Math.min(Math.max(Number(req.query.pageSize ?? 12) || 12, 1), 100);
+  return ok(res, await listProviderAccounts({ provider, filter, search, page, pageSize }));
+});
+
+botManagerRouter.post('/provider-accounts', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = providerAccountSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  if (!parsed.data.apiKey) return fail(res, 422, 'Provider API key is required', 'VALIDATION_ERROR');
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const activeCount = await prisma.botManagerProviderAccount.count({ where: { provider: parsed.data.provider, isActive: true } });
+    const created = await prisma.botManagerProviderAccount.create({
+      data: {
+        provider: parsed.data.provider,
+        name: parsed.data.name,
+        encryptedValue: encryptJson({ apiKey: parsed.data.apiKey, apiBase: parsed.data.apiBase || null, modelId: parsed.data.modelId }),
+        keyPreview: keyPreview(parsed.data.apiKey),
+        modelId: parsed.data.modelId,
+        apiBase: parsed.data.apiBase || null,
+        tags: parsed.data.tags as Prisma.InputJsonValue,
+        notes: parsed.data.notes,
+        isActive: activeCount === 0,
+        metadata: { apiBaseConfigured: Boolean(parsed.data.apiBase), modelId: parsed.data.modelId },
+        updatedBy: req.user!.username
+      }
+    });
+    if (created.isActive) await setRuntimeProviderConfig(req.user!.username, { provider: created.provider, providerAccountId: created.id });
+    await markRuntimeDirty(req.user!.username, `Provider account created: ${created.provider}/${created.name}`);
+    await writeAudit(prisma, { actor: req.user!.username, action: 'bot-manager.provider-account.create', entity: 'BotManagerProviderAccount', entityId: created.id, metadata: { provider: created.provider, name: created.name } });
+    return res.status(201).json({ success: true, data: serializeProviderAccount(created) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Provider account creation failed';
+    const code = message.includes('Unique constraint') ? 'ACCOUNT_EXISTS' : message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN';
+    return fail(res, code === 'ACCOUNT_EXISTS' ? 409 : code === 'BOT_MANAGER_UNAVAILABLE' ? 503 : 403, message, code);
+  }
+});
+
+botManagerRouter.put('/provider-accounts/:id', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = providerAccountSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerProviderAccount.findUnique({ where: { id: req.params.id } });
+    if (!existing) return fail(res, 404, 'Provider account not found', 'NOT_FOUND');
+    if (existing.isActive && existing.provider !== parsed.data.provider) {
+      return fail(res, 409, 'Activate another account before changing the provider of the default account', 'ACCOUNT_ACTIVE');
+    }
+    if (existing.provider !== parsed.data.provider) {
+      const assigned = await prisma.botManagerIdentity.count({ where: { OR: [{ runtimeProviderAccountId: existing.id }, { runtimeOpenRouterProfileId: existing.id }] } });
+      if (assigned) return fail(res, 409, 'Provider account is assigned to a personality', 'ACCOUNT_ASSIGNED');
+    }
+    const existingValue = decryptRecordOrEmpty(existing.encryptedValue);
+    const apiKey = parsed.data.apiKey || textValue(existingValue.apiKey ?? existingValue.api_key);
+    if (!apiKey) return fail(res, 422, 'Provider API key is required', 'VALIDATION_ERROR');
+    const updated = await prisma.botManagerProviderAccount.update({
+      where: { id: existing.id },
+      data: {
+        provider: parsed.data.provider,
+        name: parsed.data.name,
+        encryptedValue: encryptJson({ apiKey, apiBase: parsed.data.apiBase || null, modelId: parsed.data.modelId }),
+        keyPreview: parsed.data.apiKey ? keyPreview(parsed.data.apiKey) : existing.keyPreview ?? keyPreview(apiKey),
+        modelId: parsed.data.modelId,
+        apiBase: parsed.data.apiBase || null,
+        tags: parsed.data.tags as Prisma.InputJsonValue,
+        notes: parsed.data.notes,
+        metadata: { apiBaseConfigured: Boolean(parsed.data.apiBase), modelId: parsed.data.modelId },
+        updatedBy: req.user!.username
+      }
+    });
+    await markRuntimeDirty(req.user!.username, `Provider account updated: ${updated.provider}/${updated.name}`);
+    await writeAudit(prisma, { actor: req.user!.username, action: 'bot-manager.provider-account.update', entity: 'BotManagerProviderAccount', entityId: updated.id, metadata: { provider: updated.provider, name: updated.name } });
+    return ok(res, serializeProviderAccount(updated));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Provider account update failed';
+    const code = message.includes('Unique constraint') ? 'ACCOUNT_EXISTS' : message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN';
+    return fail(res, code === 'ACCOUNT_EXISTS' ? 409 : code === 'BOT_MANAGER_UNAVAILABLE' ? 503 : 403, message, code);
+  }
+});
+
+botManagerRouter.patch('/provider-accounts/:id/activate', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = credentialGateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerProviderAccount.findUnique({ where: { id: req.params.id } });
+    if (!existing) return fail(res, 404, 'Provider account not found', 'NOT_FOUND');
+    const activated = await prisma.$transaction(async (tx) => {
+      await tx.botManagerProviderAccount.updateMany({ where: { provider: existing.provider, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } });
+      return tx.botManagerProviderAccount.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username } });
+    });
+    const result = await setRuntimeProviderConfig(req.user!.username, { provider: activated.provider, providerAccountId: activated.id });
+    await writeAudit(prisma, { actor: req.user!.username, action: 'bot-manager.provider-account.activate', entity: 'BotManagerProviderAccount', entityId: activated.id, metadata: { provider: activated.provider, name: activated.name } });
+    return ok(res, { ...result, account: serializeProviderAccount(activated) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Provider account activation failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
+botManagerRouter.delete('/provider-accounts/:id', async (req, res) => {
+  if (!requireBotManagerAccess(req, res)) return;
+  const parsed = credentialGateSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
+  try {
+    await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
+    const existing = await prisma.botManagerProviderAccount.findUnique({ where: { id: req.params.id } });
+    if (!existing) return fail(res, 404, 'Provider account not found', 'NOT_FOUND');
+    const generalConfig = await ensureGeneralConfig();
+    const publicConfig = stripInternalGeneralConfig(generalConfig.config);
+    if (existing.isActive || publicConfig.activeProviderAccountId === existing.id || publicConfig.activeOpenRouterProfileId === existing.id) {
+      return fail(res, 409, 'Activate another provider account before deleting this account', 'ACCOUNT_ACTIVE');
+    }
+    const assigned = await prisma.botManagerIdentity.count({ where: { OR: [{ runtimeProviderAccountId: existing.id }, { runtimeOpenRouterProfileId: existing.id }] } });
+    if (assigned) return fail(res, 409, 'Provider account is assigned to a personality', 'ACCOUNT_ASSIGNED');
+    await prisma.botManagerProviderAccount.delete({ where: { id: existing.id } });
+    await markRuntimeDirty(req.user!.username, `Provider account deleted: ${existing.provider}/${existing.name}`);
+    await writeAudit(prisma, { actor: req.user!.username, action: 'bot-manager.provider-account.delete', entity: 'BotManagerProviderAccount', entityId: existing.id, metadata: { provider: existing.provider, name: existing.name } });
+    return ok(res, { deleted: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Provider account deletion failed';
+    return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
+  }
+});
+
 botManagerRouter.post('/credentials/unlock', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const parsed = credentialGateSchema.safeParse(req.body);
@@ -4810,7 +4979,7 @@ botManagerRouter.put('/credentials', async (req, res) => {
 
   try {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
-    const existing = await prisma.botManagerCredential.findUnique({ where: { provider: parsed.data.provider } });
+    const existing = await prisma.botManagerProviderAccount.findUnique({ where: { provider_name: { provider: parsed.data.provider, name: 'default' } } });
     let existingValue: Record<string, unknown> = {};
     if (existing) {
       try {
@@ -4834,18 +5003,24 @@ botManagerRouter.put('/credentials', async (req, res) => {
       modelId: parsed.data.modelId
     };
     const nextKeyPreview = parsed.data.apiKey ? keyPreview(parsed.data.apiKey) : existing?.keyPreview ?? keyPreview(nextApiKey);
-    const saved = await prisma.botManagerCredential.upsert({
-      where: { provider: parsed.data.provider },
+    const saved = await prisma.botManagerProviderAccount.upsert({
+      where: { provider_name: { provider: parsed.data.provider, name: 'default' } },
       create: {
         provider: parsed.data.provider,
+        name: 'default',
         encryptedValue: encryptJson(value),
         keyPreview: nextKeyPreview,
+        modelId: parsed.data.modelId,
+        apiBase: parsed.data.apiBase || null,
         metadata,
+        isActive: true,
         updatedBy: req.user!.username
       },
       update: {
         encryptedValue: encryptJson(value),
         keyPreview: nextKeyPreview,
+        modelId: parsed.data.modelId,
+        apiBase: parsed.data.apiBase || null,
         metadata,
         updatedBy: req.user!.username
       }
@@ -4853,11 +5028,11 @@ botManagerRouter.put('/credentials', async (req, res) => {
     await writeAudit(prisma, {
       actor: req.user!.username,
       action: 'bot-manager.credential.update',
-      entity: 'BotManagerCredential',
+      entity: 'BotManagerProviderAccount',
       entityId: saved.id,
       metadata: { provider: saved.provider }
     });
-    await markRuntimeDirty(req.user!.username, `Credential updated: ${saved.provider}`);
+    await markRuntimeDirty(req.user!.username, `Provider account updated: ${saved.provider}/${saved.name}`);
     return ok(res, serializeCredential(saved));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Credential update failed';
@@ -4868,7 +5043,7 @@ botManagerRouter.put('/credentials', async (req, res) => {
 botManagerRouter.patch('/credentials/:provider/activate', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
   const provider = z.enum(providers).safeParse(req.params.provider);
-  if (!provider.success || provider.data === 'openrouter') {
+  if (!provider.success) {
     return fail(res, 422, 'Invalid provider activation target', 'VALIDATION_ERROR');
   }
   const parsed = providerActivationSchema.safeParse(req.body);
@@ -4876,16 +5051,18 @@ botManagerRouter.patch('/credentials/:provider/activate', async (req, res) => {
 
   try {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
-    const credential = await prisma.botManagerCredential.findUnique({ where: { provider: provider.data } });
-    if (!credential) return fail(res, 409, 'Provider credential is incomplete', 'PROVIDER_INCOMPLETE');
-    await prisma.botManagerOpenRouterProfile.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } });
-    const result = await setRuntimeProviderConfig(req.user!.username, { provider: provider.data });
+    const account = await prisma.botManagerProviderAccount.findFirst({ where: { provider: provider.data, name: 'default' } })
+      ?? await prisma.botManagerProviderAccount.findFirst({ where: { provider: provider.data }, orderBy: { updatedAt: 'desc' } });
+    if (!account) return fail(res, 409, 'Provider account is incomplete', 'PROVIDER_INCOMPLETE');
+    await prisma.botManagerProviderAccount.updateMany({ where: { provider: provider.data, isActive: true }, data: { isActive: false, updatedBy: req.user!.username } });
+    const activated = await prisma.botManagerProviderAccount.update({ where: { id: account.id }, data: { isActive: true, updatedBy: req.user!.username } });
+    const result = await setRuntimeProviderConfig(req.user!.username, { provider: provider.data, providerAccountId: activated.id });
     await writeAudit(prisma, {
       actor: req.user!.username,
       action: 'bot-manager.provider.activate',
-      entity: 'BotManagerCredential',
-      entityId: credential.id,
-      metadata: { provider: provider.data }
+      entity: 'BotManagerProviderAccount',
+      entityId: activated.id,
+      metadata: { provider: provider.data, name: activated.name }
     });
     return ok(res, result);
   } catch (error) {
@@ -4896,33 +5073,13 @@ botManagerRouter.patch('/credentials/:provider/activate', async (req, res) => {
 
 botManagerRouter.get('/openrouter-profiles', async (req, res) => {
   if (!requireBotManagerAccess(req, res)) return;
-  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-  const filter = typeof req.query.filter === 'string' ? req.query.filter : 'all';
-  const page = Math.max(Number(req.query.page ?? 1) || 1, 1);
-  const pageSize = Math.min(Math.max(Number(req.query.pageSize ?? 6) || 6, 1), 50);
-  const where: Prisma.BotManagerOpenRouterProfileWhereInput = {
-    ...(search
-      ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { modelId: { contains: search, mode: 'insensitive' } },
-            { notes: { contains: search, mode: 'insensitive' } }
-          ]
-        }
-      : {}),
-    ...(filter === 'active' ? { isActive: true } : {}),
-    ...(filter === 'incomplete' ? { OR: [{ modelId: '' }, { keyPreview: null }] } : {})
-  };
-  const [items, total] = await Promise.all([
-    prisma.botManagerOpenRouterProfile.findMany({
-      where,
-      orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
-      skip: (page - 1) * pageSize,
-      take: pageSize
-    }),
-    prisma.botManagerOpenRouterProfile.count({ where })
-  ]);
-  return ok(res, { items: items.map(serializeOpenRouterProfile), page, pageSize, total, totalPages: Math.max(Math.ceil(total / pageSize), 1) });
+  return ok(res, await listProviderAccounts({
+    provider: 'openrouter',
+    search: typeof req.query.search === 'string' ? req.query.search : undefined,
+    filter: typeof req.query.filter === 'string' ? req.query.filter : undefined,
+    page: Math.max(Number(req.query.page ?? 1) || 1, 1),
+    pageSize: Math.min(Math.max(Number(req.query.pageSize ?? 6) || 6, 1), 50)
+  }));
 });
 
 botManagerRouter.post('/openrouter-profiles', async (req, res) => {
@@ -4937,8 +5094,9 @@ botManagerRouter.post('/openrouter-profiles', async (req, res) => {
       apiBase: parsed.data.apiBase || null,
       modelId: parsed.data.modelId
     };
-    const created = await prisma.botManagerOpenRouterProfile.create({
+    const created = await prisma.botManagerProviderAccount.create({
       data: {
+        provider: 'openrouter',
         name: parsed.data.name,
         encryptedValue: encryptJson(value),
         keyPreview: keyPreview(parsed.data.apiKey),
@@ -4946,11 +5104,13 @@ botManagerRouter.post('/openrouter-profiles', async (req, res) => {
         apiBase: parsed.data.apiBase || null,
         tags: parsed.data.tags as Prisma.InputJsonValue,
         notes: parsed.data.notes,
+        metadata: {},
+        isActive: false,
         updatedBy: req.user!.username
       }
     });
-    await markRuntimeDirty(req.user!.username, `OpenRouter profile created: ${created.name}`);
-    return res.status(201).json({ success: true, data: serializeOpenRouterProfile(created) });
+    await markRuntimeDirty(req.user!.username, `OpenRouter account created: ${created.name}`);
+    return res.status(201).json({ success: true, data: serializeProviderAccount(created) });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'OpenRouter profile create failed';
     return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
@@ -4963,8 +5123,8 @@ botManagerRouter.put('/openrouter-profiles/:id', async (req, res) => {
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   try {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
-    const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
-    if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
+    const existing = await prisma.botManagerProviderAccount.findFirst({ where: { id: req.params.id, provider: 'openrouter' } });
+    if (!existing) return fail(res, 404, 'OpenRouter account not found', 'NOT_FOUND');
     const value = parsed.data.apiKey
       ? {
           apiKey: parsed.data.apiKey,
@@ -4972,20 +5132,25 @@ botManagerRouter.put('/openrouter-profiles/:id', async (req, res) => {
           modelId: parsed.data.modelId
         }
       : null;
-    const updated = await prisma.botManagerOpenRouterProfile.update({
+    const existingValue = decryptRecordOrEmpty(existing.encryptedValue);
+    const apiKey = parsed.data.apiKey || textValue(existingValue.apiKey ?? existingValue.api_key);
+    if (!apiKey) return fail(res, 422, 'OpenRouter API key is required', 'VALIDATION_ERROR');
+    const updated = await prisma.botManagerProviderAccount.update({
       where: { id: existing.id },
       data: {
         name: parsed.data.name,
-        ...(value ? { encryptedValue: encryptJson(value), keyPreview: keyPreview(parsed.data.apiKey) } : {}),
+        encryptedValue: encryptJson(value ?? { apiKey, apiBase: parsed.data.apiBase || null, modelId: parsed.data.modelId }),
+        ...(value ? { keyPreview: keyPreview(parsed.data.apiKey) } : {}),
         modelId: parsed.data.modelId,
         apiBase: parsed.data.apiBase || null,
         tags: parsed.data.tags as Prisma.InputJsonValue,
         notes: parsed.data.notes,
+        metadata: {},
         updatedBy: req.user!.username
       }
     });
-    await markRuntimeDirty(req.user!.username, `OpenRouter profile updated: ${updated.name}`);
-    return ok(res, serializeOpenRouterProfile(updated));
+    await markRuntimeDirty(req.user!.username, `OpenRouter account updated: ${updated.name}`);
+    return ok(res, serializeProviderAccount(updated));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'OpenRouter profile update failed';
     return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
@@ -4998,15 +5163,14 @@ botManagerRouter.patch('/openrouter-profiles/:id/activate', async (req, res) => 
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
   try {
     await verifyCredentialGate(req, parsed.data.password, parsed.data.botManagerKey);
-    const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
-    if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
-    await prisma.$transaction([
-      prisma.botManagerOpenRouterProfile.updateMany({ where: { isActive: true }, data: { isActive: false, updatedBy: req.user!.username } }),
-      prisma.botManagerOpenRouterProfile.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username } })
-    ]);
-    const result = await setRuntimeProviderConfig(req.user!.username, { provider: 'openrouter', openRouterProfileId: existing.id });
-    const activated = await prisma.botManagerOpenRouterProfile.findUniqueOrThrow({ where: { id: existing.id } });
-    return ok(res, { ...result, profile: serializeOpenRouterProfile(activated) });
+    const existing = await prisma.botManagerProviderAccount.findFirst({ where: { id: req.params.id, provider: 'openrouter' } });
+    if (!existing) return fail(res, 404, 'OpenRouter account not found', 'NOT_FOUND');
+    const activated = await prisma.$transaction(async (tx) => {
+      await tx.botManagerProviderAccount.updateMany({ where: { provider: 'openrouter', isActive: true }, data: { isActive: false, updatedBy: req.user!.username } });
+      return tx.botManagerProviderAccount.update({ where: { id: existing.id }, data: { isActive: true, updatedBy: req.user!.username } });
+    });
+    const result = await setRuntimeProviderConfig(req.user!.username, { provider: 'openrouter', providerAccountId: activated.id, openRouterProfileId: activated.id });
+    return ok(res, { ...result, profile: serializeProviderAccount(activated), account: serializeProviderAccount(activated) });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'OpenRouter profile activation failed';
     return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
@@ -5023,15 +5187,16 @@ botManagerRouter.delete('/openrouter-profiles/:id', async (req, res) => {
     const message = error instanceof Error ? error.message : 'Credential gate failed';
     return fail(res, message.includes('configured') ? 503 : 403, message, message.includes('configured') ? 'BOT_MANAGER_UNAVAILABLE' : 'FORBIDDEN');
   }
-  const existing = await prisma.botManagerOpenRouterProfile.findUnique({ where: { id: req.params.id } });
-  if (!existing) return fail(res, 404, 'OpenRouter profile not found', 'NOT_FOUND');
+  const existing = await prisma.botManagerProviderAccount.findFirst({ where: { id: req.params.id, provider: 'openrouter' } });
+  if (!existing) return fail(res, 404, 'OpenRouter account not found', 'NOT_FOUND');
   const generalConfig = await ensureGeneralConfig();
   const publicConfig = stripInternalGeneralConfig(generalConfig.config);
-  if (existing.isActive || publicConfig.activeOpenRouterProfileId === existing.id) {
-    return fail(res, 409, 'Active OpenRouter profile cannot be deleted', 'ACTIVE_PROFILE');
+  const assigned = await prisma.botManagerIdentity.count({ where: { OR: [{ runtimeProviderAccountId: existing.id }, { runtimeOpenRouterProfileId: existing.id }] } });
+  if (existing.isActive || publicConfig.activeOpenRouterProfileId === existing.id || assigned) {
+    return fail(res, 409, assigned ? 'OpenRouter account is assigned to a personality' : 'Active OpenRouter account cannot be deleted', assigned ? 'ACCOUNT_ASSIGNED' : 'ACCOUNT_ACTIVE');
   }
-  await prisma.botManagerOpenRouterProfile.delete({ where: { id: existing.id } });
-  await markRuntimeDirty(req.user!.username, `OpenRouter profile deleted: ${existing.name}`);
+  await prisma.botManagerProviderAccount.delete({ where: { id: existing.id } });
+  await markRuntimeDirty(req.user!.username, `OpenRouter account deleted: ${existing.name}`);
   return ok(res, { deleted: true });
 });
 
@@ -5104,6 +5269,15 @@ botManagerRouter.post('/identities', async (req, res) => {
     return fail(res, 422, 'Enabled channel is missing required secrets', 'CHANNEL_SECRET_REQUIRED', { paths: missingEnabledSecrets });
   }
 
+  const runtimeProvider = parsed.data.runtimeProvider || null;
+  const runtimeProviderAccountId = parsed.data.runtimeProviderAccountId
+    || (runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null);
+  if (runtimeProviderAccountId) {
+    if (!runtimeProvider) return fail(res, 422, 'A provider is required when selecting a provider account', 'PROVIDER_ACCOUNT_PROVIDER_REQUIRED');
+    const account = await prisma.botManagerProviderAccount.findFirst({ where: { id: runtimeProviderAccountId, provider: runtimeProvider } });
+    if (!account) return fail(res, 422, 'Selected provider account is not available for this provider', 'PROVIDER_ACCOUNT_NOT_FOUND');
+  }
+
   const identity = await prisma.botManagerIdentity.create({
     data: {
       slug,
@@ -5116,8 +5290,9 @@ botManagerRouter.post('/identities', async (req, res) => {
       chatAccess: parsed.data.chatAccess as Prisma.InputJsonValue,
       isActive: activeCount === 0,
       isMain: activeCount === 0,
-      runtimeProvider: parsed.data.runtimeProvider || null,
-      runtimeOpenRouterProfileId: parsed.data.runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null,
+      runtimeProvider,
+      runtimeProviderAccountId,
+      runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null,
       createdBy: req.user!.username,
       updatedBy: req.user!.username
     }
@@ -5292,14 +5467,38 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
     }
   }
 
+  const nextRuntimeProvider = parsed.data.runtimeProvider !== undefined
+    ? parsed.data.runtimeProvider || null
+    : existing.runtimeProvider;
+  const runtimeProviderSelectionChanged = parsed.data.runtimeProvider !== undefined && nextRuntimeProvider !== existing.runtimeProvider;
+  const runtimeAccountFieldChanged = parsed.data.runtimeProviderAccountId !== undefined || parsed.data.runtimeOpenRouterProfileId !== undefined;
+  const nextRuntimeProviderAccountId = parsed.data.runtimeProviderAccountId !== undefined
+    ? parsed.data.runtimeProviderAccountId || null
+    : parsed.data.runtimeOpenRouterProfileId !== undefined && nextRuntimeProvider === 'openrouter'
+      ? parsed.data.runtimeOpenRouterProfileId || null
+      : runtimeProviderSelectionChanged
+        ? null
+        : existing.runtimeProviderAccountId;
+  if (nextRuntimeProviderAccountId) {
+    if (!nextRuntimeProvider) return fail(res, 422, 'A provider is required when selecting a provider account', 'PROVIDER_ACCOUNT_PROVIDER_REQUIRED');
+    const account = await prisma.botManagerProviderAccount.findFirst({ where: { id: nextRuntimeProviderAccountId, provider: nextRuntimeProvider } });
+    if (!account) return fail(res, 422, 'Selected provider account is not available for this provider', 'PROVIDER_ACCOUNT_NOT_FOUND');
+  }
+  const nextRuntimeOpenRouterProfileId = parsed.data.runtimeOpenRouterProfileId !== undefined
+    ? (nextRuntimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null)
+    : runtimeProviderSelectionChanged
+      ? null
+      : existing.runtimeOpenRouterProfileId;
+
   const updated = await prisma.botManagerIdentity.update({
     where: { id: existing.id },
     data: {
       ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
       ...(parsed.data.roleTitle !== undefined ? { roleTitle: parsed.data.roleTitle } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
-      ...(parsed.data.runtimeProvider !== undefined ? { runtimeProvider: parsed.data.runtimeProvider || null } : {}),
-      ...(parsed.data.runtimeOpenRouterProfileId !== undefined ? { runtimeOpenRouterProfileId: parsed.data.runtimeOpenRouterProfileId || null } : {}),
+      ...(parsed.data.runtimeProvider !== undefined ? { runtimeProvider: nextRuntimeProvider } : {}),
+      ...((parsed.data.runtimeProvider !== undefined || runtimeAccountFieldChanged) ? { runtimeProviderAccountId: nextRuntimeProviderAccountId } : {}),
+      ...((parsed.data.runtimeProvider !== undefined || runtimeAccountFieldChanged) ? { runtimeOpenRouterProfileId: nextRuntimeOpenRouterProfileId } : {}),
       ...profileImagePatch,
       ...(nextChannels !== undefined ? { channels: nextChannels as Prisma.InputJsonValue } : {}),
       ...(nextSettings !== undefined ? { settings: nextSettings as Prisma.InputJsonValue } : {}),

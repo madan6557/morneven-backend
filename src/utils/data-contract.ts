@@ -73,6 +73,7 @@ export type ExportSnapshot = {
     markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
   };
   botManager: {
+    providerAccounts: Awaited<ReturnType<typeof prisma.botManagerProviderAccount.findMany>>;
     credentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
     openRouterProfiles: Awaited<ReturnType<typeof prisma.botManagerOpenRouterProfile.findMany>>;
     analyticsCredentials: Awaited<ReturnType<typeof prisma.botManagerProviderAnalyticsCredential.findMany>>;
@@ -88,6 +89,7 @@ export type MigrationDataset = {
   users: Awaited<ReturnType<typeof prisma.user.findMany>>;
   passwordResetRequests: any[];
   commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
+  botManagerProviderAccounts: Awaited<ReturnType<typeof prisma.botManagerProviderAccount.findMany>>;
   botManagerCredentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
   botManagerOpenRouterProfiles: Awaited<ReturnType<typeof prisma.botManagerOpenRouterProfile.findMany>>;
   botManagerProviderAnalyticsCredentials: Awaited<ReturnType<typeof prisma.botManagerProviderAnalyticsCredential.findMany>>;
@@ -163,6 +165,7 @@ type MigrationTableKey = keyof MigrationDataset;
 // These tables were added after older backups were produced. A missing table
 // means that the older backup had no data for that feature.
 const LEGACY_EMPTY_TABLE_KEYS = new Set<MigrationTableKey>([
+  'botManagerProviderAccounts',
   'scheduledTasks',
   'scheduledTaskRuns',
   'runtimeControlStates'
@@ -183,6 +186,7 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'siteVisitEvents', sqlTable: 'SiteVisitEvent', findMany: () => prisma.siteVisitEvent.findMany(), count: () => prisma.siteVisitEvent.count(), deleteMany: (tx) => tx.siteVisitEvent.deleteMany(), createMany: (tx, rows) => tx.siteVisitEvent.createMany({ data: rows }) },
   { key: 'passwordResetRequests', sqlTable: 'PasswordResetRequest', findMany: () => passwordResetRequestModel.findMany(), count: () => passwordResetRequestModel.count(), deleteMany: (tx) => (tx as any).passwordResetRequest.deleteMany(), createMany: (tx, rows) => (tx as any).passwordResetRequest.createMany({ data: rows }) },
   { key: 'commandCenterSettings', sqlTable: 'CommandCenterSettings', findMany: () => prisma.commandCenterSettings.findMany(), count: () => prisma.commandCenterSettings.count(), deleteMany: (tx) => tx.commandCenterSettings.deleteMany(), createMany: (tx, rows) => tx.commandCenterSettings.createMany({ data: rows }) },
+  { key: 'botManagerProviderAccounts', sqlTable: 'BotManagerProviderAccount', findMany: () => prisma.botManagerProviderAccount.findMany(), count: () => prisma.botManagerProviderAccount.count(), deleteMany: (tx) => tx.botManagerProviderAccount.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderAccount.createMany({ data: rows }) },
   { key: 'botManagerCredentials', sqlTable: 'BotManagerCredential', findMany: () => prisma.botManagerCredential.findMany(), count: () => prisma.botManagerCredential.count(), deleteMany: (tx) => tx.botManagerCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerCredential.createMany({ data: rows }) },
   { key: 'botManagerOpenRouterProfiles', sqlTable: 'BotManagerOpenRouterProfile', findMany: () => prisma.botManagerOpenRouterProfile.findMany(), count: () => prisma.botManagerOpenRouterProfile.count(), deleteMany: (tx) => tx.botManagerOpenRouterProfile.deleteMany(), createMany: (tx, rows) => tx.botManagerOpenRouterProfile.createMany({ data: rows }) },
   { key: 'botManagerProviderAnalyticsCredentials', sqlTable: 'BotManagerProviderAnalyticsCredential', findMany: () => prisma.botManagerProviderAnalyticsCredential.findMany(), count: () => prisma.botManagerProviderAnalyticsCredential.count(), deleteMany: (tx) => tx.botManagerProviderAnalyticsCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderAnalyticsCredential.createMany({ data: rows }) },
@@ -290,6 +294,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     contentReactions,
     mapMarkers,
     mapImage,
+    botManagerProviderAccounts,
     botManagerCredentials,
     botManagerOpenRouterProfiles,
     botManagerProviderAnalyticsCredentials,
@@ -313,6 +318,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.contentReaction.findMany(),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
+    prisma.botManagerProviderAccount.findMany(),
     prisma.botManagerCredential.findMany(),
     prisma.botManagerOpenRouterProfile.findMany(),
     prisma.botManagerProviderAnalyticsCredential.findMany(),
@@ -358,6 +364,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
       markers: mapMarkers
     },
     botManager: {
+      providerAccounts: botManagerProviderAccounts,
       credentials: botManagerCredentials,
       openRouterProfiles: botManagerOpenRouterProfiles,
       analyticsCredentials: botManagerProviderAnalyticsCredentials,
@@ -391,6 +398,44 @@ export const normalizeMigrationDataset = (dataset: Partial<MigrationDataset>): M
 export const prepareMigrationDatasetForRestore = (rawDataset: unknown): MigrationDataset => {
   assertMigrationDatasetShape(rawDataset);
   const dataset = normalizeMigrationDataset(rawDataset);
+  const hasProviderAccounts = Boolean(rawDataset && typeof rawDataset === 'object' && Array.isArray((rawDataset as Record<string, unknown>).botManagerProviderAccounts));
+  if (!hasProviderAccounts) {
+    const profiles = [...(dataset.botManagerOpenRouterProfiles as any[])].sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')));
+    const hasActiveOpenRouterProfile = profiles.some((profile) => profile.isActive === true);
+    const legacyAccounts = (dataset.botManagerCredentials as any[]).map((credential) => ({
+      id: credential.id,
+      provider: credential.provider,
+      name: credential.provider === 'openrouter' && profiles.some((profile) => profile.name === 'default') ? `default-legacy-${String(credential.id).slice(0, 8)}` : 'default',
+      encryptedValue: credential.encryptedValue,
+      keyPreview: credential.keyPreview ?? null,
+      modelId: String(credential.metadata?.modelId ?? 'runtime-import'),
+      apiBase: credential.metadata?.apiBase ?? null,
+      tags: [],
+      notes: '',
+      metadata: credential.metadata ?? {},
+      isActive: credential.provider === 'openrouter' ? !hasActiveOpenRouterProfile : true,
+      updatedBy: credential.updatedBy ?? null,
+      createdAt: credential.createdAt,
+      updatedAt: credential.updatedAt
+    }));
+    const profileAccounts = profiles.map((profile, index) => ({
+      id: profile.id,
+      provider: 'openrouter',
+      name: profile.name,
+      encryptedValue: profile.encryptedValue,
+      keyPreview: profile.keyPreview ?? null,
+      modelId: profile.modelId,
+      apiBase: profile.apiBase ?? null,
+      tags: profile.tags ?? [],
+      notes: profile.notes ?? '',
+      metadata: {},
+      isActive: profile.isActive === true && index === 0,
+      updatedBy: profile.updatedBy ?? null,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt
+    }));
+    dataset.botManagerProviderAccounts = [...legacyAccounts, ...profileAccounts] as MigrationDataset['botManagerProviderAccounts'];
+  }
   return {
     ...dataset,
     extractionJobs: [],
