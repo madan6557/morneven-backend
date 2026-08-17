@@ -24,6 +24,7 @@ import { commandCenterRouter } from './modules/command-center/router.js';
 import { securityRouter } from './modules/security/router.js';
 import { activityRouter } from './modules/activity/router.js';
 import { botManagerRouter } from './modules/bot-manager/router.js';
+import { syncRouter } from './modules/sync/router.js';
 import { attachRealtimeWebSocket } from './realtime/websocket.js';
 import { securityGateway, securityLimiters } from './security/index.js';
 import { servePublicStorageObject } from './modules/files/public-storage.js';
@@ -88,6 +89,7 @@ const mountApiRoutes = (base: string) => {
   app.use(`${base}/projects`, securityLimiters.api, projectsRouter);
   app.use(`${base}/lore`, securityLimiters.api, loreRouter);
   app.use(`${base}/gallery`, securityLimiters.api, galleryRouter);
+  app.use(`${base}/sync`, securityLimiters.api, syncRouter);
   app.use(`${base}/map`, mapRouter);
   app.use(`${base}/personnel`, personnelRouter);
   app.use(`${base}/settings/migration`, securityLimiters.migration);

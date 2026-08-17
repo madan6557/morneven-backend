@@ -8,6 +8,7 @@ import { getSearchQuery, paginated, parseIds, parsePagination } from '../../util
 import { dateOnly, serializeGalleryItem } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { cleanupUnreferencedStoragePaths, collectGalleryStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
+import { appendSyncChange } from '../sync/service.js';
 import {
   engagementFor,
   loadContentMetrics,
@@ -174,24 +175,28 @@ galleryRouter.post('/', auth, allow(canWriteGallery), async (req, res) => {
   const parsed = gallerySchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 422, 'Validation failed', 'VALIDATION_ERROR', parsed.error.flatten());
 
-  const item = await prisma.galleryItem.create({
-    data: {
-      type: parsed.data.type === 'video' ? MediaType.video : MediaType.image,
-      title: parsed.data.title,
-      thumbnail: parsed.data.thumbnail,
-      mediaUrl: parsed.data.mediaUrl || null,
-      videoUrl: parsed.data.videoUrl,
-      caption: parsed.data.caption,
-      uploadDate: parsed.data.date ? new Date(parsed.data.date) : new Date(),
-      uploadedBy: req.user!.id,
-      tags: { create: parsed.data.tags.map((tag) => ({ tag })) }
-    },
-    include: { tags: true, uploader: true }
+  const item = await prisma.$transaction(async (tx) => {
+    const next = await tx.galleryItem.create({
+      data: {
+        type: parsed.data.type === 'video' ? MediaType.video : MediaType.image,
+        title: parsed.data.title,
+        thumbnail: parsed.data.thumbnail,
+        mediaUrl: parsed.data.mediaUrl || null,
+        videoUrl: parsed.data.videoUrl,
+        caption: parsed.data.caption,
+        uploadDate: parsed.data.date ? new Date(parsed.data.date) : new Date(),
+        uploadedBy: req.user!.id,
+        tags: { create: parsed.data.tags.map((tag) => ({ tag })) }
+      },
+      include: { tags: true, uploader: true }
+    });
+    await tx.contentMetric.create({
+      data: { id: `metric-${EntityType.gallery}-${next.id}`, entityType: EntityType.gallery, entityId: next.id }
+    });
+    await appendSyncChange(tx, { entity: 'gallery', id: next.id, action: 'upsert', record: serializeGalleryItem(next), actorId: req.user!.id });
+    await writeAudit(tx, { actor: req.user!.username, action: 'gallery.create', entity: 'GalleryItem', entityId: next.id });
+    return next;
   });
-  await prisma.contentMetric.create({
-    data: { id: `metric-${EntityType.gallery}-${item.id}`, entityType: EntityType.gallery, entityId: item.id }
-  });
-  await writeAudit(prisma, { actor: req.user!.username, action: 'gallery.create', entity: 'GalleryItem', entityId: item.id });
   return res.status(201).json({ success: true, data: serializeGalleryItem(item) });
 });
 
@@ -225,6 +230,7 @@ galleryRouter.put('/:id', auth, async (req, res) => {
       },
       include: { tags: true, uploader: true }
     });
+    await appendSyncChange(tx, { entity: 'gallery', id: next.id, action: 'upsert', record: serializeGalleryItem(next), actorId: req.user!.id });
     await writeAudit(tx, { actor: req.user!.username, action: 'gallery.update', entity: 'GalleryItem', entityId: next.id });
     return next;
   });
@@ -243,9 +249,10 @@ galleryRouter.delete('/:id', auth, async (req, res) => {
     await tx.contentReaction.deleteMany({ where: { entityType: EntityType.gallery, entityId: req.params.id } });
     await tx.contentMetric.deleteMany({ where: { entityType: EntityType.gallery, entityId: req.params.id } });
     await tx.galleryItem.delete({ where: { id: req.params.id } });
+    await appendSyncChange(tx, { entity: 'gallery', id: req.params.id, action: 'delete', record: null, actorId: req.user!.id });
+    await writeAudit(tx, { actor: req.user!.username, action: 'gallery.delete', entity: 'GalleryItem', entityId: req.params.id });
   });
   await cleanupUnreferencedStoragePaths(previousPaths);
-  await writeAudit(prisma, { actor: req.user!.username, action: 'gallery.delete', entity: 'GalleryItem', entityId: req.params.id });
   return ok(res, { deleted: true });
 });
 

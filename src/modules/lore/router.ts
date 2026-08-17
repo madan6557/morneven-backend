@@ -9,6 +9,7 @@ import { getSearchQuery, paginated, parseIds, parsePagination } from '../../util
 import { fail, ok } from '../../utils/response.js';
 import { categoryToEntityType, serializeDiscussionComments, serializeLoreItem } from '../../utils/serializers.js';
 import { cleanupUnreferencedStoragePaths, collectLoreStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
+import { appendSyncChange } from '../sync/service.js';
 import {
   engagementFor,
   loadContentMetrics,
@@ -227,6 +228,14 @@ loreRouter.post('/:category', auth, async (req, res) => {
     await tx.contentMetric.create({
       data: { id: `metric-${entityType}-${lore.id}`, entityType, entityId: lore.id }
     });
+    const syncDocs = await tx.entityDoc.findMany({ where: { entityType, entityId: lore.id } });
+    await appendSyncChange(tx, {
+      entity: 'lore',
+      id: lore.id,
+      action: 'upsert',
+      record: { ...serializeLoreItem(lore, syncDocs), loreCategory: req.params.category },
+      actorId: req.user!.id
+    });
     await writeAudit(tx, { actor: req.user!.username, action: 'lore.create', entity: 'LoreItem', entityId: lore.id });
     return lore;
   });
@@ -267,6 +276,14 @@ loreRouter.put('/:category/:id', auth, async (req, res) => {
         ) as Prisma.InputJsonObject
       }
     });
+    const syncDocs = await tx.entityDoc.findMany({ where: { entityType, entityId: item.id } });
+    await appendSyncChange(tx, {
+      entity: 'lore',
+      id: item.id,
+      action: 'upsert',
+      record: { ...serializeLoreItem(item, syncDocs), loreCategory: req.params.category },
+      actorId: req.user!.id
+    });
     await writeAudit(tx, { actor: req.user!.username, action: 'lore.update', entity: 'LoreItem', entityId: item.id });
     return item;
   });
@@ -292,9 +309,10 @@ loreRouter.delete('/:category/:id', auth, async (req, res) => {
     await tx.contentReaction.deleteMany({ where: { entityType, entityId: req.params.id } });
     await tx.contentMetric.deleteMany({ where: { entityType, entityId: req.params.id } });
     await tx.loreItem.delete({ where: { id: req.params.id } });
+    await appendSyncChange(tx, { entity: 'lore', id: req.params.id, action: 'delete', record: null, actorId: req.user!.id });
+    await writeAudit(tx, { actor: req.user!.username, action: 'lore.delete', entity: 'LoreItem', entityId: req.params.id });
   });
   await cleanupUnreferencedStoragePaths(previousPaths);
-  await writeAudit(prisma, { actor: req.user!.username, action: 'lore.delete', entity: 'LoreItem', entityId: req.params.id });
   return ok(res, { deleted: true });
 });
 

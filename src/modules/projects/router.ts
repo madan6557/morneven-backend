@@ -10,6 +10,7 @@ import { projectStatusFromApi, serializeDiscussionComments, serializeProject } f
 import { writeAudit } from '../../utils/audit.js';
 import { normalizeProjectMeta } from '../../utils/lore-contract.js';
 import { cleanupUnreferencedStoragePaths, collectProjectStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
+import { appendSyncChange } from '../sync/service.js';
 
 export const projectsRouter = Router();
 
@@ -129,21 +130,25 @@ projectsRouter.get('/:id', auth, async (req, res) => {
 
 projectsRouter.post('/', auth, allow(canWriteProjects), validateBody(projectSchema), async (req, res) => {
   const { data, patches } = buildProjectData(req.body);
-  const created = await prisma.project.create({
-    data: {
-      ...(data as Prisma.ProjectCreateInput),
-      status: projectStatusFromApi(req.body.status),
-      patches: {
-        create: (patches ?? []).map((patch) => ({
-          version: patch.version,
-          patchDate: new Date(patch.date),
-          notes: patch.notes
-        }))
-      }
-    },
-    include: { patches: true }
+  const created = await prisma.$transaction(async (tx) => {
+    const project = await tx.project.create({
+      data: {
+        ...(data as Prisma.ProjectCreateInput),
+        status: projectStatusFromApi(req.body.status),
+        patches: {
+          create: (patches ?? []).map((patch) => ({
+            version: patch.version,
+            patchDate: new Date(patch.date),
+            notes: patch.notes
+          }))
+        }
+      },
+      include: { patches: true }
+    });
+    await appendSyncChange(tx, { entity: 'project', id: project.id, action: 'upsert', record: serializeProject(project), actorId: req.user!.id });
+    await writeAudit(tx, { actor: req.user!.username, action: 'project.create', entity: 'Project', entityId: project.id });
+    return project;
   });
-  await writeAudit(prisma, { actor: req.user!.username, action: 'project.create', entity: 'Project', entityId: created.id });
   return res.status(201).json({ success: true, data: serializeProject(created) });
 });
 
@@ -171,18 +176,22 @@ projectsRouter.put('/:id', auth, allow(canWriteProjects), validateBody(projectUp
       data,
       include: { patches: true }
     });
+    await appendSyncChange(tx, { entity: 'project', id: project.id, action: 'upsert', record: serializeProject(project), actorId: req.user!.id });
     await writeAudit(tx, { actor: req.user!.username, action: 'project.update', entity: 'Project', entityId: project.id });
     return project;
   });
 
   await cleanupUnreferencedStoragePaths(diffStoragePaths(previousPaths, collectProjectStoragePathSet(updated)));
-
   return respondWithProjectDetail(res, updated.id);
 });
 
 projectsRouter.post('/:id/archive', auth, allow((u) => u.level === 7 || (u.level === 6 && u.track === 'executive')), async (req, res) => {
-  const project = await prisma.project.update({ where: { id: req.params.id }, data: { archived: true }, include: { patches: true } });
-  await writeAudit(prisma, { actor: req.user!.username, action: 'project.archive', entity: 'Project', entityId: project.id });
+  const project = await prisma.$transaction(async (tx) => {
+    const next = await tx.project.update({ where: { id: req.params.id }, data: { archived: true }, include: { patches: true } });
+    await appendSyncChange(tx, { entity: 'project', id: next.id, action: 'upsert', record: serializeProject(next), actorId: req.user!.id });
+    await writeAudit(tx, { actor: req.user!.username, action: 'project.archive', entity: 'Project', entityId: next.id });
+    return next;
+  });
   return ok(res, serializeProject(project));
 });
 
@@ -194,9 +203,10 @@ projectsRouter.delete('/:id', auth, allow((u) => u.level === 7), async (req, res
   await prisma.$transaction(async (tx) => {
     await tx.comment.deleteMany({ where: { entityType: EntityType.project, entityId: req.params.id } });
     await tx.project.delete({ where: { id: req.params.id } });
+    await appendSyncChange(tx, { entity: 'project', id: req.params.id, action: 'delete', record: null, actorId: req.user!.id });
+    await writeAudit(tx, { actor: req.user!.username, action: 'project.delete', entity: 'Project', entityId: req.params.id });
   });
   await cleanupUnreferencedStoragePaths(previousPaths);
-  await writeAudit(prisma, { actor: req.user!.username, action: 'project.delete', entity: 'Project', entityId: req.params.id });
   return ok(res, { deleted: true });
 });
 
