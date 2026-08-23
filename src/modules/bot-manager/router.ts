@@ -5269,9 +5269,19 @@ botManagerRouter.post('/identities', async (req, res) => {
     return fail(res, 422, 'Enabled channel is missing required secrets', 'CHANNEL_SECRET_REQUIRED', { paths: missingEnabledSecrets });
   }
 
-  const runtimeProvider = parsed.data.runtimeProvider || null;
-  const runtimeProviderAccountId = parsed.data.runtimeProviderAccountId
+  let runtimeProvider = parsed.data.runtimeProvider || null;
+  let runtimeProviderAccountId: string | null = parsed.data.runtimeProviderAccountId
     || (runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null);
+  let runtimeOpenRouterProfileId: string | null = runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null;
+  // ponytail: auto-bind to active account when provider set but no explicit account, so personality doesn't silently follow global default
+  if (runtimeProvider && !runtimeProviderAccountId) {
+    const fallbackAccount = await prisma.botManagerProviderAccount.findFirst({ where: { provider: runtimeProvider, isActive: true } })
+      ?? await prisma.botManagerProviderAccount.findFirst({ where: { provider: runtimeProvider } });
+    if (fallbackAccount) {
+      runtimeProviderAccountId = fallbackAccount.id;
+      if (runtimeProvider === 'openrouter') runtimeOpenRouterProfileId = fallbackAccount.id;
+    }
+  }
   if (runtimeProviderAccountId) {
     if (!runtimeProvider) return fail(res, 422, 'A provider is required when selecting a provider account', 'PROVIDER_ACCOUNT_PROVIDER_REQUIRED');
     const account = await prisma.botManagerProviderAccount.findFirst({ where: { id: runtimeProviderAccountId, provider: runtimeProvider } });
@@ -5292,7 +5302,7 @@ botManagerRouter.post('/identities', async (req, res) => {
       isMain: activeCount === 0,
       runtimeProvider,
       runtimeProviderAccountId,
-      runtimeOpenRouterProfileId: runtimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null,
+      runtimeOpenRouterProfileId,
       createdBy: req.user!.username,
       updatedBy: req.user!.username
     }
@@ -5467,28 +5477,40 @@ botManagerRouter.put('/identities/:id', async (req, res) => {
     }
   }
 
-  const nextRuntimeProvider = parsed.data.runtimeProvider !== undefined
+  let nextRuntimeProvider = parsed.data.runtimeProvider !== undefined
     ? parsed.data.runtimeProvider || null
     : existing.runtimeProvider;
   const runtimeProviderSelectionChanged = parsed.data.runtimeProvider !== undefined && nextRuntimeProvider !== existing.runtimeProvider;
   const runtimeAccountFieldChanged = parsed.data.runtimeProviderAccountId !== undefined || parsed.data.runtimeOpenRouterProfileId !== undefined;
-  const nextRuntimeProviderAccountId = parsed.data.runtimeProviderAccountId !== undefined
+  let nextRuntimeProviderAccountId: string | null = parsed.data.runtimeProviderAccountId !== undefined
     ? parsed.data.runtimeProviderAccountId || null
     : parsed.data.runtimeOpenRouterProfileId !== undefined && nextRuntimeProvider === 'openrouter'
       ? parsed.data.runtimeOpenRouterProfileId || null
       : runtimeProviderSelectionChanged
         ? null
         : existing.runtimeProviderAccountId;
+  let nextRuntimeOpenRouterProfileId: string | null = parsed.data.runtimeOpenRouterProfileId !== undefined
+    ? (nextRuntimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null)
+    : runtimeProviderSelectionChanged
+      ? null
+      : existing.runtimeOpenRouterProfileId;
+  // ponytail: auto-bind to active account when provider changed but no explicit account, so personality doesn't silently follow global default
+  if (nextRuntimeProvider && !nextRuntimeProviderAccountId) {
+    const shouldAutoBind = runtimeProviderSelectionChanged || (runtimeAccountFieldChanged && parsed.data.runtimeProviderAccountId === '' && parsed.data.runtimeOpenRouterProfileId === '');
+    if (shouldAutoBind) {
+      const fallbackAccount = await prisma.botManagerProviderAccount.findFirst({ where: { provider: nextRuntimeProvider, isActive: true } })
+        ?? await prisma.botManagerProviderAccount.findFirst({ where: { provider: nextRuntimeProvider } });
+      if (fallbackAccount) {
+        nextRuntimeProviderAccountId = fallbackAccount.id;
+        if (nextRuntimeProvider === 'openrouter') nextRuntimeOpenRouterProfileId = fallbackAccount.id;
+      }
+    }
+  }
   if (nextRuntimeProviderAccountId) {
     if (!nextRuntimeProvider) return fail(res, 422, 'A provider is required when selecting a provider account', 'PROVIDER_ACCOUNT_PROVIDER_REQUIRED');
     const account = await prisma.botManagerProviderAccount.findFirst({ where: { id: nextRuntimeProviderAccountId, provider: nextRuntimeProvider } });
     if (!account) return fail(res, 422, 'Selected provider account is not available for this provider', 'PROVIDER_ACCOUNT_NOT_FOUND');
   }
-  const nextRuntimeOpenRouterProfileId = parsed.data.runtimeOpenRouterProfileId !== undefined
-    ? (nextRuntimeProvider === 'openrouter' ? parsed.data.runtimeOpenRouterProfileId || null : null)
-    : runtimeProviderSelectionChanged
-      ? null
-      : existing.runtimeOpenRouterProfileId;
 
   const updated = await prisma.botManagerIdentity.update({
     where: { id: existing.id },
