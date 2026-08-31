@@ -30,6 +30,13 @@ const ALLOWED_MIME = new Set([
 const BLOCKED_MIME = new Set([
   'image/svg+xml',
   'text/html',
+  'application/xhtml+xml',
+  'application/xml',
+  'text/xml',
+  'text/javascript',
+  'application/javascript',
+  'application/ecmascript',
+  'text/css',
   'application/x-msdownload',
   'application/x-msdos-program',
   'application/x-sh',
@@ -39,9 +46,41 @@ const BLOCKED_MIME = new Set([
   'application/x-rar-compressed'
 ]);
 
+const BLOCKED_EXTENSIONS = new Set([
+  '.svg',
+  '.svgz',
+  '.html',
+  '.htm',
+  '.xhtml',
+  '.xml',
+  '.xsl',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.css',
+  '.wasm',
+  '.php',
+  '.phtml',
+  '.shtml',
+  '.exe',
+  '.dll',
+  '.bat',
+  '.cmd',
+  '.ps1',
+  '.sh',
+  '.jar',
+  '.zip',
+  '.7z',
+  '.rar'
+]);
+
 const hasBytes = (buffer: Buffer, bytes: number[]) => bytes.every((byte, index) => buffer[index] === byte);
 
 const detectMagicMime = (buffer: Buffer) => {
+  if (hasBytes(buffer, [0x4d, 0x5a])) return 'application/x-msdownload';
+  if (hasBytes(buffer, [0x7f, 0x45, 0x4c, 0x46])) return 'application/x-executable';
+  if (hasBytes(buffer, [0x23, 0x21])) return 'application/x-sh';
+  if (hasBytes(buffer, [0x50, 0x4b, 0x03, 0x04])) return 'application/zip';
   if (hasBytes(buffer, [0x89, 0x50, 0x4e, 0x47])) return 'image/png';
   if (hasBytes(buffer, [0xff, 0xd8, 0xff])) return 'image/jpeg';
   if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
@@ -59,31 +98,55 @@ const looksText = (buffer: Buffer) => {
 };
 
 const isMimeCompatible = (declared: string, magic: string | undefined, buffer: Buffer) => {
-  if (!magic) return declared.startsWith('text/') ? looksText(buffer) : declared === 'application/json' || declared === 'application/octet-stream';
+  if (!magic) return declared.startsWith('text/') ? looksText(buffer) : declared === 'application/json' && looksText(buffer);
   if (declared === magic) return true;
   if (declared === 'video/quicktime' && magic === 'video/mp4') return true;
   if (declared === 'application/octet-stream' && ALLOWED_MIME.has(magic)) return true;
   return false;
 };
 
-export const scanUploadBuffer = async (input: {
+const fileExtension = (objectPath: string) => {
+  const name = objectPath.split('/').pop()?.toLowerCase() ?? '';
+  const dot = name.lastIndexOf('.');
+  return dot >= 0 ? name.slice(dot) : '';
+};
+
+const looksLikeActiveWebContent = (buffer: Buffer) => {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 8192)).toString('utf8').toLowerCase();
+  return [
+    '<script',
+    '<iframe',
+    '<object',
+    '<embed',
+    '<html',
+    '<svg',
+    'javascript:',
+    'onerror=',
+    'onload='
+  ].some((needle) => sample.includes(needle));
+};
+
+export const inspectUploadBuffer = (input: {
   objectPath: string;
   buffer: Buffer;
   mime: string;
-}): Promise<FileScanResult> => {
+}): FileScanResult => {
   const sha256 = createHash('sha256').update(input.buffer).digest('hex');
   const mime = (input.mime || 'application/octet-stream').toLowerCase();
   const size = input.buffer.length;
 
-  if (!securityEnabled) {
-    return { verdict: 'skipped', sha256, mime, size };
-  }
-
   let verdict: FileScanVerdict = 'clean';
   let reason: string | undefined;
   const magic = detectMagicMime(input.buffer);
+  const extension = fileExtension(input.objectPath);
 
-  if (BLOCKED_MIME.has(mime)) {
+  if (magic && BLOCKED_MIME.has(magic)) {
+    verdict = 'blocked';
+    reason = 'Blocked executable or archive file signature';
+  } else if (BLOCKED_EXTENSIONS.has(extension)) {
+    verdict = 'blocked';
+    reason = 'Blocked active file extension';
+  } else if (BLOCKED_MIME.has(mime)) {
     verdict = 'blocked';
     reason = 'Blocked MIME type';
   } else if (!ALLOWED_MIME.has(mime) && mime !== 'application/octet-stream') {
@@ -92,9 +155,28 @@ export const scanUploadBuffer = async (input: {
   } else if (!isMimeCompatible(mime, magic, input.buffer)) {
     verdict = 'blocked';
     reason = 'MIME and file signature mismatch';
+  } else if ((mime.startsWith('text/') || mime === 'application/json') && looksLikeActiveWebContent(input.buffer)) {
+    verdict = 'blocked';
+    reason = 'Active web content is not allowed in uploads';
   } else if (env.fileScanProvider === 'mock' && input.buffer.includes(Buffer.from('EICAR', 'ascii'))) {
     verdict = 'quarantined';
     reason = 'Mock malware signature detected';
+  }
+
+  return { verdict, sha256, mime, size, reason };
+};
+
+export const scanUploadBuffer = async (input: {
+  objectPath: string;
+  buffer: Buffer;
+  mime: string;
+}): Promise<FileScanResult> => {
+  const result = inspectUploadBuffer(input);
+  const { sha256, mime, size, reason } = result;
+  const { verdict } = result;
+
+  if (!securityEnabled && verdict === 'clean') {
+    return { verdict: 'skipped', sha256, mime, size };
   }
 
   if (securityFeatures.audit) {
@@ -108,7 +190,8 @@ export const scanUploadBuffer = async (input: {
         provider: env.fileScanProvider,
         metadata: {
           reason,
-          magic
+          magic: detectMagicMime(input.buffer),
+          extension: fileExtension(input.objectPath)
         }
       }
     });

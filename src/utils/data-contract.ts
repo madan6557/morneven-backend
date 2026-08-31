@@ -1,8 +1,9 @@
-import { EntityType, MediaType, Prisma } from '@prisma/client';
+import { EntityType, Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import {
   serializeGalleryItem,
   serializeLoreItem,
+  serializeNewsItem,
   serializeProject,
   serializeUser
 } from './serializers.js';
@@ -12,6 +13,8 @@ const passwordResetRequestModel = (prisma as any).passwordResetRequest as {
   findMany: (args?: Record<string, unknown>) => Promise<any[]>;
   count: () => Promise<number>;
 };
+
+const activeArtifactWhere = () => ({ expiresAt: { gt: new Date() } });
 
 export type ExportSnapshot = {
   characters: ReturnType<typeof serializeLoreItem>[];
@@ -26,6 +29,7 @@ export type ExportSnapshot = {
     id: string;
     text: string;
     date: string;
+    createdAt: string;
     hasDetail: boolean;
     thumbnail?: string;
     body?: string;
@@ -69,8 +73,11 @@ export type ExportSnapshot = {
     markers: Awaited<ReturnType<typeof prisma.mapMarker.findMany>>;
   };
   botManager: {
+    providerAccounts: Awaited<ReturnType<typeof prisma.botManagerProviderAccount.findMany>>;
     credentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
     openRouterProfiles: Awaited<ReturnType<typeof prisma.botManagerOpenRouterProfile.findMany>>;
+    analyticsCredentials: Awaited<ReturnType<typeof prisma.botManagerProviderAnalyticsCredential.findMany>>;
+    usageEvents: Awaited<ReturnType<typeof prisma.botManagerProviderUsageEvent.findMany>>;
     backupJobs: Awaited<ReturnType<typeof prisma.botManagerBackupJob.findMany>>;
     generalConfig: Awaited<ReturnType<typeof prisma.botManagerGeneralConfig.findMany>>;
     identities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
@@ -82,8 +89,11 @@ export type MigrationDataset = {
   users: Awaited<ReturnType<typeof prisma.user.findMany>>;
   passwordResetRequests: any[];
   commandCenterSettings: Awaited<ReturnType<typeof prisma.commandCenterSettings.findMany>>;
+  botManagerProviderAccounts: Awaited<ReturnType<typeof prisma.botManagerProviderAccount.findMany>>;
   botManagerCredentials: Awaited<ReturnType<typeof prisma.botManagerCredential.findMany>>;
   botManagerOpenRouterProfiles: Awaited<ReturnType<typeof prisma.botManagerOpenRouterProfile.findMany>>;
+  botManagerProviderAnalyticsCredentials: Awaited<ReturnType<typeof prisma.botManagerProviderAnalyticsCredential.findMany>>;
+  botManagerProviderUsageEvents: Awaited<ReturnType<typeof prisma.botManagerProviderUsageEvent.findMany>>;
   botManagerBackupJobs: Awaited<ReturnType<typeof prisma.botManagerBackupJob.findMany>>;
   botManagerGeneralConfigs: Awaited<ReturnType<typeof prisma.botManagerGeneralConfig.findMany>>;
   botManagerIdentities: Awaited<ReturnType<typeof prisma.botManagerIdentity.findMany>>;
@@ -117,6 +127,9 @@ export type MigrationDataset = {
   chatMessages: Awaited<ReturnType<typeof prisma.chatMessage.findMany>>;
   chatReadStates: Awaited<ReturnType<typeof prisma.chatReadState.findMany>>;
   extractionJobs: Awaited<ReturnType<typeof prisma.extractionJob.findMany>>;
+  scheduledTasks: Awaited<ReturnType<typeof prisma.scheduledTask.findMany>>;
+  scheduledTaskRuns: Awaited<ReturnType<typeof prisma.scheduledTaskRun.findMany>>;
+  runtimeControlStates: Awaited<ReturnType<typeof prisma.runtimeControlState.findMany>>;
   auditLogs: Awaited<ReturnType<typeof prisma.auditLog.findMany>>;
   securityEvents: Awaited<ReturnType<typeof prisma.securityEvent.findMany>>;
   securityBlocks: Awaited<ReturnType<typeof prisma.securityBlock.findMany>>;
@@ -144,9 +157,20 @@ export type MigrationVerification = {
   assetCount: number;
   uploadedAssetCount: number;
   failedAssets: Array<{ objectPath: string; error: string }>;
+  skippedAssets?: Array<{ objectPath: string; reason: string }>;
 };
 
 type MigrationTableKey = keyof MigrationDataset;
+
+// These tables were added after older backups were produced. A missing table
+// means that the older backup had no data for that feature.
+const LEGACY_EMPTY_TABLE_KEYS = new Set<MigrationTableKey>([
+  'botManagerProviderAccounts',
+  'scheduledTasks',
+  'scheduledTaskRuns',
+  'runtimeControlStates'
+]);
+
 type MigrationTableContract = {
   key: MigrationTableKey;
   sqlTable: string;
@@ -162,12 +186,15 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'siteVisitEvents', sqlTable: 'SiteVisitEvent', findMany: () => prisma.siteVisitEvent.findMany(), count: () => prisma.siteVisitEvent.count(), deleteMany: (tx) => tx.siteVisitEvent.deleteMany(), createMany: (tx, rows) => tx.siteVisitEvent.createMany({ data: rows }) },
   { key: 'passwordResetRequests', sqlTable: 'PasswordResetRequest', findMany: () => passwordResetRequestModel.findMany(), count: () => passwordResetRequestModel.count(), deleteMany: (tx) => (tx as any).passwordResetRequest.deleteMany(), createMany: (tx, rows) => (tx as any).passwordResetRequest.createMany({ data: rows }) },
   { key: 'commandCenterSettings', sqlTable: 'CommandCenterSettings', findMany: () => prisma.commandCenterSettings.findMany(), count: () => prisma.commandCenterSettings.count(), deleteMany: (tx) => tx.commandCenterSettings.deleteMany(), createMany: (tx, rows) => tx.commandCenterSettings.createMany({ data: rows }) },
+  { key: 'botManagerProviderAccounts', sqlTable: 'BotManagerProviderAccount', findMany: () => prisma.botManagerProviderAccount.findMany(), count: () => prisma.botManagerProviderAccount.count(), deleteMany: (tx) => tx.botManagerProviderAccount.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderAccount.createMany({ data: rows }) },
   { key: 'botManagerCredentials', sqlTable: 'BotManagerCredential', findMany: () => prisma.botManagerCredential.findMany(), count: () => prisma.botManagerCredential.count(), deleteMany: (tx) => tx.botManagerCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerCredential.createMany({ data: rows }) },
   { key: 'botManagerOpenRouterProfiles', sqlTable: 'BotManagerOpenRouterProfile', findMany: () => prisma.botManagerOpenRouterProfile.findMany(), count: () => prisma.botManagerOpenRouterProfile.count(), deleteMany: (tx) => tx.botManagerOpenRouterProfile.deleteMany(), createMany: (tx, rows) => tx.botManagerOpenRouterProfile.createMany({ data: rows }) },
+  { key: 'botManagerProviderAnalyticsCredentials', sqlTable: 'BotManagerProviderAnalyticsCredential', findMany: () => prisma.botManagerProviderAnalyticsCredential.findMany(), count: () => prisma.botManagerProviderAnalyticsCredential.count(), deleteMany: (tx) => tx.botManagerProviderAnalyticsCredential.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderAnalyticsCredential.createMany({ data: rows }) },
+  { key: 'botManagerProviderUsageEvents', sqlTable: 'BotManagerProviderUsageEvent', findMany: () => prisma.botManagerProviderUsageEvent.findMany(), count: () => prisma.botManagerProviderUsageEvent.count(), deleteMany: (tx) => tx.botManagerProviderUsageEvent.deleteMany(), createMany: (tx, rows) => tx.botManagerProviderUsageEvent.createMany({ data: rows, skipDuplicates: true }) },
   { key: 'botManagerGeneralConfigs', sqlTable: 'BotManagerGeneralConfig', findMany: () => prisma.botManagerGeneralConfig.findMany(), count: () => prisma.botManagerGeneralConfig.count(), deleteMany: (tx) => tx.botManagerGeneralConfig.deleteMany(), createMany: (tx, rows) => tx.botManagerGeneralConfig.createMany({ data: rows }) },
   { key: 'botManagerIdentities', sqlTable: 'BotManagerIdentity', findMany: () => prisma.botManagerIdentity.findMany(), count: () => prisma.botManagerIdentity.count(), deleteMany: (tx) => tx.botManagerIdentity.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentity.createMany({ data: rows }) },
   { key: 'botManagerIdentityFiles', sqlTable: 'BotManagerIdentityFile', findMany: () => prisma.botManagerIdentityFile.findMany(), count: () => prisma.botManagerIdentityFile.count(), deleteMany: (tx) => tx.botManagerIdentityFile.deleteMany(), createMany: (tx, rows) => tx.botManagerIdentityFile.createMany({ data: rows }) },
-  { key: 'botManagerBackupJobs', sqlTable: 'BotManagerBackupJob', findMany: () => prisma.botManagerBackupJob.findMany(), count: () => prisma.botManagerBackupJob.count(), deleteMany: (tx) => tx.botManagerBackupJob.deleteMany(), createMany: (tx, rows) => tx.botManagerBackupJob.createMany({ data: rows }) },
+  { key: 'botManagerBackupJobs', sqlTable: 'BotManagerBackupJob', findMany: () => prisma.botManagerBackupJob.findMany({ where: activeArtifactWhere() }), count: () => prisma.botManagerBackupJob.count({ where: activeArtifactWhere() }), deleteMany: (tx) => tx.botManagerBackupJob.deleteMany(), createMany: (tx, rows) => tx.botManagerBackupJob.createMany({ data: rows }) },
   { key: 'refreshTokens', sqlTable: 'RefreshToken', findMany: () => prisma.refreshToken.findMany(), count: () => prisma.refreshToken.count(), deleteMany: (tx) => tx.refreshToken.deleteMany(), createMany: (tx, rows) => tx.refreshToken.createMany({ data: rows }) },
   { key: 'projects', sqlTable: 'Project', findMany: () => prisma.project.findMany(), count: () => prisma.project.count(), deleteMany: (tx) => tx.project.deleteMany(), createMany: (tx, rows) => tx.project.createMany({ data: rows }) },
   { key: 'projectPatches', sqlTable: 'ProjectPatch', findMany: () => prisma.projectPatch.findMany(), count: () => prisma.projectPatch.count(), deleteMany: (tx) => tx.projectPatch.deleteMany(), createMany: (tx, rows) => tx.projectPatch.createMany({ data: rows }) },
@@ -194,7 +221,10 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'chatConversationMembers', sqlTable: 'ChatConversationMember', findMany: () => prisma.chatConversationMember.findMany(), count: () => prisma.chatConversationMember.count(), deleteMany: (tx) => tx.chatConversationMember.deleteMany(), createMany: (tx, rows) => tx.chatConversationMember.createMany({ data: rows }) },
   { key: 'chatMessages', sqlTable: 'ChatMessage', findMany: () => prisma.chatMessage.findMany(), count: () => prisma.chatMessage.count(), deleteMany: (tx) => tx.chatMessage.deleteMany(), createMany: (tx, rows) => tx.chatMessage.createMany({ data: rows }) },
   { key: 'chatReadStates', sqlTable: 'ChatReadState', findMany: () => prisma.chatReadState.findMany(), count: () => prisma.chatReadState.count(), deleteMany: (tx) => tx.chatReadState.deleteMany(), createMany: (tx, rows) => tx.chatReadState.createMany({ data: rows }) },
-  { key: 'extractionJobs', sqlTable: 'ExtractionJob', findMany: () => prisma.extractionJob.findMany(), count: () => prisma.extractionJob.count(), deleteMany: (tx) => tx.extractionJob.deleteMany(), createMany: (tx, rows) => tx.extractionJob.createMany({ data: rows }) },
+  { key: 'extractionJobs', sqlTable: 'ExtractionJob', findMany: () => prisma.extractionJob.findMany({ where: activeArtifactWhere() }), count: () => prisma.extractionJob.count({ where: activeArtifactWhere() }), deleteMany: (tx) => tx.extractionJob.deleteMany(), createMany: (tx, rows) => tx.extractionJob.createMany({ data: rows }) },
+  { key: 'scheduledTasks', sqlTable: 'ScheduledTask', findMany: () => prisma.scheduledTask.findMany(), count: () => prisma.scheduledTask.count(), deleteMany: (tx) => tx.scheduledTask.deleteMany(), createMany: (tx, rows) => tx.scheduledTask.createMany({ data: rows }) },
+  { key: 'scheduledTaskRuns', sqlTable: 'ScheduledTaskRun', findMany: () => prisma.scheduledTaskRun.findMany(), count: () => prisma.scheduledTaskRun.count(), deleteMany: (tx) => tx.scheduledTaskRun.deleteMany(), createMany: (tx, rows) => tx.scheduledTaskRun.createMany({ data: rows }) },
+  { key: 'runtimeControlStates', sqlTable: 'RuntimeControlState', findMany: () => prisma.runtimeControlState.findMany(), count: () => prisma.runtimeControlState.count(), deleteMany: (tx) => tx.runtimeControlState.deleteMany(), createMany: (tx, rows) => tx.runtimeControlState.createMany({ data: rows }) },
   { key: 'auditLogs', sqlTable: 'AuditLog', findMany: () => prisma.auditLog.findMany({ where: { action: { not: 'migration.job' } } }), count: () => prisma.auditLog.count({ where: { action: { not: 'migration.job' } } }), deleteMany: (tx) => tx.auditLog.deleteMany({ where: { action: { not: 'migration.job' } } }), createMany: (tx, rows) => tx.auditLog.createMany({ data: rows }) },
   { key: 'securityEvents', sqlTable: 'SecurityEvent', findMany: () => prisma.securityEvent.findMany(), count: () => prisma.securityEvent.count(), deleteMany: (tx) => tx.securityEvent.deleteMany(), createMany: (tx, rows) => tx.securityEvent.createMany({ data: rows }) },
   { key: 'securityBlocks', sqlTable: 'SecurityBlock', findMany: () => prisma.securityBlock.findMany(), count: () => prisma.securityBlock.count(), deleteMany: (tx) => tx.securityBlock.deleteMany(), createMany: (tx, rows) => tx.securityBlock.createMany({ data: rows }) },
@@ -202,20 +232,6 @@ export const MIGRATION_TABLES: MigrationTableContract[] = [
   { key: 'fileScanRecords', sqlTable: 'FileScanRecord', findMany: () => prisma.fileScanRecord.findMany(), count: () => prisma.fileScanRecord.count(), deleteMany: (tx) => tx.fileScanRecord.deleteMany(), createMany: (tx, rows) => tx.fileScanRecord.createMany({ data: rows }) },
   { key: 'personnelReports', sqlTable: 'PersonnelReport', findMany: () => prisma.personnelReport.findMany(), count: () => prisma.personnelReport.count(), deleteMany: (tx) => tx.personnelReport.deleteMany(), createMany: (tx, rows) => tx.personnelReport.createMany({ data: rows }) }
 ];
-
-const serializeNewsForExtraction = (item: Prisma.NewsGetPayload<{ include: { attachments: true } }>): ExportSnapshot['news'][number] => ({
-  id: item.id,
-  text: item.text,
-  date: item.publishDate.toISOString().slice(0, 10),
-  hasDetail: item.hasDetail,
-  thumbnail: item.thumbnail ?? undefined,
-  body: item.body ?? undefined,
-  attachments: item.attachments.map((attachment) => ({
-    type: attachment.type === MediaType.link ? 'link' : attachment.type === MediaType.video ? 'video' : 'image',
-    url: attachment.url,
-    caption: attachment.caption ?? undefined
-  }))
-});
 
 const serializePasswordResetRequestForExtraction = (
   item: {
@@ -278,8 +294,11 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     contentReactions,
     mapMarkers,
     mapImage,
+    botManagerProviderAccounts,
     botManagerCredentials,
     botManagerOpenRouterProfiles,
+    botManagerProviderAnalyticsCredentials,
+    botManagerProviderUsageEvents,
     botManagerBackupJobs,
     botManagerGeneralConfig,
     botManagerIdentities,
@@ -299,9 +318,12 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     prisma.contentReaction.findMany(),
     prisma.mapMarker.findMany(),
     prisma.mapImage.findUnique({ where: { id: 'main' } }),
+    prisma.botManagerProviderAccount.findMany(),
     prisma.botManagerCredential.findMany(),
     prisma.botManagerOpenRouterProfile.findMany(),
-    prisma.botManagerBackupJob.findMany(),
+    prisma.botManagerProviderAnalyticsCredential.findMany(),
+    prisma.botManagerProviderUsageEvent.findMany(),
+    prisma.botManagerBackupJob.findMany({ where: activeArtifactWhere() }),
     prisma.botManagerGeneralConfig.findMany(),
     prisma.botManagerIdentity.findMany(),
     prisma.botManagerIdentityFile.findMany(),
@@ -329,7 +351,7 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
     events: loreByType(EntityType.event),
     others: loreByType(EntityType.other),
     gallery: gallery.map((item) => serializeGalleryItem(item)),
-    news: news.map(serializeNewsForExtraction),
+    news: news.map(serializeNewsItem),
     personnel: personnel.map(serializeUser),
     passwordResetRequests: passwordResetRequests.map(serializePasswordResetRequestForExtraction),
     personnelReports: personnelReports.map(serializePersonnelReportForExtraction),
@@ -342,8 +364,11 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
       markers: mapMarkers
     },
     botManager: {
+      providerAccounts: botManagerProviderAccounts,
       credentials: botManagerCredentials,
       openRouterProfiles: botManagerOpenRouterProfiles,
+      analyticsCredentials: botManagerProviderAnalyticsCredentials,
+      usageEvents: botManagerProviderUsageEvents,
       backupJobs: botManagerBackupJobs,
       generalConfig: botManagerGeneralConfig,
       identities: botManagerIdentities,
@@ -352,10 +377,88 @@ export const collectExtractionSnapshot = async (): Promise<ExportSnapshot> => {
   };
 };
 
+export function assertMigrationDatasetShape(raw: unknown): asserts raw is MigrationDataset {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Migration dataset must be an object');
+  }
+  const dataset = raw as Record<string, unknown>;
+  const invalidKeys = MIGRATION_TABLES
+    .map((table) => table.key)
+    .filter((key) => !Array.isArray(dataset[key]) && !LEGACY_EMPTY_TABLE_KEYS.has(key));
+  if (invalidKeys.length) {
+    throw new Error(`Migration dataset is missing required table arrays: ${invalidKeys.join(', ')}`);
+  }
+}
+
 export const normalizeMigrationDataset = (dataset: Partial<MigrationDataset>): MigrationDataset =>
   Object.fromEntries(
     MIGRATION_TABLES.map((table) => [table.key, Array.isArray(dataset[table.key]) ? dataset[table.key] : []])
   ) as MigrationDataset;
+
+export const prepareMigrationDatasetForRestore = (rawDataset: unknown): MigrationDataset => {
+  assertMigrationDatasetShape(rawDataset);
+  const dataset = normalizeMigrationDataset(rawDataset);
+  const hasProviderAccounts = Boolean(rawDataset && typeof rawDataset === 'object' && Array.isArray((rawDataset as Record<string, unknown>).botManagerProviderAccounts));
+  if (!hasProviderAccounts) {
+    const profiles = [...(dataset.botManagerOpenRouterProfiles as any[])].sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')));
+    const hasActiveOpenRouterProfile = profiles.some((profile) => profile.isActive === true);
+    const legacyAccounts = (dataset.botManagerCredentials as any[]).map((credential) => ({
+      id: credential.id,
+      provider: credential.provider,
+      name: credential.provider === 'openrouter' && profiles.some((profile) => profile.name === 'default') ? `default-legacy-${String(credential.id).slice(0, 8)}` : 'default',
+      encryptedValue: credential.encryptedValue,
+      keyPreview: credential.keyPreview ?? null,
+      modelId: String(credential.metadata?.modelId ?? 'runtime-import'),
+      apiBase: credential.metadata?.apiBase ?? null,
+      tags: [],
+      notes: '',
+      metadata: credential.metadata ?? {},
+      isActive: credential.provider === 'openrouter' ? !hasActiveOpenRouterProfile : true,
+      updatedBy: credential.updatedBy ?? null,
+      createdAt: credential.createdAt,
+      updatedAt: credential.updatedAt
+    }));
+    const profileAccounts = profiles.map((profile, index) => ({
+      id: profile.id,
+      provider: 'openrouter',
+      name: profile.name,
+      encryptedValue: profile.encryptedValue,
+      keyPreview: profile.keyPreview ?? null,
+      modelId: profile.modelId,
+      apiBase: profile.apiBase ?? null,
+      tags: profile.tags ?? [],
+      notes: profile.notes ?? '',
+      metadata: {},
+      isActive: profile.isActive === true && index === 0,
+      updatedBy: profile.updatedBy ?? null,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt
+    }));
+    dataset.botManagerProviderAccounts = [...legacyAccounts, ...profileAccounts] as MigrationDataset['botManagerProviderAccounts'];
+  }
+  return {
+    ...dataset,
+    extractionJobs: [],
+    botManagerBackupJobs: [],
+    scheduledTasks: dataset.scheduledTasks.map((task) => ({
+      ...task,
+      enabled: false,
+      nextRunAt: null,
+      lastStatus: 'restored-disabled',
+      lastError: null,
+      leaseOwner: null,
+      leaseUntil: null
+    })),
+    scheduledTaskRuns: [],
+    runtimeControlStates: dataset.runtimeControlStates.map((state) => ({
+      ...state,
+      frozen: false,
+      frozenAt: null,
+      reason: null,
+      updatedBy: 'restore'
+    }))
+  };
+};
 
 export const summarizeMigrationDataset = (dataset: MigrationDataset, assetCount: number) => ({
   tables: Object.fromEntries(
@@ -372,8 +475,12 @@ export const collectMigrationDataset = async (): Promise<MigrationDataset> => {
 };
 
 export const collectMigrationPayload = async (assetEndpoint: string): Promise<MigrationPayload> => {
-  const dataset = await collectMigrationDataset();
+  const dataset = prepareMigrationDatasetForRestore(await collectMigrationDataset());
   const assets = Array.from(await collectReferencedStoragePaths())
+    .filter((objectPath) => {
+      const normalized = objectPath.toLowerCase().replace(/^\/+/, '');
+      return !normalized.startsWith('backups/') && !normalized.startsWith('bot-manager/backups/');
+    })
     .sort((left, right) => left.localeCompare(right))
     .map((objectPath) => ({ objectPath }));
 
@@ -399,7 +506,7 @@ export const countCurrentMigrationState = async () => {
 };
 
 export const importMigrationDataset = async (rawDataset: Partial<MigrationDataset>) => {
-  const dataset = normalizeMigrationDataset(rawDataset);
+  const dataset = prepareMigrationDatasetForRestore(rawDataset);
   await prisma.$transaction(async (tx) => {
     for (const table of [...MIGRATION_TABLES].reverse()) {
       await table.deleteMany(tx);
@@ -427,7 +534,10 @@ const jsonColumns = new Set([
   'attachments',
   'replyTo',
   'progress',
-  'config'
+  'config',
+  'request',
+  'schedule',
+  'result'
 ]);
 
 const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;

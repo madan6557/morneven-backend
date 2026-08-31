@@ -6,7 +6,7 @@ import { prisma } from '../../config/prisma.js';
 import { validateBody } from '../../middleware/validate.js';
 import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parsePagination } from '../../utils/pagination.js';
-import { dateOnly } from '../../utils/serializers.js';
+import { serializeNewsItem } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { cleanupUnreferencedStoragePaths, collectNewsStoragePathSet, diffStoragePaths } from '../../utils/storage-cleanup.js';
 
@@ -32,20 +32,6 @@ const newsUpdateSchema = newsSchema.partial();
 
 const toMediaType = (type: string) => (type === 'video' ? MediaType.video : type === 'link' ? MediaType.link : MediaType.image);
 
-const serializeNews = (item: Prisma.NewsGetPayload<{ include: { attachments: true } }>) => ({
-  id: item.id,
-  text: item.text,
-  date: dateOnly(item.publishDate),
-  hasDetail: item.hasDetail,
-  thumbnail: item.thumbnail ?? undefined,
-  body: item.body ?? undefined,
-  attachments: item.attachments.map((attachment) => ({
-    type: attachment.type === MediaType.link ? 'link' : attachment.type === MediaType.video ? 'video' : 'image',
-    url: attachment.url,
-    caption: attachment.caption ?? undefined
-  }))
-});
-
 newsRouter.get('/', auth, async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req, { pageSize: 24, maxPageSize: 100 });
   const q = getSearchQuery(req);
@@ -62,13 +48,13 @@ newsRouter.get('/', auth, async (req, res) => {
     prisma.news.findMany({ where, include: { attachments: true }, orderBy: { publishDate: 'desc' }, skip, take }),
     prisma.news.count({ where })
   ]);
-  return ok(res, paginated(items.map(serializeNews), page, pageSize, total));
+  return ok(res, paginated(items.map(serializeNewsItem), page, pageSize, total));
 });
 
 newsRouter.get('/:id', auth, async (req, res) => {
   const item = await prisma.news.findUnique({ where: { id: req.params.id }, include: { attachments: true } });
   if (!item) return fail(res, 404, 'News not found', 'NOT_FOUND');
-  return ok(res, serializeNews(item));
+  return ok(res, serializeNewsItem(item));
 });
 
 newsRouter.post('/', auth, allow(canWriteNews), validateBody(newsSchema), async (req, res) => {
@@ -91,7 +77,7 @@ newsRouter.post('/', auth, allow(canWriteNews), validateBody(newsSchema), async 
     include: { attachments: true }
   });
   await writeAudit(prisma, { actor: req.user!.username, action: 'news.create', entity: 'News', entityId: created.id });
-  return res.status(201).json({ success: true, data: serializeNews(created) });
+  return res.status(201).json({ success: true, data: serializeNewsItem(created) });
 });
 
 newsRouter.put('/:id', auth, allow(canWriteNews), validateBody(newsUpdateSchema), async (req, res) => {
@@ -126,7 +112,7 @@ newsRouter.put('/:id', auth, allow(canWriteNews), validateBody(newsUpdateSchema)
     return item;
   });
   await cleanupUnreferencedStoragePaths(diffStoragePaths(previousPaths, collectNewsStoragePathSet(updated)));
-  return ok(res, serializeNews(updated));
+  return ok(res, serializeNewsItem(updated));
 });
 
 newsRouter.delete('/:id', auth, allow(canWriteNews), async (req, res) => {

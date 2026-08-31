@@ -1,6 +1,6 @@
 {
   "name": "morneven-backend",
-  "version": "0.1.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
+    "test": "tsx --test src/scheduler/index.test.ts src/utils/zip.test.ts src/utils/data-contract.test.ts src/modules/files/object-path.test.ts src/security/files/scanner.test.ts",
     "start": "node dist/src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -44,6 +45,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "tsx": "^4.19.2"
+    "tsx": "^4.23.1"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

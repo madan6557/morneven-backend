@@ -5,12 +5,13 @@ import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { fail, ok } from '../../utils/response.js';
 import { getSearchQuery, paginated, parsePagination } from '../../utils/pagination.js';
-import { projectStatusFromApi, roleForLevel } from '../../utils/serializers.js';
+import { projectStatusFromApi, roleForLevel, serializeGalleryItem, serializeProject } from '../../utils/serializers.js';
 import { writeAudit } from '../../utils/audit.js';
 import { createNotification } from '../notifications/service.js';
 import { ensureInstituteMembership, syncDivisionMembership, syncTeamGroup } from '../chat/service.js';
 import { getManagementPendingCount } from '../me/badges.js';
 import { emitNavigationBadgesUpdated, emitNavigationBadgesUpdatedForUsers, emitToMatchingClients } from '../../realtime/events.js';
+import { appendSyncChange } from '../sync/service.js';
 
 export const managementRouter = Router();
 
@@ -255,7 +256,7 @@ managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
 
     if (request.kind === 'submission_personal') {
       const item = (payload.item ?? {}) as Record<string, any>;
-      await tx.galleryItem.create({
+      const galleryItem = await tx.galleryItem.create({
         data: {
           type: item.type === 'video' ? MediaType.video : MediaType.image,
           title: String(item.title ?? 'Untitled submission'),
@@ -265,25 +266,29 @@ managementRouter.post('/requests/:id/decide', auth, async (req, res) => {
           uploadDate: item.date ? new Date(String(item.date)) : new Date(),
           uploadedBy: requester.id,
           tags: { create: Array.isArray(item.tags) ? item.tags.map((tag: string) => ({ tag })) : [] }
-        }
+        },
+        include: { tags: true, uploader: true }
       });
+      await appendSyncChange(tx, { entity: 'gallery', id: galleryItem.id, action: 'upsert', record: serializeGalleryItem(galleryItem), actorId: req.user!.id });
       await bumpQuota(tx, requester.username, 'monthly', monthKey());
     }
 
     if (request.kind === 'submission_team') {
-      const project = (payload.project ?? {}) as Record<string, any>;
-      await tx.project.create({
+      const projectPayload = (payload.project ?? {}) as Record<string, any>;
+      const createdProject = await tx.project.create({
         data: {
-          title: String(project.title ?? 'Untitled project'),
-          status: projectStatusFromApi(project.status ?? 'Planning'),
-          thumbnail: String(project.thumbnail ?? ''),
-          shortDesc: String(project.shortDesc ?? project.caption ?? ''),
-          fullDesc: String(project.fullDesc ?? project.description ?? project.caption ?? ''),
-          docs: Array.isArray(project.docs) ? project.docs : [],
+          title: String(projectPayload.title ?? 'Untitled project'),
+          status: projectStatusFromApi(projectPayload.status ?? 'Planning'),
+          thumbnail: String(projectPayload.thumbnail ?? ''),
+          shortDesc: String(projectPayload.shortDesc ?? projectPayload.caption ?? ''),
+          fullDesc: String(projectPayload.fullDesc ?? projectPayload.description ?? projectPayload.caption ?? ''),
+          docs: Array.isArray(projectPayload.docs) ? projectPayload.docs : [],
           contributor: requester.username,
-          meta: project.meta ?? undefined
-        }
+          meta: projectPayload.meta ?? undefined
+        },
+        include: { patches: true }
       });
+      await appendSyncChange(tx, { entity: 'project', id: createdProject.id, action: 'upsert', record: serializeProject(createdProject), actorId: req.user!.id });
       await bumpQuota(tx, requester.username, 'yearly', yearKey());
       await bumpQuota(tx, req.user!.username, 'supervised', yearKey());
     }

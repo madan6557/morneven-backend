@@ -1,0 +1,35 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [dev/zeroclaw-translation]
+  pull_request:
+    branches: [dev/zeroclaw-translation]
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/morneven?schema=public
+      JWT_ACCESS_SECRET: ci-access-secret-at-least-16
+      JWT_REFRESH_SECRET: ci-refresh-secret-at-least-16
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npm run build
+      - run: npm test
+      - run: npm audit --audit-level=moderate

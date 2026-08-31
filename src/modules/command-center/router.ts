@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { auth } from '../../middleware/auth.js';
 import { prisma } from '../../config/prisma.js';
 import { ok } from '../../utils/response.js';
-import { serializeGalleryItem, serializeLoreItem, serializeProject } from '../../utils/serializers.js';
+import { serializeGalleryItem, serializeLoreItem, serializeNewsItem, serializeProject } from '../../utils/serializers.js';
 import { defaultCommandCenterSettings, ensureActiveCommandCenterPreset } from '../settings/preset-service.js';
 
 export const commandCenterRouter = Router();
@@ -67,10 +67,17 @@ commandCenterRouter.get('/', auth, async (req, res) => {
     ? []
     : settings.manualSelections.news.length
       ? inManualOrder(
-          await prisma.news.findMany({ where: { id: { in: settings.manualSelections.news } } }),
+          (await prisma.news.findMany({
+            where: { id: { in: settings.manualSelections.news } },
+            include: { attachments: true }
+          })).map(serializeNewsItem),
           settings.manualSelections.news
         )
-      : await prisma.news.findMany({ orderBy: { publishDate: 'desc' }, take: settings.itemLimits.news });
+      : (await prisma.news.findMany({
+          include: { attachments: true },
+          orderBy: { publishDate: 'desc' },
+          take: settings.itemLimits.news
+        })).map(serializeNewsItem);
 
   const loadLoreSection = async (enabled: boolean, manualIds: string[], fallbackTake: number, category: EntityType) => {
     if (!enabled) return [];

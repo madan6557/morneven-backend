@@ -62,15 +62,13 @@ jobs:
       QA_FIELD5_EMAIL: ${{ vars.QA_FIELD5_EMAIL || 'm.varga@morneven.com' }}
 
     steps:
-      - name: Check out development branch
+      - name: Check out workflow revision
         uses: actions/checkout@v4
-        with:
-          ref: development
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Align QA runner with development seed data
         run: |
